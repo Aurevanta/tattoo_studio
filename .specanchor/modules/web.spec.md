@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0091: every load of the studio opens guided; the mode is not remembered (amends TASK-0066's per-tab `sessionStorage`). «Modo avanzado» lasts until the page is left.
+
 TASK-0090: the panel labels `artwork_check` «Revisión del dibujo».
 
 TASK-0088: the viewer explains the A4 pieces beside the downloads when they apply (`lib/print-pieces.ts`).

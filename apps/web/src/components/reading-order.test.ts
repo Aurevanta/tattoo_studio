@@ -92,3 +92,12 @@ describe('the guided studio leaves the header usable (TASK-0066)', () => {
     );
   });
 });
+
+describe('the studio always opens guided (TASK-0091)', () => {
+  it('starts in guided mode and remembers no other choice', () => {
+    // The advanced choice was kept for the tab, so signing out and in again reopened advanced.
+    const page = readFileSync(resolve(here, 'src/app/page.tsx'), 'utf8');
+    expect(page).toMatch(/useState<Mode>\('guided'\)/);
+    expect(page).not.toMatch(/sessionStorage|localStorage/);
+  });
+});

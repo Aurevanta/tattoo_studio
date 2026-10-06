@@ -89,10 +89,12 @@ const empty: Form = {
   refined: '',
 };
 
-/** TASK-0065 (ADR-0029): the guided studio by default; the chat and panel are «Modo avanzado». */
+/**
+ * TASK-0065 (ADR-0029): the guided studio by default; the chat and panel are «Modo avanzado».
+ * TASK-0091: the choice is not remembered, so every entry to the studio opens guided.
+ */
 type Mode = 'guided' | 'advanced';
 type GuidedStep = WizardStep | 'done';
-const MODE_KEY = 'inkcraft-mode';
 
 export default function ConsultationPage(): ReactNode {
   const [session, setSession] = useState<OrchestrationSession | null>(null);
@@ -163,24 +165,6 @@ export default function ConsultationPage(): ReactNode {
   const messagesEnd = useRef<HTMLDivElement>(null);
 
   const activeJob = job?.state === 'queued' || job?.state === 'running';
-
-  useEffect(() => {
-    try {
-      // TASK-0066: every visit starts guided; the choice lasts for this tab only.
-      if (window.sessionStorage.getItem(MODE_KEY) === 'advanced') setMode('advanced');
-    } catch {
-      // Storage can be unavailable; the guided studio is the default.
-    }
-  }, []);
-
-  function switchMode(next: Mode) {
-    setMode(next);
-    try {
-      window.sessionStorage.setItem(MODE_KEY, next);
-    } catch {
-      // Remembering the choice is a convenience only.
-    }
-  }
 
   useEffect(() => {
     void fetch('/api/auth', { cache: 'no-store' })
@@ -739,7 +723,7 @@ export default function ConsultationPage(): ReactNode {
           <button
             type="button"
             className="mode-switch"
-            onClick={() => switchMode(mode === 'guided' ? 'advanced' : 'guided')}
+            onClick={() => setMode(mode === 'guided' ? 'advanced' : 'guided')}
           >
             {mode === 'guided' ? '⚙ Modo avanzado' : '✦ Modo guiado'}
           </button>
@@ -1314,7 +1298,7 @@ export default function ConsultationPage(): ReactNode {
               working={busy ? task : null}
               error={error}
               onSubmit={(idea) => void submitIdea(idea)}
-              onAdvanced={() => switchMode('advanced')}
+              onAdvanced={() => setMode('advanced')}
               versions={versions}
               onOpen={openVersion}
             />
@@ -1371,7 +1355,7 @@ export default function ConsultationPage(): ReactNode {
               onView={() => artifact && setShowResult(true)}
               onNew={() => void newDesign()}
               onOpen={openVersion}
-              onAdvanced={() => switchMode('advanced')}
+              onAdvanced={() => setMode('advanced')}
             />
           )}
         </>

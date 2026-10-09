@@ -22,6 +22,7 @@ export type {
   StudioAsset,
 } from './generated/studio-status';
 export type { TattooBrief } from './generated/tattoo-brief';
+export type { SharedDesign, SharedAsset } from './generated/shared-design';
 export type { BodyPart, StyleName } from './generated/tattoo-brief';
 export { schemaNames, schemas } from './generated/schemas';
 export type { SchemaName } from './generated/schemas';

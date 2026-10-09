@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: contracts
 
+TASK-0097 (ADR-0032): `shared-design.schema.json` — what a link shows a tattooer; never a body photo, capture, body type or account; the skin view null unless on generated skin. Corpus 6 valid / 16 invalid; registered in both runtimes.
+
 TASK-0086 (audit ARQ-03): `studio-status` artifact may carry `stencilReview` {method: lineart | colour_contours, simplification: 0–3}. Fixtures `stencil-review`, `stencil-review-unknown`.
 
 TASK-0076 (audit UX-03): `studio-status` has optional `stage` (references, skin, drawing, stencil, placing, finishing) and `queuePosition` (≥ 1). Fixtures `running-stage`, `queued-position`, `unknown-stage`, `queue-position-zero`.

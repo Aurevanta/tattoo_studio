@@ -69,3 +69,9 @@ describe('the front door (TASK-0096)', () => {
       expect(gated(path), path).toBe(false);
   });
 });
+
+describe('a link for the tattooer (TASK-0097)', () => {
+  it('opens without a session', () => {
+    expect(gated('/t/Abc_def-0123456789abcdefghijklmn')).toBe(false);
+  });
+});

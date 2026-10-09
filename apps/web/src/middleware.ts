@@ -30,9 +30,10 @@ export const config = {
    * the sign-in page offline. `brand` holds the background and the logo the sign-in page itself
    * shows, so it has to load before anyone is signed in (TASK-0048). The terms and the privacy
    * policy are read before signing in too (TASK-0064), and crawlers read `robots.txt` and
-   * `sitemap.xml` (TASK-0093). The landing and its example images are public (TASK-0096).
+   * `sitemap.xml` (TASK-0093). The landing and its example images are public (TASK-0096), and so is a link a client gave
+   * their tattooer, `/t/<token>` (TASK-0097).
    */
   matcher: [
-    '/((?!api|inicio|ejemplos/|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
+    '/((?!api|inicio|ejemplos/|t/|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
   ],
 };

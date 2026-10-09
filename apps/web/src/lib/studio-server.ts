@@ -496,6 +496,34 @@ export async function reserveTurn(
   await worker(owner, '/quota/turns', 'POST', { id: randomUUID(), kind });
 }
 
+/**
+ * Open a link a client gave their tattooer (TASK-0097, ADR-0032): with the service token alone,
+ * since whoever holds the link may open it, and with the link's token in a header so it never
+ * sits in the worker's access log. An impossible token is not worth a call.
+ */
+export async function sharedWorker(shareToken: string, path = ''): Promise<Response> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(shareToken))
+    throw new RequestError('Este enlace no está disponible.', 404);
+  const token = process.env['TATTOO_WORKER_TOKEN'];
+  if (!token) throw new RequestError(STUDIO_UNAVAILABLE, 503);
+  let response: Response;
+  try {
+    response = await fetch(
+      `${process.env['TATTOO_WORKER_URL'] ?? 'http://127.0.0.1:8000'}/studio/shares${path}`,
+      {
+        headers: { Authorization: `Bearer ${token}`, 'X-Share-Token': shareToken },
+        signal: AbortSignal.timeout(15000),
+        cache: 'no-store',
+      },
+    );
+  } catch {
+    throw new RequestError(STUDIO_UNAVAILABLE, 503);
+  }
+  if (!response.ok)
+    throw new RequestError('Este enlace no está disponible.', response.status === 404 ? 404 : 503);
+  return response;
+}
+
 export async function worker(
   owner: string,
   path: string,

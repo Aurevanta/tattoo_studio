@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0097 (ADR-0032): `app/shares.py` — `ShareLedger` (SHA-256 digest of a 24-byte token, 30 days, 20 open per account, revoke, forget on erasure) and `shared_design`/`shared_files`. Routes: `POST /studio/shares`, `GET /studio/shares/open/{job}`, `DELETE /studio/shares/{job}` (owner); `GET /studio/shares` and `/studio/shares/media/{asset}` with the service token and `X-Share-Token`, rebuilt from the stored job and validated against `shared-design`.
+
 TASK-0095: `GET /studio/quota` answers designs and turns used, limit and remaining for the calling account, and `resetsAt` (next UTC midnight).
 
 TASK-0094: the worker's `/studio/events` accepts `client_error` from the web (`WEB_EVENT_KINDS`); it appears in the overview's recent errors.

@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inkcraft.local/schemas/shared-design.schema.json",
+  "title": "SharedDesign",
+  "description": "TASK-0097 (ADR-0032): what a client shares with their tattooer through a link. Only the design, its stencils and what the tattooer needs to read them: never a photograph of the client's body, a camera capture, the body type or the account.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "designId",
+    "createdAt",
+    "expiresAt",
+    "idea",
+    "refined",
+    "size",
+    "placement",
+    "style",
+    "colourMode",
+    "master",
+    "stencil",
+    "stencilMirror",
+    "pdf",
+    "pdfMirror",
+    "mockup",
+    "stencilMethod",
+    "reviewRequired"
+  ],
+  "properties": {
+    "designId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "expiresAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "idea": {
+      "description": "The client's own words for the design.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "refined": {
+      "description": "The professional description the client accepted, when there is one.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "size": {
+      "description": "The accepted print size. Millimetres are authoritative.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "widthMm",
+        "heightMm"
+      ],
+      "properties": {
+        "widthMm": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 600
+        },
+        "heightMm": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 600
+        }
+      }
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bodyPart"
+      ],
+      "properties": {
+        "bodyPart": {
+          "description": "A body part of the brief's vocabulary.",
+          "type": "string",
+          "pattern": "^[a-z][a-z_]{1,39}$"
+        },
+        "side": {
+          "enum": [
+            "left",
+            "right",
+            "centre"
+          ]
+        }
+      }
+    },
+    "style": {
+      "description": "A style of the brief's vocabulary.",
+      "type": "string",
+      "pattern": "^[a-z][a-z_]{1,39}$"
+    },
+    "colourMode": {
+      "enum": [
+        "black_and_grey",
+        "colour",
+        "black_and_grey_with_accent"
+      ]
+    },
+    "palette": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 40
+      }
+    },
+    "master": {
+      "$ref": "#/$defs/asset"
+    },
+    "stencil": {
+      "$ref": "#/$defs/asset"
+    },
+    "stencilMirror": {
+      "$ref": "#/$defs/asset"
+    },
+    "pdf": {
+      "$ref": "#/$defs/asset"
+    },
+    "pdfMirror": {
+      "$ref": "#/$defs/asset"
+    },
+    "mockup": {
+      "description": "The view on the skin, only when it was composed on a generated skin plate. Null when it was composed on the client's own photograph, which is never shared.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/asset"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stencilMethod": {
+      "description": "How the stencil was obtained (TASK-0086), so the tattooer knows how far to trust it.",
+      "anyOf": [
+        {
+          "enum": [
+            "lineart",
+            "colour_contours"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reviewRequired": {
+      "description": "Always true: a professional reviews the design and the stencil before tattooing.",
+      "const": true
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetId",
+        "designId",
+        "mimeType"
+      ],
+      "properties": {
+        "assetId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "designId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mimeType": {
+          "type": "string",
+          "enum": [
+            "image/png",
+            "image/svg+xml",
+            "application/pdf"
+          ]
+        }
+      },
+      "title": "SharedAsset"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "createdAt": "2026-10-09T10:00:00Z",
+  "expiresAt": "2026-11-08T10:00:00Z",
+  "idea": "Una golondrina tradicional con una rosa en el antebrazo derecho",
+  "refined": "Golondrina en vuelo sobre una rosa abierta, línea gruesa tradicional americana.",
+  "size": {
+    "widthMm": 80,
+    "heightMm": 120
+  },
+  "placement": {
+    "bodyPart": "forearm_inner",
+    "side": "right"
+  },
+  "style": "american_traditional",
+  "colourMode": "colour",
+  "palette": [
+    "rojo",
+    "verde",
+    "amarillo"
+  ],
+  "master": {
+    "assetId": "cccccccccccccccccccccccccccccccc",
+    "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mimeType": "image/png"
+  },
+  "stencil": {
+    "assetId": "dddddddddddddddddddddddddddddddd",
+    "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mimeType": "image/svg+xml"
+  },
+  "stencilMirror": {
+    "assetId": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mimeType": "image/svg+xml"
+  },
+  "pdf": {
+    "assetId": "ffffffffffffffffffffffffffffffff",
+    "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mimeType": "application/pdf"
+  },
+  "pdfMirror": {
+    "assetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mimeType": "application/pdf"
+  },
+  "mockup": null,
+  "stencilMethod": "colour_contours",
+  "reviewRequired": true
+}

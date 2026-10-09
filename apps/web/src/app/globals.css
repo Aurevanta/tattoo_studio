@@ -2626,3 +2626,172 @@ body::after {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* TASK-0097: «Para tu tatuador» in the result, and the page the tattooer opens. */
+.share-tattooer {
+  border: 1px solid rgba(216, 171, 147, 0.2);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.share-tattooer h3 {
+  margin: 0 0 0.5rem;
+}
+
+.share-url {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.shared {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.shared-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.shared h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  margin: 0;
+}
+
+.shared h2 {
+  font-size: 1rem;
+  margin: 1rem 0 0.35rem;
+}
+
+.shared-lead,
+.shared-downloads p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.shared-review {
+  border-left: 3px solid var(--accent-gold);
+  padding: 0.5rem 0.9rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.shared-sheet,
+.shared-downloads {
+  background: rgba(14, 15, 20, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.shared-sheet dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+
+.shared-sheet dt {
+  color: var(--text-secondary);
+}
+
+.shared-sheet dd {
+  margin: 0;
+}
+
+.shared-sheet blockquote {
+  margin: 0;
+  font-style: italic;
+}
+
+.shared-images {
+  display: grid;
+  gap: 1rem;
+}
+
+.shared-images figure {
+  margin: 0;
+}
+
+.shared-images img {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #fff;
+  border-radius: var(--radius-md);
+}
+
+.shared-images figcaption {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+.shared-downloads ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.shared-footer {
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.shared-footer a,
+.shared-downloads a {
+  color: var(--text-primary);
+}
+
+@media (min-width: 720px) {
+  .shared-images {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+/* The tattooer prints the sheet: black on white, no buttons, no backdrop. */
+@media print {
+  body::before,
+  body::after,
+  .shared-print,
+  .shared-footer {
+    display: none !important;
+  }
+
+  .shared,
+  .shared * {
+    color: #000 !important;
+    background: #fff !important;
+    border-color: #999 !important;
+    backdrop-filter: none !important;
+  }
+
+  .shared-images img {
+    max-height: none;
+    break-inside: avoid;
+  }
+}

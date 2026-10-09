@@ -8,6 +8,7 @@ import { stencilNotes } from '@/lib/stencil-review';
 import { needsA4Pieces } from '@/lib/print-pieces';
 import { IMAGE_FAILURE_TEXT, imageFailure, probe, type ImageFailure } from '@/lib/image-failure';
 import { Confirm } from './Confirm';
+import { ShareWithTattooer } from './ShareWithTattooer';
 export function TattooPreviewModal({
   artifact,
   jobId,
@@ -298,6 +299,8 @@ export function TattooPreviewModal({
         </div>
       )}
       <p>Imprime a tamaño real, sin “ajustar a página”, y mide la barra de 50 mm del PDF.</p>
+      {/* TASK-0097 (ADR-0032): the design goes to the tattooer as a link, not as loose files. */}
+      {jobId && <ShareWithTattooer jobId={jobId} />}
       {/* TASK-0051: changes come after the design, so a new version opens on its pictures. */}
       {onEdit && (
         <form

@@ -85,6 +85,7 @@ exist and its field set is unproven against any consumer.
 | ADR-0029 | The studio is guided by pop-ups; a professional description is drafted and editable | accepted |
 | ADR-0030 | Brave web image search, only for essential references, judged | accepted |
 | ADR-0031 | Sexually explicit ideas are refused when they are told | accepted |
+| ADR-0032 | A client shares a design with their tattooer through a link | accepted |
 | ADR-0024 | The studio records what it does, and never what a body looks like | accepted |
 | ADR-0023 | Designs last; photographs of a body expire (refines MEDIA-INV-006) | accepted |
 | ADR-0022 | One camera photograph may be kept, when the client takes it and chooses to (amends ADR-0019) | accepted |

@@ -1,0 +1,137 @@
+{
+  "schema": "contracts/schemas/shared-design.schema.json",
+  "cases": [
+    {
+      "name": "full",
+      "file": "valid/full.json",
+      "valid": true,
+      "why": "everything a tattooer reads, with the view on generated skin"
+    },
+    {
+      "name": "own-photo",
+      "file": "valid/own-photo.json",
+      "valid": true,
+      "why": "composed on the client's own photo: no skin view is shared"
+    },
+    {
+      "name": "no-refined",
+      "file": "valid/no-refined.json",
+      "valid": true,
+      "why": "a design from before the professional description existed"
+    },
+    {
+      "name": "black-and-grey-lineart",
+      "file": "valid/black-and-grey-lineart.json",
+      "valid": true,
+      "why": "black and grey, traced from a line-art pass, no palette, centred"
+    },
+    {
+      "name": "no-side-no-method",
+      "file": "valid/no-side-no-method.json",
+      "valid": true,
+      "why": "a zone without a side, and a stencil from before the review was recorded"
+    },
+    {
+      "name": "fractional-size",
+      "file": "valid/fractional-size.json",
+      "valid": true,
+      "why": "millimetres may be fractional"
+    },
+    {
+      "name": "missing-expiry",
+      "file": "invalid/missing-expiry.json",
+      "valid": false,
+      "why": "a share always says when it ends"
+    },
+    {
+      "name": "body-type",
+      "file": "invalid/body-type.json",
+      "valid": false,
+      "why": "the body type is never shared"
+    },
+    {
+      "name": "account",
+      "file": "invalid/account.json",
+      "valid": false,
+      "why": "the account is never shared"
+    },
+    {
+      "name": "capture",
+      "file": "invalid/capture.json",
+      "valid": false,
+      "why": "a camera photo is never shared"
+    },
+    {
+      "name": "background",
+      "file": "invalid/background.json",
+      "valid": false,
+      "why": "the skin plate or photo itself is not part of it"
+    },
+    {
+      "name": "review-not-required",
+      "file": "invalid/review-not-required.json",
+      "valid": false,
+      "why": "a professional always reviews"
+    },
+    {
+      "name": "size-too-small",
+      "file": "invalid/size-too-small.json",
+      "valid": false,
+      "why": "the brief's bounds hold"
+    },
+    {
+      "name": "size-in-pixels",
+      "file": "invalid/size-in-pixels.json",
+      "valid": false,
+      "why": "no pixel dimension"
+    },
+    {
+      "name": "bad-asset-id",
+      "file": "invalid/bad-asset-id.json",
+      "valid": false,
+      "why": "asset ids are 32 hex characters"
+    },
+    {
+      "name": "bad-mime",
+      "file": "invalid/bad-mime.json",
+      "valid": false,
+      "why": "only png, svg and pdf"
+    },
+    {
+      "name": "bad-timestamp",
+      "file": "invalid/bad-timestamp.json",
+      "valid": false,
+      "why": "RFC 3339 with ASCII digits"
+    },
+    {
+      "name": "unknown-colour",
+      "file": "invalid/unknown-colour.json",
+      "valid": false,
+      "why": "the brief's colour modes"
+    },
+    {
+      "name": "unknown-method",
+      "file": "invalid/unknown-method.json",
+      "valid": false,
+      "why": "the review's methods"
+    },
+    {
+      "name": "bad-body-part",
+      "file": "invalid/bad-body-part.json",
+      "valid": false,
+      "why": "a vocabulary word, not prose"
+    },
+    {
+      "name": "empty-idea",
+      "file": "invalid/empty-idea.json",
+      "valid": false,
+      "why": "the idea is never empty"
+    },
+    {
+      "name": "missing-stencil",
+      "file": "invalid/missing-stencil.json",
+      "valid": false,
+      "why": "the stencil is what the tattooer needs"
+    }
+  ]
+}

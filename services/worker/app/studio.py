@@ -19,6 +19,7 @@ from PIL import Image
 from tattoo_contracts.validation import validate
 
 from app.settings import Settings, SettingsError
+from app.shares import ShareLedger, shared_design, shared_files
 from generation.bfl_studio import BflStudioProvider
 from generation.plate_library import PlateLibrary
 from generation.studio import StudioProvider
@@ -405,6 +406,8 @@ class Studio:
         )
         # TASK-0078 (audit SEG-02): paid consultation turns, reserved by the web before it spends.
         self.turns = TurnLedger(root / "jobs.sqlite", self.limits)
+        # TASK-0097 (ADR-0032): links a client gives their tattooer.
+        self.shares = ShareLedger(root / "jobs.sqlite")
 
     def plate(self, brief: dict[str, Any]) -> bytes:
         """A skin plate from the reviewed library, or generated when it has none (TASK-0060)."""
@@ -1039,10 +1042,35 @@ class Studio:
         payload = {k: v for k, v in source.items() if k != "edit"}
         return self.jobs.record(owner, {**payload, "idempotencyKey": key}, result)
 
+    def shared(self, token: str) -> tuple[str, dict[str, Any]]:
+        """The owner and what an open link shows (TASK-0097), or KeyError.
+
+        Built from the stored job each time, so a version that is gone, or whose files are gone,
+        closes its links with it.
+        """
+        found = self.shares.resolve(token)
+        if found is None:
+            raise KeyError("Enlace no disponible")
+        owner, job_id, created, expires = found
+        status = self.jobs.get(owner, job_id)
+        if status["state"] != "succeeded" or not status.get("result"):
+            raise KeyError("Enlace no disponible")
+        try:
+            payload = self.jobs.source_payload(owner, job_id)
+        except ValueError as error:
+            raise KeyError("Enlace no disponible") from error
+        shared = shared_design(status["result"], payload, created, expires)
+        issues = validate("shared-design", shared)
+        if issues:
+            raise KeyError(f"Enlace no disponible: {issues[0].path} {issues[0].message}")
+        return owner, shared
+
     def delete(self, owner: str) -> None:
         # Counted, then the account's events lose who it was and what it wrote (TASK-0054).
         record("deletion", "erase_all", account=owner)
         forget(owner)
+        # TASK-0097: every link the account gave out stops opening.
+        self.shares.forget(owner)
         with self.lock:
             with self.db() as db:
                 # A watermark, not a blocklist: the account keeps working, with a clean slate.
@@ -1278,6 +1306,80 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
             raise HTTPException(429, str(limit)) from limit
         except (KeyError, ValueError) as error:
             raise HTTPException(422, for_client(str(error))) from error
+
+    def service(request: Request) -> None:
+        """The web's service token alone: a share is opened by whoever holds its link."""
+        if not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}"):
+            raise HTTPException(401, "No autorizado")
+
+    @routes.post("/shares", status_code=201)
+    async def create_share(request: Request) -> dict[str, Any]:
+        """A link to one finished design for the client's tattooer (TASK-0097, ADR-0032)."""
+        who = owner(request)
+        body = await bounded_json(request)
+        job_id = body.get("jobId")
+        if not isinstance(job_id, str) or not re.fullmatch("[a-f0-9]{32}", job_id):
+            raise HTTPException(422, "Diseño inválido.")
+        try:
+            status = studio.jobs.get(who, job_id)
+            if status["state"] != "succeeded":
+                raise KeyError(job_id)
+            share, _created, expires = studio.shares.create(who, job_id)
+        except KeyError as error:
+            raise HTTPException(404, "Este diseño no está disponible para compartir.") from error
+        except ValueError as error:
+            raise HTTPException(429, str(error)) from error
+        record("share", "create", account=who, job=job_id)
+        return {"token": share, "expiresAt": datetime.fromtimestamp(expires, UTC).isoformat()}
+
+    @routes.get("/shares/open/{job_id}")
+    def open_links(job_id: str, request: Request) -> dict[str, Any]:
+        """Whether this design has links out, so the client can withdraw them on another day."""
+        who = owner(request)
+        if not re.fullmatch("[a-f0-9]{32}", job_id):
+            raise HTTPException(422, "Diseño inválido.")
+        count, until = studio.shares.open_links(who, job_id)
+        return {
+            "open": count,
+            "expiresAt": None if until is None else datetime.fromtimestamp(until, UTC).isoformat(),
+        }
+
+    @routes.delete("/shares/{job_id}", status_code=204)
+    def revoke_share(job_id: str, request: Request) -> Response:
+        who = owner(request)
+        if not re.fullmatch("[a-f0-9]{32}", job_id):
+            raise HTTPException(422, "Diseño inválido.")
+        closed = studio.shares.revoke(who, job_id)
+        record("share", "revoke", account=who, job=job_id, detail={"closed": closed})
+        return Response(status_code=204)
+
+    @routes.get("/shares")
+    def open_share(request: Request) -> dict[str, Any]:
+        """What a link shows. The token comes in `X-Share-Token`, never in the path."""
+        service(request)
+        try:
+            who, shared = studio.shared(request.headers.get("x-share-token", ""))
+        except KeyError as error:
+            raise HTTPException(404, "Enlace no disponible") from error
+        record("share", "view", account=who, detail={"design": shared["designId"][:12]})
+        return shared
+
+    @routes.get("/shares/media/{asset_id}")
+    def share_media(asset_id: str, request: Request) -> Response:
+        """One file of a shared design, and only the files the link shows."""
+        service(request)
+        try:
+            who, shared = studio.shared(request.headers.get("x-share-token", ""))
+            if asset_id not in shared_files(shared):
+                raise KeyError(asset_id)
+            data = studio.owned(who, asset_id)
+            return Response(
+                data,
+                media_type=studio.media.metadata(asset_id).media_type,
+                headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+            )
+        except (KeyError, ValueError) as error:
+            raise HTTPException(404, "Archivo no disponible") from error
 
     @routes.get("/quota")
     async def quota(request: Request) -> dict[str, Any]:

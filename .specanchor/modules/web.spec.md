@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0097 (ADR-0032): «Para tu tatuador» in the result (`ShareWithTattooer`) creates, shows, copies, sends and withdraws links through `/api/shares` (creating needs the current consent). `/t/<token>` is public, `noindex`, no referrer, outside the page gate; it renders `SharedDesignView` (sheet, images, print, downloads) or a 404 «Este enlace ya no está disponible». `/api/shared/<token>/<asset>` serves files with a `sandbox` CSP. The token reaches the worker in `X-Share-Token` (`sharedWorker`). The privacy policy names sharing; `IMAGES_VERSION` is 2026-10-09.
+
 TASK-0096 (audit 2026-10-08 UX-01): `/inicio` is the public landing — one real studio result (design, skin view on a generated plate, 1:1 stencil from `public/ejemplos/`), how it works, why Inkcraft, the review note, and «Entrar al estudio» / «Solicitar acceso». The page gate sends a signed-out `/` there and every other studio path to `/entrar`; `/inicio` and `/ejemplos/` are public and `/inicio` is in the sitemap. Access stays by invitation (ADR-0021).
 
 TASK-0095 (audit 2026-10-08 UX-04): `GET /api/quota` passes on the worker's counts; `lib/quota.ts` words them. Step 4 and the result's change request show «Te quedan N de M diseños hoy» and are disabled when nothing is left (an unknown count never blocks). Read on load and whenever a design starts or ends.

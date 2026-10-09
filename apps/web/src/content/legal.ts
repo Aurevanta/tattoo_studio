@@ -12,7 +12,8 @@
 /** Bump a version whenever its text changes: everyone signs in to accept it again. */
 export const TERMS_VERSION = '2026-10-01';
 // TASK-0068: Brave Search added as a processor, so the consent and privacy text is asked again.
-export const IMAGES_VERSION = '2026-10-01.2';
+// TASK-0097 (ADR-0032): sharing a design with a tattooer through a link.
+export const IMAGES_VERSION = '2026-10-09';
 
 export const LEGAL_DRAFT = true;
 
@@ -133,12 +134,13 @@ export const PRIVACY: LegalSection[] = [
       'Con los proveedores que hacen funcionar el estudio, como encargados del tratamiento: Supabase (cuentas), OpenAI (revisión de contenido, análisis de referencias y generación de imágenes), Anthropic (la consulta y la búsqueda de referencias), Black Forest Labs (generación de imágenes) y Brave Search (búsqueda de imágenes de referencia en la web; solo recibe el texto de la búsqueda).',
       'Algunos de ellos pueden tratar datos fuera del Espacio Económico Europeo; en ese caso se hace con las garantías que exige el Reglamento General de Protección de Datos.',
       'Las fotos de tu cuerpo solo pasan por la revisión de contenido; nunca se envían al generador de imágenes.',
+      'Si tú lo decides, puedes compartir un diseño con tu tatuador mediante un enlace: quien lo tenga verá ese diseño, su plantilla, sus medidas, tu idea y su descripción, pero nunca fotos de tu cuerpo ni tu cuenta. Puedes retirar el enlace cuando quieras.',
     ],
   },
   {
     title: '5. Cuánto tiempo',
     paragraphs: [
-      'Las fotos de tu cuerpo, y lo que se compone sobre ellas, se borran a las 24 horas. Tus diseños se guardan hasta que los borres. El registro de uso se conserva hasta 365 días; al borrar tus datos deja de estar asociado a ti.',
+      'Las fotos de tu cuerpo, y lo que se compone sobre ellas, se borran a las 24 horas. Tus diseños se guardan hasta que los borres. El registro de uso se conserva hasta 365 días; al borrar tus datos deja de estar asociado a ti. Un enlace para tu tatuador deja de funcionar a los 30 días, cuando lo retiras o cuando borras tus datos.',
     ],
   },
   {

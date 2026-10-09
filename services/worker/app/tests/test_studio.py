@@ -1802,6 +1802,53 @@ def test_consultation_turns_have_a_daily_limit_and_count_once(tmp_path: Path) ->
     ledger.reserve("owner", "t4", "message", now=time.time() + 86400)
 
 
+def test_the_counter_says_what_is_left_by_the_rule_the_limit_applies(tmp_path: Path) -> None:
+    """TASK-0095 (audit 2026-10-08 UX-04): the client sees what is left before being refused."""
+    studio = Studio(
+        tmp_path,
+        b"x" * 32,
+        FakeProvider(),
+        limits=Limits(designs_per_account=2, designs_total=3, turns_per_account=4),
+    )
+    app = FastAPI()
+    app.include_router(router(studio, "test-only-token"))
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer test-only-token", "X-Owner-Id": ACCOUNT}
+
+    fresh = client.get("/studio/quota", headers=headers).json()
+    assert fresh["designs"] == {"used": 0, "limit": 2, "remaining": 2}
+    assert fresh["turns"] == {"used": 0, "limit": 4, "remaining": 4}
+    assert fresh["resetsAt"].endswith("T00:00:00+00:00")
+
+    turn = {"id": "55555555-5555-4555-8555-555555555555", "kind": "message"}
+    client.post("/studio/quota/turns", json=turn, headers=headers)
+    studio.jobs.enqueue(ACCOUNT, payload())
+    with studio.jobs.connect() as db:
+        db.execute("UPDATE jobs SET state='failed', error='x'")
+    # A re-placement draws nothing, so it is not counted (TASK-0078).
+    placement = {**payload(), "idempotencyKey": "88888888-8888-4888-8888-888888888888"}
+    placement["edit"] = {"coverage": "larger", "mode": "placement"}
+    studio.jobs.enqueue(ACCOUNT, placement)
+    with studio.jobs.connect() as db:
+        db.execute("UPDATE jobs SET state='failed', error='x'")
+    used = client.get("/studio/quota", headers=headers).json()
+    assert used["designs"] == {"used": 1, "limit": 2, "remaining": 1}
+    assert used["turns"]["remaining"] == 3
+
+    # The studio's own limit can leave an account with nothing even under its own.
+    for other in ("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"):
+        studio.jobs.enqueue(other, payload())
+        with studio.jobs.connect() as db:
+            db.execute("UPDATE jobs SET state='failed', error='x'")
+    full = client.get("/studio/quota", headers=headers).json()
+    assert full["designs"] == {"used": 1, "limit": 2, "remaining": 0}
+    with pytest.raises(QuotaExceededError):
+        studio.jobs.enqueue(
+            ACCOUNT, {**payload(), "idempotencyKey": "99999999-9999-4999-8999-999999999999"}
+        )
+    assert client.get("/studio/quota").status_code == 401
+
+
 def test_the_limits_answer_429_with_a_plain_message(tmp_path: Path) -> None:
     studio = Studio(
         tmp_path,

@@ -23,8 +23,8 @@ from generation.bfl_studio import BflStudioProvider
 from generation.plate_library import PlateLibrary
 from generation.studio import StudioProvider
 from jobs.client_messages import for_client
-from jobs.queue import JobQueue
-from jobs.quota import Limits, QuotaExceededError, TurnLedger
+from jobs.queue import JobQueue, designs_left
+from jobs.quota import Limits, QuotaExceededError, TurnLedger, day_start
 from media.sanitize import sanitize
 from media.store import AssetNotFoundError, EncryptedFileStore, RetentionClass
 from mockup.anatomy import ZONE_SPAN_MM, zone_size
@@ -1278,6 +1278,30 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
             raise HTTPException(429, str(limit)) from limit
         except (KeyError, ValueError) as error:
             raise HTTPException(422, for_client(str(error))) from error
+
+    @routes.get("/quota")
+    async def quota(request: Request) -> dict[str, Any]:
+        """What this account may still do today (TASK-0095, audit 2026-10-08 UX-04).
+
+        The same counts the limits apply, so the counter and the refusal never disagree.
+        """
+        who = owner(request)
+        limits = studio.limits
+        mine, everyone = studio.jobs.designs_today(who)
+        turns = studio.turns.used(who)
+        return {
+            "designs": {
+                "used": mine,
+                "limit": limits.designs_per_account,
+                "remaining": designs_left(limits, mine, everyone),
+            },
+            "turns": {
+                "used": turns,
+                "limit": limits.turns_per_account,
+                "remaining": max(0, limits.turns_per_account - turns),
+            },
+            "resetsAt": datetime.fromtimestamp(day_start() + 86400, UTC).isoformat(),
+        }
 
     @routes.post("/quota/turns", status_code=204)
     async def reserve_turn(request: Request) -> Response:

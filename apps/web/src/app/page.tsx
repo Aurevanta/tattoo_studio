@@ -45,6 +45,7 @@ import { buildSteps } from '@/lib/steps';
 import { generationBlockers, nextAction } from '@/lib/next-step';
 
 import { isCurrentDesign, openingFor, reopensNewest } from '@/lib/opening';
+import { asQuota, canDesign, designsNote, type Quota } from '@/lib/quota';
 
 import type { StudioJobStatus, GeneratedTattooArtifact } from '@/types/generation';
 
@@ -157,6 +158,21 @@ export default function ConsultationPage(): ReactNode {
   }
 
   const [showResult, setShowResult] = useState(false);
+
+  // TASK-0095 (audit 2026-10-08 UX-04): what is left today, shown before a design is spent.
+  const [quota, setQuota] = useState<Quota | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/quota', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (!cancelled) setQuota(asQuota(body));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.jobId, job?.state]);
 
   const referenceInput = useRef<HTMLInputElement>(null);
 
@@ -1271,7 +1287,10 @@ export default function ConsultationPage(): ReactNode {
             void editProposal(instruction, coverage, referenceIds)
           }
           onAttach={attachForEdit}
-          editingDisabled={Boolean(disabled || submittingGeneration || !selectedJobId)}
+          editingDisabled={Boolean(
+            disabled || submittingGeneration || !selectedJobId || !canDesign(quota),
+          )}
+          quotaNote={designsNote(quota)}
           zoneSpan={
             // TASK-0073: the zone is known only when this design belongs to the open consultation.
             artifact.briefId === session?.sessionId && session?.slots.placement?.bodyPart
@@ -1343,6 +1362,8 @@ export default function ConsultationPage(): ReactNode {
               busy={busy}
               working={busy ? task : null}
               error={error}
+              quotaNote={designsNote(quota)}
+              outOfDesigns={!canDesign(quota)}
               onChange={(patch) => setForm({ ...form, ...patch })}
               onOwnPhoto={(file) => void upload(file, 'body')}
               onStudioSkin={() => setBodyPhotoId('')}

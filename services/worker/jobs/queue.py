@@ -26,6 +26,11 @@ from jobs.quota import (
 from telemetry import activity, record
 
 
+def designs_left(limits: Limits, mine: int, everyone: int) -> int:
+    """Designs an account may still start today: its own allowance, within the studio's."""
+    return max(0, min(limits.designs_per_account - mine, limits.designs_total - everyone))
+
+
 def billable_job(payload: dict[str, Any]) -> bool:
     """Whether a job calls a paid provider (TASK-0078).
 
@@ -79,6 +84,24 @@ class JobQueue:
         db.row_factory = sqlite3.Row
         return db
 
+    @staticmethod
+    def _designs_today(db: sqlite3.Connection, owner: str) -> tuple[int, int]:
+        """Billable designs started today by this account, and by everyone (TASK-0078)."""
+        today = day_start()
+        mine = db.execute(
+            "SELECT count(*) FROM jobs WHERE owner=? AND billable=1 AND created>=?",
+            (owner, today),
+        ).fetchone()[0]
+        everyone = db.execute(
+            "SELECT count(*) FROM jobs WHERE billable=1 AND created>=?", (today,)
+        ).fetchone()[0]
+        return int(mine), int(everyone)
+
+    def designs_today(self, owner: str) -> tuple[int, int]:
+        """What the daily limit has counted so far, for the client's counter (TASK-0095)."""
+        with self.connect() as db:
+            return self._designs_today(db, owner)
+
     def enqueue(self, owner: str, payload: dict[str, Any]) -> dict[str, Any]:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -102,16 +125,9 @@ class JobQueue:
             # A repeated idempotency key returned above, so a retry is never counted twice.
             billable = billable_job(payload)
             if billable:
-                today = day_start()
-                mine = db.execute(
-                    "SELECT count(*) FROM jobs WHERE owner=? AND billable=1 AND created>=?",
-                    (owner, today),
-                ).fetchone()[0]
+                mine, everyone = self._designs_today(db, owner)
                 if mine >= self.limits.designs_per_account:
                     raise QuotaExceededError(designs_reached(self.limits.designs_per_account))
-                everyone = db.execute(
-                    "SELECT count(*) FROM jobs WHERE billable=1 AND created>=?", (today,)
-                ).fetchone()[0]
                 if everyone >= self.limits.designs_total:
                     raise QuotaExceededError(STUDIO_FULL)
             job_id = uuid.uuid4().hex

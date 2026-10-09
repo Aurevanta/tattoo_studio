@@ -2455,3 +2455,15 @@ body::after {
 .error-actions .btn-primary {
   text-decoration: none;
 }
+
+/* TASK-0095: what is left today, read before a design is spent. */
+.quota-note {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  margin: 0.25rem 0 0;
+}
+
+/* Above `.confirm-dialog p`, which colours every paragraph of a dialog. */
+.quota-note.quota-note-out {
+  color: #fda4af;
+}

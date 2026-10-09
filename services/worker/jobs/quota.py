@@ -83,6 +83,16 @@ class TurnLedger:
                 raise QuotaExceededError(turns_reached(self.limits.turns_per_account))
             db.execute("INSERT INTO turns VALUES (?,?,?,?)", (turn_id, owner, kind, moment))
 
+    def used(self, owner: str, now: float | None = None) -> int:
+        """Turns this account has used today (TASK-0095)."""
+        with self.connect() as db:
+            return int(
+                db.execute(
+                    "SELECT count(*) FROM turns WHERE owner=? AND created>=?",
+                    (owner, day_start(now)),
+                ).fetchone()[0]
+            )
+
     def forget(self, owner: str) -> None:
         with self.connect() as db:
             db.execute("DELETE FROM turns WHERE owner=?", (owner,))

@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: jobs
 
+TASK-0095: `JobQueue.designs_today` and `TurnLedger.used` expose the counts the limits apply; `designs_left` is the account's allowance within the studio's. `enqueue` uses the same query, so the counter and the refusal agree.
+
 TASK-0085 (audit REN-01): each job event records `detail.waitMs`, the time between creation and start.
 
 TASK-0078 (audit SEG-02): `jobs/quota.py` — `Limits`, `TurnLedger`, `QuotaExceededError`. `enqueue` checks the per-account and studio daily design limits before inserting; `billable` marks jobs that call a paid provider (not coverage re-placements nor kept photos).

@@ -54,6 +54,8 @@ export function SummaryStep({
   busy,
   working,
   error,
+  quotaNote,
+  outOfDesigns = false,
   onChange,
   onOwnPhoto,
   onStudioSkin,
@@ -68,6 +70,9 @@ export function SummaryStep({
   /** What the studio is doing while `busy`, for the tattooing hand (TASK-0069). */
   working?: InkTask | null;
   error?: string;
+  /** What is left today (TASK-0095); `outOfDesigns` when nothing is. */
+  quotaNote?: string | null;
+  outOfDesigns?: boolean;
   onChange: (patch: Partial<SummaryValues>) => void;
   onOwnPhoto: (file: File) => void;
   onStudioSkin: () => void;
@@ -88,7 +93,7 @@ export function SummaryStep({
         {
           label: busy ? 'Preparando…' : 'Esto es lo que quiero',
           primary: true,
-          disabled: busy || !values.width || !values.height,
+          disabled: busy || outOfDesigns || !values.width || !values.height,
           onClick: onConfirm,
         },
       ]}
@@ -202,6 +207,9 @@ export function SummaryStep({
           : 'Sin referencias: el diseño parte de la descripción. '}
         Al pulsar «Esto es lo que quiero» aceptas este resumen y empezamos a diseñar.
       </p>
+      {quotaNote && (
+        <p className={outOfDesigns ? 'quota-note quota-note-out' : 'quota-note'}>{quotaNote}</p>
+      )}
       {working && <InkWorking task={working} />}
       {error && <p role="alert">{error}</p>}
       <input

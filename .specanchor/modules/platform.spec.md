@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0095: `GET /studio/quota` answers designs and turns used, limit and remaining for the calling account, and `resetsAt` (next UTC midnight).
+
 TASK-0094: the worker's `/studio/events` accepts `client_error` from the web (`WEB_EVENT_KINDS`); it appears in the overview's recent errors.
 
 TASK-0092 (audit 2026-10-08 SEG-04): the workspace overrides also pin `postcss>source-map-js` ^1.2.2 and `next>sharp` ^0.35.5.

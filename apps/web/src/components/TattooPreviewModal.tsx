@@ -17,6 +17,7 @@ export function TattooPreviewModal({
   editingDisabled = false,
   consentControls,
   zoneSpan,
+  quotaNote,
 }: {
   artifact: GeneratedTattooArtifact;
   /** The version being shown, so a photo taken with the camera can join it (TASK-0050). */
@@ -33,6 +34,8 @@ export function TattooPreviewModal({
   consentControls?: ReactNode;
   /** The reference span of this design's zone, to show what «Ocupar toda la zona» would print. */
   zoneSpan?: { widthMm: number; heightMm: number } | undefined;
+  /** What is left today (TASK-0095): a change is a new design. */
+  quotaNote?: string | null;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -310,6 +313,7 @@ export function TattooPreviewModal({
           }}
         >
           <label htmlFor="proposal-change">¿Qué quieres cambiar de esta propuesta?</label>
+          {quotaNote && <p className="quota-note">{quotaNote}</p>}
           <textarea
             id="proposal-change"
             value={instruction}

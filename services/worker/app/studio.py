@@ -1088,7 +1088,8 @@ async def bounded_json(request: Request) -> dict[str, Any]:
 OWNER_ID = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
 
 #: What the web tier may report (TASK-0054). Anything else is ignored, not stored.
-WEB_EVENT_KINDS = frozenset({"provider_call", "consultation_turn", "sign_in"})
+#: TASK-0094: `client_error` is a screen that failed in a client's browser.
+WEB_EVENT_KINDS = frozenset({"provider_call", "consultation_turn", "sign_in", "client_error"})
 _COUNTS = ("duration_ms", "input_tokens", "output_tokens", "images")
 
 

@@ -14,7 +14,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { onProviderUsage } from '@tattoo/consultation';
 
 export interface WebEvent {
-  kind: 'provider_call' | 'consultation_turn' | 'sign_in';
+  kind: 'provider_call' | 'consultation_turn' | 'sign_in' | 'client_error';
   operation: string;
   outcome?: 'ok' | 'error' | 'refused';
   provider?: string;

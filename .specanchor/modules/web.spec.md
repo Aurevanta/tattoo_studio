@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0094 (audit 2026-10-08 UX-06, ARQ-02): `app/not-found.tsx`, `app/error.tsx` and `app/global-error.tsx` show the studio's card (`ErrorCard`) in Spanish with a way back. A failed screen posts to `/api/client-errors`, which records a `client_error` event (`render` | `global`) for a signed-in account only — message ≤ 300 chars, path without query, digest — at most 20 per account and hour, always 204. The Panel labels it «Error en el navegador».
+
 TASK-0093 (audit 2026-10-08 SEO-02): `lib/site.ts` holds the address, the description (no provider names) and the root metadata (Open Graph with `/brand/og.png`); `app/robots.ts` and `app/sitemap.ts` expose only `/entrar`, `/condiciones` and `/privacidad`, and the page gate lets `robots.txt` and `sitemap.xml` through. Titles read «<page> · Inkcraft».
 
 TASK-0092 (audit 2026-10-08 SEG-01, SEG-04): `next` ≥ 15.5.27 and `sharp` ≥ 0.35.5; workspace overrides pin Next's `sharp` and PostCSS's `source-map-js` to patched lines. `pnpm audit --prod` is clean.

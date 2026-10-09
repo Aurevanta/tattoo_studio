@@ -1611,7 +1611,8 @@ body::after {
   padding: 1.5rem;
 }
 
-.sign-in form {
+.sign-in form,
+.sign-in .error-card {
   width: 100%;
   max-width: 360px;
   display: flex;
@@ -2436,4 +2437,21 @@ body::after {
   display: block;
   color: var(--text-secondary);
   margin-top: 2px;
+}
+
+/* TASK-0094: the not-found and error pages, in the sign-in card. */
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.error-actions a:not(.btn-primary) {
+  color: var(--text-secondary);
+}
+
+.error-actions .btn-primary {
+  text-decoration: none;
 }

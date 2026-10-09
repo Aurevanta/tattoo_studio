@@ -155,6 +155,9 @@ const OPERATION: Record<string, string> = {
   web_image_search: 'Búsqueda web de imágenes',
   artwork_check: 'Revisión del dibujo',
   text_moderation: 'Revisión del texto',
+  // TASK-0094: a screen that failed in a client's browser.
+  render: 'Error en el navegador',
+  global: 'Error en el navegador (página entera)',
 };
 
 async function read<T>(url: string): Promise<T> {

@@ -1534,6 +1534,33 @@ def test_the_web_reports_events_as_the_account_it_names(
     assert client.post("/studio/events", json=anonymous, headers=bad).status_code == 401
 
 
+def test_a_screen_that_failed_in_the_browser_reaches_recent_errors(
+    tmp_path: Path, recorded: EventStore
+) -> None:
+    """TASK-0094: the web reports a client's rendering failure; the Panel lists it."""
+    from telemetry.report import overview
+
+    app = FastAPI()
+    app.include_router(router(Studio(tmp_path, b"x" * 32, FakeProvider()), "test-only-token"))
+    client = TestClient(app)
+    auth = {"Authorization": "Bearer test-only-token", "X-Owner-Id": ACCOUNT}
+    failure = {
+        "kind": "client_error",
+        "operation": "render",
+        "outcome": "error",
+        "detail": {"error": "Cannot read properties of undefined", "path": "/", "digest": None},
+    }
+    assert client.post("/studio/events", json={"events": [failure]}, headers=auth).json() == {
+        "accepted": 1
+    }
+    rows = recorded.events(datetime.now(UTC) - timedelta(hours=1))
+    errors = overview(rows)["errors"]
+    assert [(e["kind"], e["operation"], e["account"]) for e in errors] == [
+        ("client_error", "render", ACCOUNT)
+    ]
+    assert errors[0]["reason"] == "Cannot read properties of undefined"
+
+
 # --- TASK-0055: the administrator ------------------------------------------------------------
 
 ADMIN = "33333333-3333-4333-8333-333333333333"

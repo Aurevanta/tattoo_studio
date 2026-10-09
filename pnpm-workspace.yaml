@@ -13,3 +13,6 @@ allowBuilds:
 # (GHSA-6g55-p6wh-862q and its incomplete fixes). The same major line, patched, is compatible.
 overrides:
   next>postcss: ^8.5.28
+  # TASK-0092 (audit 2026-10-08 SEG-04): patched lines of two advisories reached through Next.
+  postcss>source-map-js: ^1.2.2
+  next>sharp: ^0.35.5

@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0092 (audit 2026-10-08 SEG-01, SEG-04): `next` ≥ 15.5.27 and `sharp` ≥ 0.35.5; workspace overrides pin Next's `sharp` and PostCSS's `source-map-js` to patched lines. `pnpm audit --prod` is clean.
+
 TASK-0091: every load of the studio opens guided; the mode is not remembered (amends TASK-0066's per-tab `sessionStorage`). «Modo avanzado» lasts until the page is left.
 
 TASK-0090: the panel labels `artwork_check` «Revisión del dibujo».

@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0092 (audit 2026-10-08 SEG-04): the workspace overrides also pin `postcss>source-map-js` ^1.2.2 and `next>sharp` ^0.35.5.
+
 TASK-0090: `make_artwork` reviews every artwork; a misread one is redrawn once with a correction, a second misread fails with `ARTWORK_MISREAD`.
 
 TASK-0089: `make_artwork` returns `clear_backdrop(native)` for every artwork, new or edited.

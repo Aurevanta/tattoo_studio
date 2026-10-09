@@ -28,9 +28,10 @@ export const config = {
    * for the obvious reason, and the PWA's own files so an installed app can still start and show
    * the sign-in page offline. `brand` holds the background and the logo the sign-in page itself
    * shows, so it has to load before anyone is signed in (TASK-0048). The terms and the privacy
-   * policy are read before signing in too (TASK-0064).
+   * policy are read before signing in too (TASK-0064), and crawlers read `robots.txt` and
+   * `sitemap.xml` (TASK-0093).
    */
   matcher: [
-    '/((?!api|entrar|recuperar|restablecer|condiciones|privacidad|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
+    '/((?!api|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
   ],
 };

@@ -37,3 +37,10 @@ describe('the page gate (TASK-0045, TASK-0048)', () => {
     expect(gated('/api/generate')).toBe(false);
   });
 });
+
+describe('crawlers see only the public pages (TASK-0093)', () => {
+  it('serves robots.txt and the sitemap without a session', () => {
+    for (const path of ['/robots.txt', '/sitemap.xml', '/brand/og.png'])
+      expect(gated(path), path).toBe(false);
+  });
+});

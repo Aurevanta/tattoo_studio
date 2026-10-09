@@ -1,13 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { ServiceWorker } from '@/components/ServiceWorker';
+import { siteMetadata } from '@/lib/site';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'Inkcraft by Aurevanta Labs — Estudio de tatuaje',
-  description:
-    'Consulta guiada de tatuajes con OpenAI GPT-6 Astra, stencils 1:1 y simulación en piel.',
-};
+// TASK-0093 (audit 2026-10-08 SEO-02): an accurate description and a preview when shared.
+export const metadata: Metadata = siteMetadata;
 
 export const viewport: Viewport = {
   width: 'device-width',

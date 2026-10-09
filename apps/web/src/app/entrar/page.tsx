@@ -126,7 +126,8 @@ export default function SignInPage(): ReactNode {
           <a href="/recuperar">¿Has olvidado tu contraseña?</a>
         </p>
         <p className="sign-in-legal">
-          <a href="/condiciones">Condiciones de uso</a> · <a href="/privacidad">Privacidad</a>
+          <a href="/inicio">Qué es Inkcraft</a> · <a href="/condiciones">Condiciones de uso</a> ·{' '}
+          <a href="/privacidad">Privacidad</a>
         </p>
       </form>
       {asking && (

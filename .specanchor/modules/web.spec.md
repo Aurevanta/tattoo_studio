@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0096 (audit 2026-10-08 UX-01): `/inicio` is the public landing — one real studio result (design, skin view on a generated plate, 1:1 stencil from `public/ejemplos/`), how it works, why Inkcraft, the review note, and «Entrar al estudio» / «Solicitar acceso». The page gate sends a signed-out `/` there and every other studio path to `/entrar`; `/inicio` and `/ejemplos/` are public and `/inicio` is in the sitemap. Access stays by invitation (ADR-0021).
+
 TASK-0095 (audit 2026-10-08 UX-04): `GET /api/quota` passes on the worker's counts; `lib/quota.ts` words them. Step 4 and the result's change request show «Te quedan N de M diseños hoy» and are disabled when nothing is left (an unknown count never blocks). Read on load and whenever a design starts or ends.
 
 TASK-0094 (audit 2026-10-08 UX-06, ARQ-02): `app/not-found.tsx`, `app/error.tsx` and `app/global-error.tsx` show the studio's card (`ErrorCard`) in Spanish with a way back. A failed screen posts to `/api/client-errors`, which records a `client_error` event (`render` | `global`) for a signed-in account only — message ≤ 300 chars, path without query, digest — at most 20 per account and hour, always 204. The Panel labels it «Error en el navegador».

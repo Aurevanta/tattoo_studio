@@ -16,7 +16,8 @@ export function middleware(request: NextRequest): NextResponse {
   if (signedIn) return NextResponse.next();
 
   const url = request.nextUrl.clone();
-  url.pathname = '/entrar';
+  // TASK-0096 (audit 2026-10-08 UX-01): a stranger at the front door sees what the studio makes.
+  url.pathname = request.nextUrl.pathname === '/' ? '/inicio' : '/entrar';
   url.search = '';
   return NextResponse.redirect(url);
 }
@@ -29,9 +30,9 @@ export const config = {
    * the sign-in page offline. `brand` holds the background and the logo the sign-in page itself
    * shows, so it has to load before anyone is signed in (TASK-0048). The terms and the privacy
    * policy are read before signing in too (TASK-0064), and crawlers read `robots.txt` and
-   * `sitemap.xml` (TASK-0093).
+   * `sitemap.xml` (TASK-0093). The landing and its example images are public (TASK-0096).
    */
   matcher: [
-    '/((?!api|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
+    '/((?!api|inicio|ejemplos/|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
   ],
 };

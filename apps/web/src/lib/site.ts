@@ -12,7 +12,7 @@ export const SITE_NAME = 'Inkcraft by Aurevanta Labs';
 export const SITE_DESCRIPTION =
   'Cuenta tu idea y recibe el diseño de tu tatuaje, cómo queda en la piel y la plantilla a tamaño real para tu tatuador.';
 
-export const PUBLIC_PAGES = ['/entrar', '/condiciones', '/privacidad'] as const;
+export const PUBLIC_PAGES = ['/inicio', '/entrar', '/condiciones', '/privacidad'] as const;
 
 /** The root layout's metadata: an accurate description and a preview when a link is shared. */
 export const siteMetadata: Metadata = {

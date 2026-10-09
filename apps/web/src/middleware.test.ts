@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { config } from './middleware';
+import { NextRequest } from 'next/server';
+
+import { config, middleware } from './middleware';
 
 /**
  * Which paths the sign-in gate covers. Next evaluates the matcher as a regular expression over the
@@ -41,6 +43,29 @@ describe('the page gate (TASK-0045, TASK-0048)', () => {
 describe('crawlers see only the public pages (TASK-0093)', () => {
   it('serves robots.txt and the sitemap without a session', () => {
     for (const path of ['/robots.txt', '/sitemap.xml', '/brand/og.png'])
+      expect(gated(path), path).toBe(false);
+  });
+});
+
+describe('the front door (TASK-0096)', () => {
+  const visit = (path: string, cookie?: string) =>
+    middleware(
+      new NextRequest(`http://localhost:3000${path}`, {
+        headers: cookie ? { cookie } : {},
+      }),
+    );
+
+  it('shows a stranger the landing at the root, and asks to sign in anywhere deeper', () => {
+    expect(visit('/').headers.get('location')).toBe('http://localhost:3000/inicio');
+    expect(visit('/probar?job=1').headers.get('location')).toBe('http://localhost:3000/entrar');
+  });
+
+  it('lets a signed-in client straight into the studio', () => {
+    expect(visit('/', 'inkcraft_at=token').headers.get('location')).toBeNull();
+  });
+
+  it('serves the landing and its example images without a session', () => {
+    for (const path of ['/inicio', '/ejemplos/virgen-piel.webp'])
       expect(gated(path), path).toBe(false);
   });
 });

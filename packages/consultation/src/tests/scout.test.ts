@@ -6,6 +6,7 @@ import {
   JUDGE_PROMPT,
   PLANNER_PROMPT,
   subjectQuery,
+  curatedQueries,
   referenceQueries,
   VisualSearchAgent,
   type CandidateScreen,
@@ -75,6 +76,75 @@ describe('Visual scout on Claude Sonnet (TASK-0032/REQ-005)', () => {
 
     expect(referenceQueries('Escudo del Real Madrid')).toEqual(['Escudo del Real Madrid']);
     expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('searches every element of a request, not only the ones it knows (TASK-0098)', async () => {
+    const idea =
+      'quiero el escudo del valencia CG, el estadio de mestalla, la senyera valenciana y la virgen de los desamparados';
+    const searched: string[] = [];
+    const request = vi.fn(async (url: string | URL | Request) => {
+      const text = String(url);
+      if (text.includes('commons.wikimedia.org'))
+        searched.push(new URL(text).searchParams.get('gsrsearch') ?? '');
+      return Response.json({ query: { pages: {} } });
+    }) as unknown as typeof fetch;
+    const plan = vi.fn(async () => [
+      { query: 'Valencia CF crest', essential: true, label: 'el escudo del Valencia CF' },
+      { query: 'Mestalla Stadium', essential: true, label: 'el estadio de Mestalla' },
+      { query: 'Valencian flag', essential: true, label: 'la senyera valenciana' },
+      {
+        query: 'Our Lady of the Forsaken',
+        essential: true,
+        label: 'la Virgen de los Desamparados',
+      },
+      { query: 'football', essential: false, label: 'un balón' },
+    ]);
+
+    const result = await new VisualSearchAgent(request, { planner: { plan } }).scoutReferenceImages(
+      { userInput: idea },
+    );
+
+    expect(plan).toHaveBeenCalledWith(idea);
+    // The four named entities run as their verified queries, once each; the planner adds the rest.
+    expect(result.queries).toEqual([
+      '"Estàtua de la mare de Déu dels Desemparats" -darrere',
+      '"Flag of the Valencian Community" -simplified',
+      'Valencia CF crest',
+      'Mestalla stadium',
+      'football',
+    ]);
+    expect(result.essential).toHaveLength(4);
+    expect(result.labels['Mestalla stadium']).toBe('el estadio de Mestalla');
+    expect(searched).toContain('Mestalla stadium');
+    expect(searched).toContain('"Estàtua de la mare de Déu dels Desemparats" -darrere');
+  });
+
+  it('recognises the Spanish names and the "Valencia CG" slip without a planner', () => {
+    expect(curatedQueries('la virgen de los desamparados')).toEqual([
+      '"Estàtua de la mare de Déu dels Desemparats" -darrere',
+    ]);
+    expect(curatedQueries('el escudo del valencia CG')).toEqual(['Valencia CF crest']);
+    expect(curatedQueries('Valencia C.F.')).toEqual(['Valencia CF crest']);
+    expect(curatedQueries('una vista de Valencia con gatos')).toEqual([]);
+    expect(curatedQueries('el estadio de Mestalla')).toEqual(['Mestalla stadium']);
+  });
+
+  it('keeps the curated queries when the planner fails', async () => {
+    const request = vi.fn(async () =>
+      Response.json({ query: { pages: {} } }),
+    ) as unknown as typeof fetch;
+    const planner = {
+      plan: vi.fn(async () => {
+        throw new Error('down');
+      }),
+    };
+    const result = await new VisualSearchAgent(request, { planner }).scoutReferenceImages({
+      userInput: 'la senyera y Mestalla',
+    });
+    expect(result.queries).toEqual([
+      '"Flag of the Valencian Community" -simplified',
+      'Mestalla stadium',
+    ]);
   });
 
   it('prefers licensed sources and never consults the open web when Commons answers', async () => {
@@ -226,7 +296,7 @@ describe('Openverse as a second licensed source (TASK-0058, ADR-0026)', () => {
 });
 
 describe('ClaudeScoutQueryPlanner (TASK-0032/REQ-005)', () => {
-  it('asks Sonnet 5 for schema-constrained queries and keeps at most three', async () => {
+  it('asks Sonnet 5 for schema-constrained queries and keeps at most five', async () => {
     let body: Record<string, unknown> = {};
     const request = (async (_url: string | URL | Request, init?: RequestInit) => {
       body = JSON.parse(String(init?.body ?? '{}'));
@@ -243,6 +313,8 @@ describe('ClaudeScoutQueryPlanner (TASK-0032/REQ-005)', () => {
                 { query: ' red fox ', essential: false, label: 'un zorro rojo' },
                 { query: 'fox head', essential: false, label: 'cabeza de zorro' },
                 { query: 'FC Barcelona crest', essential: true, label: 'el escudo del Barça' },
+                { query: 'fox tail', essential: false, label: 'cola de zorro' },
+                { query: 'fox den', essential: false, label: 'madriguera' },
                 { query: 'extra', essential: false, label: 'extra' },
               ],
             }),
@@ -263,7 +335,10 @@ describe('ClaudeScoutQueryPlanner (TASK-0032/REQ-005)', () => {
       { query: 'red fox', essential: false, label: 'un zorro rojo' },
       { query: 'fox head', essential: false, label: 'cabeza de zorro' },
       { query: 'FC Barcelona crest', essential: true, label: 'el escudo del Barça' },
+      { query: 'fox tail', essential: false, label: 'cola de zorro' },
+      { query: 'fox den', essential: false, label: 'madriguera' },
     ]);
+    expect(PLANNER_PROMPT).toContain('every one of them gets its own query');
   });
 
   it('searches for the subject, never the style or a tattoo (TASK-0061)', async () => {

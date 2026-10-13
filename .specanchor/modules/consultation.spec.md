@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: consultation
 
+TASK-0098: curated entity queries **supplement** the planner instead of winning over it (supersedes TASK-0034's rule): they run first, the planner adds every other named element, a planned query naming one curated entity becomes that verified query, at most five. `curatedQueries` also reads «desamparados», «Valencia CG/C.F.» and «Mestalla»; the planner returns one query per named element, up to five.
+
 TASK-0090: rule 10 describes the design as drawn on paper, the zone only as the shape to fill, never the body or skin.
 
 TASK-0073 (audit UX-01): `statedSize` reads compact and labelled sizes in either order; a single dimension is kept as `size.stated` and only the other is proposed (`proposeSize` keeps it across zone changes; the summary says which is the client's).

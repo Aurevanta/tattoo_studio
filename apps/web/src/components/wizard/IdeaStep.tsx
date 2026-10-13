@@ -56,7 +56,7 @@ export function IdeaStep({
       ]}
     >
       <p className="eyebrow">Paso 1 de 4</p>
-      <p>
+      <p className="wizard-lead">
         Cuéntalo con tus palabras: qué quieres, y si ya lo sabes, el estilo, la zona o el color. Lo
         que falte te lo preguntamos después.
       </p>

@@ -76,7 +76,7 @@ export function ReferencesStep({
       }
     >
       <p className="eyebrow">Paso 3 de 4</p>
-      <p>
+      <p className="wizard-lead">
         {references.length
           ? 'Estas son las imágenes que guiarán el diseño. Quita las que no encajen o añade la tuya.'
           : 'No hemos encontrado imágenes adecuadas. Puedes añadir la tuya o seguir sin referencias: el diseño partirá de tu descripción.'}

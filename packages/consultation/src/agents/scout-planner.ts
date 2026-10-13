@@ -26,7 +26,8 @@ import type {
 export const CLAUDE_SCOUT_MODEL = 'claude-sonnet-5';
 
 export const PLANNER_PROMPT = `You plan image searches on Wikimedia Commons and Openverse (openly licensed photos and artwork) that find visual references for a tattoo design.
-Return 1 to 3 queries, one per concrete thing the client wants depicted: the subject, never the way it will be drawn.
+Return 1 to 5 queries, one per concrete thing the client wants depicted: the subject, never the way it will be drawn.
+When the client names several things, every one of them gets its own query; never merge or leave one out. Read past spelling slips: "escudo del Valencia CG" is the Valencia CF crest.
 Each query is 1 to 4 English words naming that thing, as a Commons file might be titled: "howling wolf", "red rose", "human skull", "nautical compass", "Great Wave off Kanagawa".
 The tattoo style is already chosen and is drawn by the studio. Never search for a style, a technique or what makes it up: no "biomechanical", "geometric", "watercolour", "traditional", "tribal", "blackwork", "chicano", "realistic", and no style ingredients such as gears, circuits, polygons, mandalas, filigree or paint splashes. "Un murciélago biomecánico" is one query: "bat animal".
 Never search for tattoos: no "tattoo", "tattoo design", "flash", "sketch". A reference shows the thing itself, never someone else's tattoo of it.
@@ -153,6 +154,9 @@ export function subjectQuery(query: string): string {
   return subject.join(' ').slice(0, 120);
 }
 
+/** One query per named element, up to the references the scout may keep (TASK-0098). */
+const MAX_PLANNED = 5;
+
 export class ClaudeScoutQueryPlanner implements ScoutQueryPlanner {
   private readonly client: Anthropic | undefined;
   private readonly model: string;
@@ -194,7 +198,7 @@ export class ClaudeScoutQueryPlanner implements ScoutQueryPlanner {
       .filter((item) => item.query.length > 0);
     return planned
       .filter((item, index) => planned.findIndex((other) => other.query === item.query) === index)
-      .slice(0, 3);
+      .slice(0, MAX_PLANNED);
   }
 }
 

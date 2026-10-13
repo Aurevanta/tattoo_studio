@@ -2153,6 +2153,11 @@ body::after {
 .confirm-dialog .eyebrow {
   margin: 0 0 6px;
 }
+/* The step's explanation breathes between the step number and the field. */
+.confirm-dialog p.wizard-lead {
+  margin: 10px 0 18px;
+  line-height: 1.6;
+}
 .wizard-idea,
 .wizard-summary-field textarea {
   width: 100%;
@@ -2160,11 +2165,16 @@ body::after {
   resize: vertical;
   box-sizing: border-box;
 }
+.wizard-idea {
+  min-height: 130px;
+  padding: 14px 16px;
+  line-height: 1.5;
+}
 .wizard-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 10px 0;
+  margin: 14px 0 10px;
 }
 .chip {
   border-radius: 999px;

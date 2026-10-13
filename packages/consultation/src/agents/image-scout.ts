@@ -1,12 +1,29 @@
 import type { ReferenceImage } from '../types';
 
-export function referenceQueries(subject: string): string[] {
+/**
+ * Specific entities whose searches were verified against Commons (TASK-0020, TASK-0098). They match
+ * the Spanish and Valencian names and the common slip "Valencia CG", since a live request asking for
+ * "la virgen de los desamparados" and "el escudo del valencia CG" found neither.
+ */
+export function curatedQueries(subject: string): string[] {
   const queries: string[] = [];
-  if (/mare de d[eé]u|desamparats|geperudeta/i.test(subject))
+  if (/mare de d[eé]u|desampara(?:ts|dos)|geperudeta/i.test(subject))
     queries.push('"Estàtua de la mare de Déu dels Desemparats" -darrere');
   if (/senyera valenciana|real senyera|senyera/i.test(subject))
     queries.push('"Flag of the Valencian Community" -simplified');
-  if (/valencia\s*c\.?\s*f\.?|\bvcf\b/i.test(subject)) queries.push('Valencia CF crest');
+  if (
+    /valencia\s*c\.?\s*[fg]\.?(?![a-z])|\bvcf\b|valencia club de f[uú]tbol|escudo del valencia/i.test(
+      subject,
+    )
+  )
+    queries.push('Valencia CF crest');
+  if (/mestalla/i.test(subject)) queries.push('Mestalla stadium');
+  return queries;
+}
+
+/** The curated queries, or the client's own words when none applies (the deterministic plan). */
+export function referenceQueries(subject: string): string[] {
+  const queries = curatedQueries(subject);
   return queries.length ? queries : [subject.slice(0, 180)];
 }
 const plain = (value: unknown) =>
@@ -18,6 +35,7 @@ const CURATED_LABELS: Record<string, string> = {
     'la imagen de la Mare de Déu dels Desamparats',
   '"Flag of the Valencian Community" -simplified': 'la Senyera valenciana',
   'Valencia CF crest': 'el escudo del Valencia CF',
+  'Mestalla stadium': 'el estadio de Mestalla',
 };
 
 /** The Valencia CF crest fetched from the club's own site: verified by source, not by a judge. */
@@ -113,9 +131,27 @@ function openverseLicence(item: Record<string, unknown>): string {
   return code ? `CC ${code.toUpperCase()}${version}`.slice(0, 40) : 'Licencia abierta';
 }
 
-/** Candidates the judge sees per query, and the most it may keep overall. */
+/** Candidates the judge sees per query, the most it may keep overall, and the most searches. */
 const CANDIDATES_PER_QUERY = 3;
 const MAX_REFERENCES = 5;
+const MAX_QUERIES = MAX_REFERENCES;
+
+function curatedPlan(query: string): PlannedQuery {
+  return { query, essential: true, label: CURATED_LABELS[query] };
+}
+
+/**
+ * The curated query a planned one stands for, when exactly one does: its Spanish label is read
+ * first ("el escudo del Valencia CF"), then the query itself.
+ */
+function curatedEntity(item: PlannedQuery): string | undefined {
+  for (const text of [item.label ?? '', item.query]) {
+    const found = curatedQueries(text);
+    if (found.length === 1) return found[0];
+    if (found.length > 1) return undefined;
+  }
+  return undefined;
+}
 const JUDGE_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 
 export class VisualSearchAgent {
@@ -124,24 +160,32 @@ export class VisualSearchAgent {
     private readonly options: ScoutOptions = {},
   ) {}
 
-  /** Sonnet decides the queries when a planner is injected; otherwise the deterministic list. */
+  /**
+   * The queries to search (TASK-0098). Curated queries name specific entities and were verified
+   * against Commons (TASK-0020): they always run. The planner adds every other thing the client
+   * named — a request for four elements once searched only the one the curated list knew — and a
+   * planned query that names a curated entity is replaced by the verified one. Without a planner,
+   * or when it fails, the curated queries stand alone, else the client's own words, not essential.
+   */
   private async plannedQueries(subject: string): Promise<PlannedQuery[]> {
-    // Curated queries name specific entities and were verified against Commons (TASK-0020):
-    // they win over the planner, which live searches showed can miss them. Otherwise the
-    // deterministic fallback is the client's own words, a generic search that is not essential.
-    const curated = referenceQueries(subject);
-    const generic = curated.length === 1 && curated[0] === subject.slice(0, 180);
-    if (!generic)
-      return curated.map((query) => ({ query, essential: true, label: CURATED_LABELS[query] }));
-    const fallback = () => [{ query: curated[0]!, essential: false }];
+    const curated = curatedQueries(subject).map(curatedPlan);
+    const fallback = (): PlannedQuery[] =>
+      curated.length ? curated : [{ query: subject.slice(0, 180), essential: false }];
     if (!this.options.planner) return fallback();
+    let planned: PlannedQuery[];
     try {
-      const planned = await this.options.planner.plan(subject);
-      return planned.length ? planned : fallback();
+      planned = await this.options.planner.plan(subject);
     } catch {
       // A planner failure must never block the search: fall back to the deterministic queries.
       return fallback();
     }
+    const plan = [...curated];
+    for (const item of planned) {
+      const known = curatedEntity(item);
+      const next = known ? curatedPlan(known) : item;
+      if (!plan.some((p) => p.query === next.query)) plan.push(next);
+    }
+    return plan.length ? plan.slice(0, MAX_QUERIES) : fallback();
   }
 
   /** Screen a candidate before it can become a reference. Fails closed (SAFETY-INV-007 spirit). */

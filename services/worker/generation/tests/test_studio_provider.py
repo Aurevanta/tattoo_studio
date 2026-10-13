@@ -230,6 +230,20 @@ def test_a_design_refused_for_its_content_says_so() -> None:
     StudioProvider.check(_Answer(200, {}))
 
 
+def test_an_account_without_credit_says_the_studio_is_unavailable() -> None:
+    """TASK-0100: not «vuelve a generarlo», which cannot work until credit is added."""
+    from generation.studio import OUT_OF_CREDIT
+
+    no_credit = _Answer(
+        429, {"error": {"type": "insufficient_quota", "code": "credit_balance_exhausted"}}
+    )
+    with pytest.raises(ValueError, match="sin créditos") as raised:
+        StudioProvider.check(no_credit)
+    assert str(raised.value) == OUT_OF_CREDIT
+    with pytest.raises(ValueError, match=r"\(429\)"):
+        StudioProvider.check(_Answer(429, {"error": {"code": "rate_limit_exceeded"}}))
+
+
 def test_a_womans_chest_is_described_with_what_covers_it() -> None:
     """TASK-0060: without it the model drew a bearded man for a woman's chest."""
     woman = StudioProvider.background_prompt(

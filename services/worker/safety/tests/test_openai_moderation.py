@@ -345,3 +345,46 @@ def test_api_key_never_appears_in_an_exception(response: Any) -> None:
 def test_provider_name_identifies_the_model_not_the_key() -> None:
     assert SECRET not in provider(ScriptedTransport([])).name
     assert "openai" in provider(ScriptedTransport([])).name
+
+
+# ---------------------------------------------------------------------------
+# TASK-0100: an account without credit is named, and still denied
+# ---------------------------------------------------------------------------
+
+NO_CREDIT = {
+    "error": {
+        "type": "insufficient_quota",
+        "code": "credit_balance_exhausted",
+        "message": "You have no credits remaining.",
+    }
+}
+
+
+def test_an_account_without_credit_is_named_and_denied() -> None:
+    """The live answer of 2026-10-13: 429, `insufficient_quota` / `credit_balance_exhausted`."""
+    from safety.openai_moderation import ModerationExhaustedError
+
+    transport = ScriptedTransport([FakeResponse(status_code=429, payload=NO_CREDIT)])
+    with pytest.raises(ModerationExhaustedError) as raised:
+        provider(transport).classify(IMAGE)
+    assert "credits remaining" not in str(raised.value)
+
+    gate = InputGate(
+        provider(ScriptedTransport([FakeResponse(status_code=429, payload=NO_CREDIT)]))
+    )
+    result = gate.screen_upload(IMAGE)
+    assert result.verdict is Verdict.REJECT
+    assert result.reason is ReasonCode.PROVIDER_EXHAUSTED
+    assert result.clearance is None
+
+
+def test_a_rate_limit_is_not_mistaken_for_no_credit() -> None:
+    from safety.openai_moderation import ModerationExhaustedError
+
+    limited = {"error": {"type": "requests", "code": "rate_limit_exceeded"}}
+    transport = ScriptedTransport([FakeResponse(status_code=429, payload=limited)])
+    with pytest.raises(ModerationError) as raised:
+        provider(transport).classify(IMAGE)
+    assert not isinstance(raised.value, ModerationExhaustedError)
+    gate = InputGate(provider(ScriptedTransport([FakeResponse(status_code=429, payload=limited)])))
+    assert gate.screen_upload(IMAGE).reason is ReasonCode.PROVIDER_FAILED

@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0100: an upload refused because the moderation provider has no credit says «El estudio no puede revisar imágenes ahora mismo. Inténtalo más tarde…» instead of retrying in seconds.
+
 TASK-0097 (ADR-0032): `app/shares.py` — `ShareLedger` (SHA-256 digest of a 24-byte token, 30 days, 20 open per account, revoke, forget on erasure) and `shared_design`/`shared_files`. Routes: `POST /studio/shares`, `GET /studio/shares/open/{job}`, `DELETE /studio/shares/{job}` (owner); `GET /studio/shares` and `/studio/shares/media/{asset}` with the service token and `X-Share-Token`, rebuilt from the stored job and validated against `shared-design`.
 
 TASK-0095: `GET /studio/quota` answers designs and turns used, limit and remaining for the calling account, and `resetsAt` (next UTC midnight).

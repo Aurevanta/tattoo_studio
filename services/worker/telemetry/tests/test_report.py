@@ -164,3 +164,40 @@ def test_the_queue_wait_is_reported_for_every_job() -> None:
     ]
     wait = overview(rows)["totals"]["waitMs"]
     assert wait["p50"] == 2_000 and wait["p95"] == 9_000
+
+
+def test_a_provider_without_credit_is_an_alert_until_it_answers_again() -> None:
+    """TASK-0100: the owner learns it from the panel, not from a client."""
+    from telemetry.report import alerts
+
+    def call(minutes: int, outcome: str, error: str = "", provider: str = "openai") -> Any:
+        detail = {"error": error} if error else {}
+        return row(
+            minutes,
+            "provider_call",
+            "moderation",
+            provider=provider,
+            outcome=outcome,
+            detail=detail,
+        )
+
+    refused = "HTTP 429 credit_balance_exhausted"
+    rows = [
+        call(1, "error", refused),
+        row(2, "upload", "reference", outcome="refused"),
+        call(3, "error", refused),
+        call(5, "ok"),
+        call(6, "error", refused),
+        call(4, "error", "HTTP 429 rate_limit_exceeded", provider="bfl"),
+    ]
+    assert alerts(rows) == [
+        {
+            "kind": "out_of_credit",
+            "provider": "openai",
+            "since": (NOW - timedelta(minutes=3)).isoformat(),
+            "calls": 2,
+        }
+    ]
+    # Answered again: no alert.
+    assert alerts([call(0, "ok"), *rows]) == []
+    assert overview(rows)["alerts"][0]["provider"] == "openai"

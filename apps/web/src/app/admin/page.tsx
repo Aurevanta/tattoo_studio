@@ -85,6 +85,8 @@ interface Overview {
     account: string | null;
     reason: string | null;
   }[];
+  /** TASK-0100: providers that stopped answering for lack of credit. Absent from older workers. */
+  alerts?: { kind: 'out_of_credit'; provider: string; since: string; calls: number }[];
 }
 
 interface Asset {
@@ -127,6 +129,12 @@ interface AccountDetail {
 
 const number = new Intl.NumberFormat('es-ES');
 const when = new Intl.DateTimeFormat('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+
+const PROVIDER: Record<string, string> = {
+  openai: 'OpenAI',
+  bfl: 'Black Forest Labs',
+  anthropic: 'Anthropic',
+};
 
 function seconds(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return '—';
@@ -237,6 +245,17 @@ export default function AdminPage(): ReactNode {
 
         {totals && report && (
           <>
+            {report.alerts?.map((alert) => (
+              <p key={alert.provider} className="admin-alert" role="alert">
+                <strong>
+                  {PROVIDER[alert.provider] ?? alert.provider} se ha quedado sin crédito
+                </strong>{' '}
+                desde el {when.format(new Date(alert.since))} ({alert.calls}{' '}
+                {alert.calls === 1 ? 'llamada rechazada' : 'llamadas rechazadas'}). Mientras tanto
+                no se pueden revisar imágenes ni generar diseños. Añade crédito en la facturación de
+                tu cuenta del proveedor; el aviso desaparece con la primera llamada que responda.
+              </p>
+            ))}
             <section className="admin-cards" aria-label="Totales">
               <Card label="Generaciones" value={number.format(totals.generations)}>
                 {percent(totals.successRate)} con éxito · {totals.failed} fallidas

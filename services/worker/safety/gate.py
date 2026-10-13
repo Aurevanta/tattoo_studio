@@ -33,10 +33,16 @@ class ReasonCode(StrEnum):
     OK = "ok"
     NO_PROVIDER = "no_moderation_provider"
     PROVIDER_FAILED = "moderation_provider_failed"
+    #: TASK-0100: the provider refused for lack of credit; retrying in seconds cannot help.
+    PROVIDER_EXHAUSTED = "moderation_provider_exhausted"
     CONTAINS_PERSON = "contains_person"
     EXPLICIT = "explicit_content"
     UNSUPPORTED_FORMAT = "unsupported_format"
     TOO_LARGE = "too_large"
+
+
+class ProviderExhaustedError(Exception):
+    """Raised by a provider whose account has no credit left (TASK-0100). Still a denial."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +99,9 @@ class InputGate:
 
         try:
             outcome = self._provider.classify(data)
+        except ProviderExhaustedError:
+            # The same denial, named, so the client is not told to retry in a few seconds.
+            return GateResult(Verdict.REJECT, ReasonCode.PROVIDER_EXHAUSTED)
         except Exception:
             # Deliberately broad and deliberately silent about the cause: a provider
             # exception can carry request detail, and any failure here means the same

@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0100: the Panel shows `alerts` as a red banner («OpenAI se ha quedado sin crédito desde…»). Reference downloads send `REFERENCE_USER_AGENT`.
+
 TASK-0099 (amends ADR-0029): step 2 always follows the idea and shows all five details (`ALL_DETAILS`), preselected from the consultation, with «Hemos marcado lo que entendimos de tu idea…» when any is set. `afterIdea()` always answers `details`; `resumeStep` still skips to the references when nothing is missing. `vitest.config.ts` resolves the `@/` alias.
 
 TASK-0097 (ADR-0032): «Para tu tatuador» in the result (`ShareWithTattooer`) creates, shows, copies, sends and withdraws links through `/api/shares` (creating needs the current consent). `/t/<token>` is public, `noindex`, no referrer, outside the page gate; it renders `SharedDesignView` (sheet, images, print, downloads) or a 404 «Este enlace ya no está disponible». `/api/shared/<token>/<asset>` serves files with a `sandbox` CSP. The token reaches the worker in `X-Share-Token` (`sharedWorker`). The privacy policy names sharing; `IMAGES_VERSION` is 2026-10-09.

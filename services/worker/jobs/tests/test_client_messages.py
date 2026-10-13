@@ -17,6 +17,8 @@ from jobs.client_messages import BUSY, CONTENT, GENERIC, UNAVAILABLE, for_client
         ("FLUX ha superado el tiempo máximo de espera.", BUSY),
         ("BFL ha limitado la frecuencia de solicitudes. Reintenta más tarde.", BUSY),
         ("Sin créditos en Black Forest Labs. Recarga en dashboard.bfl.ai.", UNAVAILABLE),
+        # TASK-0100: `generation.studio.OUT_OF_CREDIT`, an OpenAI account without credit.
+        ("El proveedor de imágenes se ha quedado sin créditos.", UNAVAILABLE),
         ("BFL rechazó la credencial (revisa BFL_API_KEY).", UNAVAILABLE),
         ("Configura OPENAI_API_KEY en el worker para generar imágenes.", UNAVAILABLE),
         ("La comprobación de contenido de FLUX rechazó la solicitud.", CONTENT),

@@ -15,6 +15,7 @@ import {
   BraveImageSearch,
   ContentRefusedError,
   OpenAITextModeration,
+  REFERENCE_USER_AGENT,
   type TextScreen,
 } from '@tattoo/consultation';
 import { validateAgainst, type StudioJobStatus } from '@tattoo/contracts';
@@ -436,7 +437,7 @@ export async function referenceBytes(source: string): Promise<string> {
   const response = await fetch(url, {
     redirect: 'error',
     signal: AbortSignal.timeout(20000),
-    headers: { 'User-Agent': 'InkCraft/0.1 (reference research)' },
+    headers: { 'User-Agent': REFERENCE_USER_AGENT },
   });
   if (!response.ok || !response.body)
     throw new RequestError('No se puede descargar la referencia. Adjunta una imagen.', 422);

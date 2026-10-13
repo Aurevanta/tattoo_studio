@@ -24,7 +24,7 @@ import base64
 import json
 from typing import Any, Protocol
 
-from .gate import ModerationOutcome
+from .gate import ModerationOutcome, ProviderExhaustedError
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
@@ -54,6 +54,34 @@ class ModerationError(RuntimeError):
     Never carries the provider's message: an HTTP error can quote the request, which
     embeds the image, and a client error can embed the credential (SEC-INV-008).
     """
+
+
+class ModerationExhaustedError(ModerationError, ProviderExhaustedError):
+    """The provider's account has no credit left (TASK-0100). A denial like any other."""
+
+
+#: OpenAI's error type and codes for an account without credit, seen live on 2026-10-13 as
+#: 429 `insufficient_quota` / `credit_balance_exhausted`.
+OUT_OF_CREDIT = frozenset(
+    {"insufficient_quota", "credit_balance_exhausted", "billing_hard_limit_reached"}
+)
+
+
+def out_of_credit(response: Any) -> bool:
+    """Whether an error response says the account has no credit.
+
+    Reads only the short `error.type` and `error.code` fields, never the message, which can
+    quote the request (SEC-INV-008).
+    """
+    if getattr(response, "status_code", 0) not in (402, 429):
+        return False
+    try:
+        error = response.json().get("error")
+    except Exception:
+        return False
+    if not isinstance(error, dict):
+        return False
+    return bool({error.get("type"), error.get("code")} & OUT_OF_CREDIT)
 
 
 class HttpResponse(Protocol):
@@ -135,6 +163,10 @@ class OpenAIModerationProvider:
         except Exception as error:
             raise ModerationError("moderation transport failure") from error
 
+        if out_of_credit(response):
+            raise ModerationExhaustedError(
+                f"moderation provider out of credit ({response.status_code})"
+            )
         if response.status_code >= 400:
             # Status only. The body can repeat the submitted payload, which is the image.
             raise ModerationError(f"moderation provider returned {response.status_code}")

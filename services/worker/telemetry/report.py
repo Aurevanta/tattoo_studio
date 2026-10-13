@@ -7,6 +7,7 @@ rows the simplest honest option; views or rollups replace this when volume grows
 from __future__ import annotations
 
 import math
+import re
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import datetime
@@ -50,6 +51,40 @@ def _emails(rows: list[Row]) -> dict[str, str]:
         if row["kind"] == "sign_in" and row["outcome"] == "ok" and account and text:
             found.setdefault(account, text)
     return found
+
+
+#: TASK-0100: error codes with which a provider says its account has no credit.
+_OUT_OF_CREDIT = re.compile(
+    r"\b(?:insufficient_quota|credit_balance_exhausted|billing_hard_limit_reached)\b|HTTP 402\b"
+)
+
+
+def alerts(rows: list[Row]) -> list[dict[str, Any]]:
+    """Providers whose latest call failed for lack of credit, and since when (TASK-0100).
+
+    Rows are newest first. An alert lasts until the provider answers a call again; `since` is the
+    oldest failure of the unbroken run, `calls` how many calls it has refused.
+    """
+    runs: dict[str, list[Row]] = {}
+    settled: set[str] = set()
+    for r in rows:
+        provider = r.get("provider")
+        if r["kind"] != "provider_call" or not provider or provider in settled:
+            continue
+        error = str((r.get("detail") or {}).get("error") or "")
+        if r["outcome"] != "ok" and _OUT_OF_CREDIT.search(error):
+            runs.setdefault(provider, []).append(r)
+        else:
+            settled.add(provider)
+    return [
+        {
+            "kind": "out_of_credit",
+            "provider": provider,
+            "since": refused[-1]["ts"].isoformat(),
+            "calls": len(refused),
+        }
+        for provider, refused in sorted(runs.items())
+    ]
 
 
 def overview(rows: list[Row]) -> dict[str, Any]:
@@ -187,6 +222,7 @@ def overview(rows: list[Row]) -> dict[str, Any]:
         "byDay": by_day,
         "byAccount": by_account,
         "errors": errors,
+        "alerts": alerts(rows),
     }
 
 

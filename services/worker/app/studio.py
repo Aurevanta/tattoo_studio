@@ -69,6 +69,12 @@ REFUSED_UPLOAD = {
     ReasonCode.NO_PROVIDER: (
         "La revisión de imágenes no está disponible ahora mismo. Inténtalo más tarde."
     ),
+    # TASK-0100: the provider has no credit; «en unos segundos» would never come true. The panel
+    # shows the cause as an alert.
+    ReasonCode.PROVIDER_EXHAUSTED: (
+        "El estudio no puede revisar imágenes ahora mismo. Inténtalo más tarde; no hace falta "
+        "que cambies nada."
+    ),
 }
 
 

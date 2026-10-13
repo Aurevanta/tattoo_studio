@@ -9,6 +9,8 @@ last_reviewed: 2026-09-30
 
 # Module: telemetry
 
+TASK-0100: `overview` adds `alerts`: each provider whose latest calls failed for lack of credit, with `since` (oldest of the unbroken run) and `calls`, until a call answers again.
+
 TASK-0085: the overview reports `totals.waitMs` (avg, p50, p95) over every job.
 
 TASK-0059: a failed provider call records the provider's short error code beside the status

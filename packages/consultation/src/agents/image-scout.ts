@@ -38,6 +38,13 @@ const CURATED_LABELS: Record<string, string> = {
   'Mestalla stadium': 'el estadio de Mestalla',
 };
 
+/**
+ * How the studio identifies itself to image sources (TASK-0100). Wikimedia's robot policy
+ * (https://w.wiki/4wJS) refuses clients without a contact; a download without one answered 403.
+ */
+export const REFERENCE_USER_AGENT =
+  'InkCraft/0.1 (https://inkcraft.aurevanta.es; reference research)';
+
 /** The Valencia CF crest fetched from the club's own site: verified by source, not by a judge. */
 const OFFICIAL_VALENCIA_CREST = 'https://www.valenciacf.com/svg/escudo.svg';
 
@@ -340,7 +347,7 @@ export class VisualSearchAgent {
     try {
       const response = await this.request(image.source, {
         signal: AbortSignal.timeout(10000),
-        headers: { 'User-Agent': 'InkCraft/0.1 (reference research)' },
+        headers: { 'User-Agent': REFERENCE_USER_AGENT },
       });
       const type = response.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
       if (!response.ok || !(JUDGE_MEDIA as readonly string[]).includes(type)) return undefined;
@@ -417,7 +424,7 @@ export class VisualSearchAgent {
     }).toString();
     const response = await this.request(url, {
       signal: AbortSignal.timeout(10000),
-      headers: { 'User-Agent': 'InkCraft/0.1 (reference research)' },
+      headers: { 'User-Agent': REFERENCE_USER_AGENT },
     });
     if (!response.ok) throw new Error('Openverse no está disponible.');
     const data = (await response.json()) as { results?: unknown };
@@ -484,7 +491,7 @@ export class VisualSearchAgent {
     }).toString();
     const response = await this.request(url, {
       signal: AbortSignal.timeout(10000),
-      headers: { 'User-Agent': 'InkCraft/0.1 (reference research)' },
+      headers: { 'User-Agent': REFERENCE_USER_AGENT },
     });
     if (!response.ok)
       throw new Error(

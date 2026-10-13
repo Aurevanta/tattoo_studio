@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: safety
 
+TASK-0100: `ProviderExhaustedError` names a provider without credit; `InputGate` denies it as `ReasonCode.PROVIDER_EXHAUSTED` (still a denial, SAFETY-INV-007). `OpenAIModerationProvider` raises `ModerationExhaustedError` when `out_of_credit` reads 402/429 with `error.type`/`error.code` in `insufficient_quota`, `credit_balance_exhausted`, `billing_hard_limit_reached`; it never reads the message.
+
 TASK-0064 (ADR-0028): SAFETY-INV-003's record is the `sign_in` event, which carries the accepted
 terms and image-consent versions with its time; the consent is given at sign-in for the session.
 

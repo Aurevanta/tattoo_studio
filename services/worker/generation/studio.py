@@ -12,7 +12,11 @@ from urllib.parse import urlparse
 import httpx2
 from PIL import Image
 
-from safety.openai_moderation import OpenAIModerationProvider
+from safety.openai_moderation import (
+    ModerationExhaustedError,
+    OpenAIModerationProvider,
+    out_of_credit,
+)
 from telemetry.meter import provider_call
 
 #: What each zone looks like to a camera (TASK-0039). The raw id is not enough: asked for a
@@ -140,6 +144,14 @@ BODY_VIEWS = {
 }
 
 
+#: TASK-0100: raised when the image provider's account has no credit. `jobs.client_messages` reads
+#: «créditos» and tells the client the studio is unavailable, not to generate again.
+OUT_OF_CREDIT = "El proveedor de imágenes se ha quedado sin créditos."
+
+#: Wikimedia refuses clients that do not identify themselves (robot policy, https://w.wiki/4wJS).
+REFERENCE_USER_AGENT = "InkCraft/0.1 (https://inkcraft.aurevanta.es; reference research)"
+
+
 class StudioProvider:
     def __init__(
         self, key: str, image_model: str = "gpt-image-2", vision_model: str = "gpt-4.1-mini"
@@ -175,7 +187,9 @@ class StudioProvider:
             or parsed.query
         ):
             raise ValueError("Solo se admiten referencias externas de Wikimedia Commons.")
-        with self.client.stream("GET", url, headers={"User-Agent": "InkCraft/0.1"}) as response:
+        with self.client.stream(
+            "GET", url, headers={"User-Agent": REFERENCE_USER_AGENT}
+        ) as response:
             if response.status_code != 200:
                 raise ValueError("No se ha podido descargar la referencia seleccionada.")
             content = bytearray()
@@ -230,6 +244,8 @@ class StudioProvider:
     def check(response: Any) -> None:
         if refused_by_safety(response):
             raise ValueError(CONTENT_REFUSED)
+        if out_of_credit(response):
+            raise ValueError(OUT_OF_CREDIT)
         if response.status_code >= 400:
             raise ValueError(
                 f"El proveedor no ha completado la solicitud ({response.status_code}). No se "
@@ -573,6 +589,10 @@ class StudioProvider:
         """Size limits and output moderation, applied to every backend's result."""
         if not data or len(data) > 30_000_000:
             raise ValueError("La imagen generada supera los límites admitidos.")
-        if self.moderation().classify(data).explicit:
+        try:
+            explicit = self.moderation().classify(data).explicit
+        except ModerationExhaustedError as error:
+            raise ValueError(OUT_OF_CREDIT) from error
+        if explicit:
             raise ValueError("La comprobación de contenido rechazó el resultado.")
         return data

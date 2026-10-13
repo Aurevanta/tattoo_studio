@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: generation
 
+TASK-0100: `StudioProvider.check` and `accept_output` raise `OUT_OF_CREDIT` («…sin créditos») for an account without credit, which `jobs.client_messages` shows as unavailable. `download_reference` identifies itself with `REFERENCE_USER_AGENT`, a contact URL as the Wikimedia robot policy asks.
+
 TASK-0090: `ISOLATED_DESIGN` in every artwork prompt (the design alone, never a body or skin); `correction` for a redraw; `check_artwork` asks the vision model (strict JSON `ArtworkCheck`) whether the artwork depicts a body and whether the subject is present; no verdict on failure.
 
 TASK-0089: the colour artwork prompt requires #FFFFFF outside the motif, with no panel, card, vignette or gradient.

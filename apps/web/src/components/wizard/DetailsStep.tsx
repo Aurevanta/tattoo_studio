@@ -49,7 +49,7 @@ function Choices({
   );
 }
 
-/** Step 2 (TASK-0065): one pop-up holding only what the idea left open, as buttons. */
+/** Step 2 (TASK-0065, TASK-0099): one pop-up with every detail as buttons, preset from the idea. */
 export function DetailsStep({
   fields,
   values,
@@ -76,6 +76,7 @@ export function DetailsStep({
     colour: values.color,
   };
   const complete = fields.every((field) => answered[field]);
+  const preset = fields.some((field) => answered[field]);
   const styles = Object.entries(STYLE_OPTIONS).map(([value, label]) => ({
     value,
     label,
@@ -99,6 +100,11 @@ export function DetailsStep({
       ]}
     >
       <p className="eyebrow">Paso 2 de 4</p>
+      <p className="wizard-lead">
+        {preset
+          ? 'Hemos marcado lo que entendimos de tu idea. Cámbialo si no es lo que quieres y completa lo que falte.'
+          : 'Elige cómo quieres tu tatuaje.'}
+      </p>
       {fields.includes('style') && (
         <Choices
           wide

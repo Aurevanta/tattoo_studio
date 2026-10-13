@@ -31,7 +31,6 @@ import {
   afterIdea,
   ALL_DETAILS,
   essentialMissing,
-  missingDetails,
   resumeStep,
   type WizardStep,
 } from '@/lib/wizard';
@@ -648,13 +647,12 @@ export default function ConsultationPage(): ReactNode {
       if (session) await call('/api/consultation', {}, 'DELETE');
       const data = await call('/api/consultation', { action: 'orchestrate', userMessage: idea });
       accept(data.session);
-      setStep(afterIdea(data.session));
+      setStep(afterIdea());
     }, 'idea');
   }
 
-  // Step 2 asks what is missing; reached again with «Atrás», it offers every detail to revise.
-  const missingNow = missingDetails(session?.slots);
-  const detailFields = missingNow.length ? missingNow : ALL_DETAILS;
+  // Step 2 offers every detail, with what the idea already decided chosen (TASK-0099).
+  const detailFields = ALL_DETAILS;
 
   async function continueDetails() {
     if (await save(form)) setStep('references');

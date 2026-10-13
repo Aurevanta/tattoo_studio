@@ -39,6 +39,11 @@ client's own skin photo in the summary.
 5. **«Modo avanzado»** shows the previous chat and panel unchanged; the choice is remembered in the
    browser.
 
+**Amended by TASK-0099 (2026-10-13, at the owner's request):** step 2 always opens after the idea
+and shows every detail, with what the idea set or the architect proposed already chosen, instead of
+only what is missing. Style and zone read from the idea were hidden, so the client never saw a
+style they had not picked. A reload with every detail answered still resumes at the references.
+
 ## Consequences
 
 - The size is not asked; the studio proposes it and the summary lets the client change it.

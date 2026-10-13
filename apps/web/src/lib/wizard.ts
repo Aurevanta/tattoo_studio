@@ -1,7 +1,7 @@
 /**
  * The guided studio (TASK-0065, ADR-0029): four pop-ups from an idea to a design.
  *
- *   1 idea → 2 details (only what is missing) → 3 references → 4 summary → generate
+ *   1 idea → 2 details (every one, pre-selected as read) → 3 references → 4 summary → generate
  *
  * Pure, so the order and what each step asks can be tested without a page. The page holds which
  * step is open; `resumeStep` is where a reload lands, read from the consultation the server holds.
@@ -43,9 +43,13 @@ export function essentialMissing(session: OrchestrationSession | null): string[]
     .map((field) => field.slice('referencia: '.length));
 }
 
-/** The step after the idea has been read: details if anything is missing, else references. */
-export function afterIdea(session: OrchestrationSession | null): WizardStep {
-  return missingDetails(session?.slots).length ? 'details' : 'references';
+/**
+ * The step after the idea has been read: always the details (TASK-0099). Style and zone read from
+ * the idea, or proposed by the architect, are shown chosen so the client sees and can change them;
+ * skipping them hid a style the client never picked.
+ */
+export function afterIdea(): WizardStep {
+  return 'details';
 }
 
 /**
@@ -54,5 +58,5 @@ export function afterIdea(session: OrchestrationSession | null): WizardStep {
  */
 export function resumeStep(session: OrchestrationSession | null): WizardStep {
   if (!session?.slots.subject?.description) return 'idea';
-  return afterIdea(session);
+  return missingDetails(session.slots).length ? 'details' : 'references';
 }

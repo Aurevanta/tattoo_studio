@@ -30,7 +30,7 @@ const complete = {
 };
 
 describe('the guided studio (TASK-0065)', () => {
-  it('asks in step 2 only what the idea left open, in a fixed order', () => {
+  it('lists what the idea left open, in a fixed order', () => {
     expect(missingDetails({})).toEqual(['style', 'zone', 'side', 'body', 'colour']);
     expect(missingDetails(complete)).toEqual([]);
     expect(
@@ -38,9 +38,8 @@ describe('the guided studio (TASK-0065)', () => {
     ).toEqual(['side']);
   });
 
-  it('skips step 2 when nothing is missing', () => {
-    expect(afterIdea(session({ slots: complete }))).toBe('references');
-    expect(afterIdea(session({ slots: { subject: complete.subject } }))).toBe('details');
+  it('always opens step 2 after the idea, even when nothing is missing (TASK-0099)', () => {
+    expect(afterIdea()).toBe('details');
   });
 
   it('blocks step 3 only on an essential reference', () => {

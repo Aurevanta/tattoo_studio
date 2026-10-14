@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 from importlib import resources
 
+from tattoo_contracts import sleeve
+
 # Contract bounds from tattoo-brief.schema.json `$defs/millimetres`.
 MIN_MM = 5.0
 MAX_MM = 600.0
@@ -34,6 +36,14 @@ ZONE_SPAN_MM: dict[str, tuple[float, float]] = {
 
 #: Fraction of a zone a qualitative size claims. "large" fills it, matching a whole-zone request.
 SIZE_SCALES: dict[str, float] = {k: float(v) for k, v in _REFERENCE["scales"].items()}
+
+
+# TASK-0104 (ADR-0034): sleeves are contract data, shared with the consultation.
+WRAP_REGIONS = sleeve.WRAP_REGIONS
+SLEEVE_SHARE = sleeve.SLEEVE_SHARE
+WrapRegion = sleeve.WrapRegion
+wrap_region = sleeve.wrap_region
+is_sleeve = sleeve.is_sleeve
 
 
 def zone_size(body_part: str, ink_aspect: float) -> dict[str, float]:

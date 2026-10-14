@@ -9,8 +9,8 @@ import { needsA4Pieces } from '@/lib/print-pieces';
 import { IMAGE_FAILURE_TEXT, imageFailure, probe, type ImageFailure } from '@/lib/image-failure';
 import { Confirm } from './Confirm';
 import { ShareWithTattooer } from './ShareWithTattooer';
-import { LegViewer3D } from './LegViewer3D';
-import type { LegSide, LegZone } from '@/lib/leg-wrap';
+import { LimbViewer3D } from './LimbViewer3D';
+import { LIMBS, limbOf, type LimbSide, type LimbZone } from '@/lib/limb-wrap';
 export function TattooPreviewModal({
   artifact,
   jobId,
@@ -21,7 +21,7 @@ export function TattooPreviewModal({
   consentControls,
   zoneSpan,
   quotaNote,
-  legView,
+  limbView,
 }: {
   artifact: GeneratedTattooArtifact;
   /** The version being shown, so a photo taken with the camera can join it (TASK-0050). */
@@ -40,8 +40,8 @@ export function TattooPreviewModal({
   zoneSpan?: { widthMm: number; heightMm: number } | undefined;
   /** What is left today (TASK-0095): a change is a new design. */
   quotaNote?: string | null;
-  /** TASK-0102 (ADR-0033): a lower-leg design can be turned round on a reference leg. */
-  legView?: { zone: LegZone; side: LegSide } | undefined;
+  /** TASK-0102, TASK-0103 (ADR-0033): a lower-leg or forearm design turns round in 3D. */
+  limbView?: { zone: LimbZone; side: LimbSide; wraps: boolean } | undefined;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -220,17 +220,20 @@ export function TattooPreviewModal({
           </figcaption>
         </figure>
       </div>
-      {legView && (
+      {limbView && (
         <div className="leg-view-toggle" hidden={Boolean(detail)}>
           <button type="button" aria-expanded={show3d} onClick={() => setShow3d((value) => !value)}>
-            {show3d ? 'Ocultar la vista 3D' : 'Ver en 3D alrededor de la pierna'}
+            {show3d
+              ? 'Ocultar la vista 3D'
+              : `Ver en 3D alrededor de ${LIMBS[limbOf(limbView.zone)].noun}`}
           </button>
           {show3d && (
-            <LegViewer3D
+            <LimbViewer3D
               designUrl={url(artifact.master.assetId)}
               size={artifact.size}
-              zone={legView.zone}
-              side={legView.side}
+              zone={limbView.zone}
+              side={limbView.side}
+              wraps={limbView.wraps}
             />
           )}
         </div>
@@ -408,34 +411,41 @@ export function TattooPreviewModal({
             también los detalles que no hayas pedido cambiar.
           </p>
           {consentControls}
-          <div className="coverage-controls">
-            <strong>Tamaño del tatuaje sobre la piel</strong>
-            <p>
-              «Más pequeño» y «Más grande» cambian solo la vista: las medidas del PDF no cambian.
-              «Ocupar toda la zona» sí ajusta las medidas de impresión a la zona del cuerpo, con
-              anatomía de referencia adulta que debes confirmar con tu tatuador. Ninguna de las tres
-              vuelve a dibujar el tatuaje.
-            </p>
-            <div>
-              <button
-                type="button"
-                disabled={editingDisabled}
-                onClick={() => onEdit('Reducir la cobertura del tatuaje sobre piel', 'smaller')}
-              >
-                Más pequeño
-              </button>
-              <button
-                type="button"
-                disabled={editingDisabled}
-                onClick={() => onEdit('Ampliar la cobertura del tatuaje sobre piel', 'larger')}
-              >
-                Más grande
-              </button>
-              <button type="button" disabled={editingDisabled} onClick={() => setConfirmZone(true)}>
-                Ocupar toda la zona
-              </button>
+          {/* TASK-0104: a sleeve already goes all the way round; its size is the limb's. */}
+          {!limbView?.wraps && (
+            <div className="coverage-controls">
+              <strong>Tamaño del tatuaje sobre la piel</strong>
+              <p>
+                «Más pequeño» y «Más grande» cambian solo la vista: las medidas del PDF no cambian.
+                «Ocupar toda la zona» sí ajusta las medidas de impresión a la zona del cuerpo, con
+                anatomía de referencia adulta que debes confirmar con tu tatuador. Ninguna de las
+                tres vuelve a dibujar el tatuaje.
+              </p>
+              <div>
+                <button
+                  type="button"
+                  disabled={editingDisabled}
+                  onClick={() => onEdit('Reducir la cobertura del tatuaje sobre piel', 'smaller')}
+                >
+                  Más pequeño
+                </button>
+                <button
+                  type="button"
+                  disabled={editingDisabled}
+                  onClick={() => onEdit('Ampliar la cobertura del tatuaje sobre piel', 'larger')}
+                >
+                  Más grande
+                </button>
+                <button
+                  type="button"
+                  disabled={editingDisabled}
+                  onClick={() => setConfirmZone(true)}
+                >
+                  Ocupar toda la zona
+                </button>
+              </div>
             </div>
-          </div>
+          )}
           <button
             className="btn-primary"
             type="submit"

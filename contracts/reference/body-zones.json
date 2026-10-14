@@ -112,5 +112,24 @@
     "medium": 0.68,
     "large": 1.0
   },
-  "scaleNotes": "Fraction of the zone span a qualitative size claims. 'large' fills the zone, which is what a whole-zone request already resolves to (ADR-0008)."
+  "scaleNotes": "Fraction of the zone span a qualitative size claims. 'large' fills the zone, which is what a whole-zone request already resolves to (ADR-0008).",
+  "wraps": {
+    "lower_leg": {
+      "zones": [
+        "calf",
+        "shin"
+      ],
+      "circumferenceMm": 344.0,
+      "lengthMm": 310.0
+    },
+    "forearm": {
+      "zones": [
+        "inner_forearm",
+        "outer_forearm"
+      ],
+      "circumferenceMm": 255.0,
+      "lengthMm": 215.0
+    }
+  },
+  "wrapNotes": "A sleeve goes all the way round a limb (TASK-0104, ADR-0034). Its design is the limb's skin unrolled: widthMm is the reference circumference where the limb is widest, heightMm the band from 40 mm above the ankle to 30 mm below the knee, or from 20 mm above the wrist to 30 mm below the elbow. Measured on the 3D preview's reference limbs (apps/web/scripts/build-limb-model.py); illustrative, not any individual's."
 }

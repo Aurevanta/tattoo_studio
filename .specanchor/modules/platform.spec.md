@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0104 (ADR-0034), `app/studio.py`: a sleeve is drawn, cleared of backdrop and has its seam repaired (stage `seam`): once, and again if `seamless` still reads a cut. It is then fitted to its proportions. `compose_sleeve` lays the design's middle half over the zone's plate. The result carries `sleeve_notice` («Manga completa…», and a line when the join may still show). The coverage controls refuse a sleeve with `SLEEVE_FIXED`.
+
 TASK-0100: an upload refused because the moderation provider has no credit says «El estudio no puede revisar imágenes ahora mismo. Inténtalo más tarde…» instead of retrying in seconds.
 
 TASK-0097 (ADR-0032): `app/shares.py` — `ShareLedger` (SHA-256 digest of a 24-byte token, 30 days, 20 open per account, revoke, forget on erasure) and `shared_design`/`shared_files`. Routes: `POST /studio/shares`, `GET /studio/shares/open/{job}`, `DELETE /studio/shares/{job}` (owner); `GET /studio/shares` and `/studio/shares/media/{asset}` with the service token and `X-Share-Token`, rebuilt from the stored job and validated against `shared-design`.

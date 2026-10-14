@@ -22,13 +22,14 @@ from app.settings import Settings, SettingsError
 from app.shares import ShareLedger, shared_design, shared_files
 from generation.bfl_studio import BflStudioProvider
 from generation.plate_library import PlateLibrary
+from generation.seam import fit_aspect, seamless
 from generation.studio import StudioProvider
 from jobs.client_messages import for_client
 from jobs.queue import JobQueue, designs_left
 from jobs.quota import Limits, QuotaExceededError, TurnLedger, day_start
 from media.sanitize import sanitize
 from media.store import AssetNotFoundError, EncryptedFileStore, RetentionClass
-from mockup.anatomy import ZONE_SPAN_MM, zone_size
+from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, zone_size
 from mockup.engine import DEFAULT_SURFACE, composite, visible_artwork, visible_size
 from mockup.geometry import BLEND_TOLERANCE, GeometryCheck
 from mockup.placement import Coverage, coverage_request, fit_coverage
@@ -86,6 +87,12 @@ NODE_STAGES = {
     "surface_warp": "placing",
 }
 
+#: TASK-0104: the coverage controls do not apply to a sleeve.
+SLEEVE_FIXED = (
+    "Una manga ya rodea toda la zona: su tamaño es el de la pierna o el antebrazo. Para cambiarla, "
+    "pide un cambio en el dibujo."
+)
+
 #: TASK-0090: said when the model drew something else twice, instead of delivering it.
 ARTWORK_MISREAD = (
     "El generador no ha dibujado el diseño como se pidió (dibujó un cuerpo o le faltaba el "
@@ -102,6 +109,25 @@ ZONE_NEEDS_CONTROL = (
     "Para que ocupe toda la zona hay que cambiar las medidas de impresión. Usa el botón «Ocupar "
     "toda la zona»: te dirá las medidas nuevas antes de aplicarlas."
 )
+
+
+def sleeve_notice(brief: dict[str, Any], seam_visible: bool) -> str:
+    """TASK-0104 (ADR-0034): what a sleeve's result is, in the client's words."""
+    limb = "un antebrazo" if "forearm" in brief["placement"]["bodyPart"] else "una pierna"
+    width, height = (
+        f"{brief['size'][axis] / 10:g}".replace(".", ",") for axis in ("widthMm", "heightMm")
+    )
+    return (
+        f"Manga completa: el diseño es la piel de {limb} de referencia desenrollada, "
+        f"de {width} por {height} cm; el mockup muestra la mitad que se ve de frente y la vista "
+        "3D, la vuelta entera. La plantilla es esa misma piel desenrollada a tamaño real. "
+        + (
+            "La junta donde se unen los dos bordes aún puede notarse: tu tatuador la cierra a "
+            "mano. "
+            if seam_visible
+            else ""
+        )
+    )
 
 
 def resizes_print(edit: dict[str, Any] | None) -> bool:
@@ -220,6 +246,8 @@ class _StudioGenerationDeps:
         self.coverage = coverage
         self.zone = zone
         self.payload = payload
+        #: TASK-0104: whether a sleeve's join still read as a cut after its repairs.
+        self.seam_visible = False
 
     def make_artwork(self, state: PipelineState) -> bytes:
         brief = state.brief
@@ -252,7 +280,23 @@ class _StudioGenerationDeps:
             native = self.reviewed(state, native, edited_native is not None)
         # TASK-0089: a backdrop the model painted behind the design would be tattooed as a panel
         # and traced into the stencil. It is turned to white before anything is built on it.
-        return clear_backdrop(native)
+        native = clear_backdrop(native)
+        if is_sleeve(brief):
+            native = self.sleeve(brief, native)
+        return native
+
+    def sleeve(self, brief: dict[str, Any], native: bytes) -> bytes:
+        """TASK-0104 (ADR-0034): a sleeve's edges meet on the skin, so its seam is redrawn.
+
+        One repair always; a second only when the join still reads as a cut. A join that still
+        shows after that ships, and the result says so: the tattooer closes it by hand.
+        """
+        self.studio.jobs.stage("seam")
+        repaired = self.studio.provider.repair_seam(brief, native)
+        if not seamless(repaired):
+            repaired = self.studio.provider.repair_seam(brief, repaired)
+        self.seam_visible = not seamless(repaired)
+        return fit_aspect(repaired, brief["size"]["widthMm"], brief["size"]["heightMm"])
 
     def reviewed(self, state: PipelineState, native: bytes, edited: bool) -> bytes:
         """TASK-0090: the artwork is what was asked, or it is drawn once more with a correction.
@@ -320,6 +364,8 @@ class _StudioGenerationDeps:
     ) -> tuple[bytes, dict[str, Any]]:
         payload, brief = self.payload, state.brief
         body_part = brief["placement"]["bodyPart"]
+        if is_sleeve(brief):
+            return self.compose_sleeve(raster, background, brief)
         auto_placed = (
             not payload.get("placement")
             and not payload.get("bodyPhotoId")
@@ -365,6 +411,33 @@ class _StudioGenerationDeps:
             # Read from the photograph, so it suits a back or a chest as readily as a limb.
             surface=DEFAULT_SURFACE,
             # TASK-0039: centred on, tapered with and kept on the body actually photographed.
+            fit_body=True,
+        )
+
+    def compose_sleeve(
+        self, raster: Any, background: bytes, brief: dict[str, Any]
+    ) -> tuple[bytes, dict[str, Any]]:
+        """TASK-0104: on a photograph only the half of a sleeve facing the camera shows.
+
+        The sleeve's design is centred on the zone's own side (the back of the calf, the front of
+        the shin, the palm side or the back of the forearm), which is the side the plate is seen
+        from. Its middle half, half the circumference wide, is laid over the zone; the 3D view
+        shows the whole turn. Nothing of the artwork is redrawn (MOCKUP-INV-001).
+        """
+        width, height = raster.size
+        visible = raster.crop((width // 4, 0, width - width // 4, height))
+        size = {"widthMm": brief["size"]["widthMm"] / 2, "heightMm": brief["size"]["heightMm"]}
+        body_part = brief["placement"]["bodyPart"]
+        self.payload["placement"] = fit_coverage(background, size, "full", body_part=body_part)
+        return composite(
+            visible,
+            background,
+            size,
+            self.payload["placement"],
+            fresh=True,
+            curvature=1.05,
+            taper=0.25 if body_part == "calf" else 0,
+            surface=DEFAULT_SURFACE,
             fit_body=True,
         )
 
@@ -743,6 +816,7 @@ class Studio:
                 else "Propuesta de contornos negros. "
             )
             + (FINISH_NOTICE if state.blended else "")
+            + (sleeve_notice(brief, deps.seam_visible) if is_sleeve(brief) else "")
             + "Simulación de tinta reciente; curvatura aproximada en extremidades, "
             "no reconstrucción anatómica. "
             "Visualización ilustrativa. Revisa los símbolos y el trazo con "
@@ -850,8 +924,12 @@ class Studio:
         A parent stored before TASK-0024 has no vector master, so it keeps its millimetres rather
         than letting the brief and the stencil disagree.
         """
-        self.jobs.stage("placing")
         brief = payload["brief"]
+        if is_sleeve(brief):
+            # TASK-0104: a sleeve already goes all the way round; there is nothing to enlarge,
+            # shrink or fill, and its 2D view is always its visible half.
+            raise ValueError(SLEEVE_FIXED)
+        self.jobs.stage("placing")
         body_part = brief["placement"]["bodyPart"]
         previous = dict(payload.get("placement") or {})
         with Image.open(io.BytesIO(background)) as image:

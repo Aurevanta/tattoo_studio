@@ -1,12 +1,12 @@
 /**
- * The 3D scene of the leg preview (TASK-0102, ADR-0033): a reference lower leg the client turns
- * round, with the design laid on its skin in true millimetres.
+ * The 3D scene of the limb preview (TASK-0102, TASK-0103, ADR-0033): a reference lower leg or
+ * forearm the client turns round, with the design laid on its skin in true millimetres.
  *
  * Loaded only in the browser, on demand, so three.js stays out of every other page's bundle. It
  * reads the model and the design's own master (same origin) and sends nothing anywhere: no
  * photograph is involved and no provider is called.
  *
- * The ink is the shader's version of `designCoordinate` (leg-wrap.ts) and the same multiply the 2D
+ * The ink is the shader's version of `designCoordinate` (limb-wrap.ts) and the same multiply the 2D
  * mockup uses: the design is sampled, never redrawn (MOCKUP-INV-001).
  */
 import {
@@ -31,22 +31,22 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
-  readLegModel,
+  LIMBS,
+  readLimbModel,
   SKIN_TONES,
-  type LegModel,
-  type LegPlacement,
-  type LegSide,
+  type Limb,
+  type LimbModel,
+  type LimbPlacement,
+  type LimbSide,
   type SkinTone,
-} from './leg-wrap';
+} from './limb-wrap';
 
-export const LEG_MODEL_URL = '/models/lower-leg.glb';
-
-export interface LegScene {
-  model: LegModel;
-  setPlacement(placement: LegPlacement): void;
-  setSide(side: LegSide): void;
+export interface LimbScene {
+  model: LimbModel;
+  setPlacement(placement: LimbPlacement): void;
+  setSide(side: LimbSide): void;
   setTone(tone: SkinTone): void;
-  /** Turn the camera to look at this fraction around the leg (0 front, 0.25 outside…). */
+  /** Turn the camera to look at this fraction around the limb (see `LIMBS[limb].views`). */
   view(around: number): void;
   dispose(): void;
 }
@@ -104,11 +104,12 @@ const FRAGMENT_INK = /* glsl */ `
 }
 `;
 
-export async function createLegScene(
+export async function createLimbScene(
   container: HTMLElement,
+  limb: Limb,
   designUrl: string,
-  initial: { placement: LegPlacement; side: LegSide; tone: SkinTone },
-): Promise<LegScene> {
+  initial: { placement: LimbPlacement; side: LimbSide; tone: SkinTone },
+): Promise<LimbScene> {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = SRGBColorSpace;
@@ -136,13 +137,14 @@ export async function createLegScene(
 
   let gltf: GLTF;
   let design: Texture;
-  let model: LegModel;
+  let model: LimbModel;
   try {
     [gltf, design] = await Promise.all([
-      new GLTFLoader().loadAsync(LEG_MODEL_URL),
+      new GLTFLoader().loadAsync(LIMBS[limb].model),
       new TextureLoader().loadAsync(designUrl),
     ]);
-    model = readLegModel(gltf.scene.userData);
+    model = readLimbModel(gltf.scene.userData);
+    if (model.limb !== limb) throw new Error(`Expected the ${limb} model.`);
   } catch (error) {
     // Nothing is left behind when the model or the design does not load.
     controls.dispose();
@@ -176,12 +178,12 @@ export async function createLegScene(
       );
   };
 
-  let leg: Mesh | undefined;
+  let mesh: Mesh | undefined;
   gltf.scene.traverse((node) => {
-    if (node instanceof Mesh && !leg) leg = node;
+    if (node instanceof Mesh && !mesh) mesh = node;
   });
-  if (!leg) throw new Error('The leg model has no mesh.');
-  leg.material = skin;
+  if (!mesh) throw new Error('The limb model has no mesh.');
+  mesh.material = skin;
   scene.add(gltf.scene);
 
   const bounds = new Box3().setFromObject(gltf.scene);
@@ -191,8 +193,8 @@ export async function createLegScene(
   const setTone = (tone: SkinTone) => {
     skin.color = new Color(SKIN_TONES.find((t) => t.key === tone)!.colour);
   };
-  const setSide = (side: LegSide) => {
-    // The right leg is the left one mirrored; the design is mirrored back so it reads correctly.
+  const setSide = (side: LimbSide) => {
+    // The right limb is the left one mirrored; the design is mirrored back so it reads correctly.
     gltf.scene.scale.x = side === 'left' ? 1 : -1;
     uniforms.uMirror.value = side === 'left' ? 1 : -1;
   };
@@ -203,7 +205,7 @@ export async function createLegScene(
   const view = (around: number) => {
     const side = gltf.scene.scale.x;
     const angle = around * Math.PI * 2;
-    // around 0 faces +Z, 0.25 the outside (+X on the left leg, −X on the right).
+    // around 0 faces +Z, 0.25 faces +X on the left limb and −X on the right.
     camera.position.set(
       centre.x + Math.sin(angle) * distance * side,
       centre.y + 60,
@@ -217,7 +219,7 @@ export async function createLegScene(
     const height = Math.max(1, container.clientHeight);
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
-    // Keep the whole leg in frame however narrow the screen.
+    // Keep the whole limb in frame however narrow the screen.
     const fit = (bounds.max.y - bounds.min.y) * 0.62;
     const vertical = (camera.fov * Math.PI) / 360;
     const needed = fit / Math.tan(vertical) / Math.min(1, camera.aspect * 1.6);
@@ -253,7 +255,7 @@ export async function createLegScene(
       controls.dispose();
       design.dispose();
       skin.dispose();
-      leg?.geometry.dispose();
+      mesh?.geometry.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },

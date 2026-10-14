@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 
 import httpx2
 from PIL import Image
+from tattoo_contracts.sleeve import is_sleeve
 
+from generation.seam import keep_outside_band, roll_half, seam_mask
 from safety.openai_moderation import (
     ModerationExhaustedError,
     OpenAIModerationProvider,
@@ -76,6 +78,39 @@ ISOLATED_DESIGN = (
     "skin or a photograph of one: the design is placed on the body later by another step. The "
     "placement in the brief only tells you the shape and proportions of the area to fill. "
 )
+
+#: TASK-0104 (ADR-0034): a sleeve is drawn as the limb's skin unrolled flat.
+SLEEVE_DESIGN = (
+    "This design is a SLEEVE that goes all the way round the limb: the image is the limb's skin "
+    "unrolled flat, its width the whole circumference. Spread the composition across the FULL "
+    "width, edge to edge, with no empty margins at the left or right. The left and right edges "
+    "are the same line on the skin: everything that reaches the right edge must continue at the "
+    "left edge with the same shape, height and colour, so the design runs on seamlessly round the "
+    "limb. Keep the design's main motif near the middle of the image. Bare skin is pure white, as "
+    "elsewhere; it may separate the elements, but the design must still be continuous at the "
+    "edges. "
+)
+
+#: TASK-0104: the instruction for the band where a sleeve's two edges meet.
+SEAM_REPAIR = (
+    "This is a tattoo sleeve design unrolled flat. A vertical band down the middle of the image "
+    "is where its two edges meet on the skin, and it shows a visible join. Redraw ONLY that band "
+    "so every line, shape, shade and colour coming from the left continues smoothly into the "
+    "right, in the same style. Do not change anything outside the band, add text, or draw skin, "
+    "a limb or a background. Bare skin stays pure white."
+)
+
+#: A sleeve is drawn on a square canvas: its proportions (circumference by length, about 1.1 to
+#: 1.2) are nearest a square, and the excess is cut from the top and bottom, never the width.
+SLEEVE_CANVAS = "1024x1024"
+
+
+def canvas(brief: dict[str, Any]) -> str:
+    """The image size a design is drawn at."""
+    if is_sleeve(brief):
+        return SLEEVE_CANVAS
+    return "1536x1024" if brief["size"]["widthMm"] > brief["size"]["heightMm"] else "1024x1536"
+
 
 ARTWORK_CHECK_PROMPT = (
     "You review a tattoo design before it is used. Answer ONLY a JSON object, no prose, in "
@@ -363,6 +398,7 @@ class StudioProvider:
         prompt = (
             treatment
             + ISOLATED_DESIGN
+            + (SLEEVE_DESIGN if is_sleeve(brief) else "")
             + guidance
             + direction
             + (
@@ -394,9 +430,7 @@ class StudioProvider:
         request = {
             "model": self.image_model,
             "prompt": prompt,
-            "size": "1536x1024"
-            if brief["size"]["widthMm"] > brief["size"]["heightMm"]
-            else "1024x1536",
+            "size": canvas(brief),
             "quality": "high",
             "n": "1",
         }
@@ -476,9 +510,7 @@ class StudioProvider:
                     "model": self.image_model,
                     "quality": "high",
                     "n": "1",
-                    "size": "1536x1024"
-                    if brief["size"]["widthMm"] > brief["size"]["heightMm"]
-                    else "1024x1536",
+                    "size": canvas(brief),
                     "prompt": self.edit_prompt(instruction, rendered=rendered, attached=attached),
                 },
                 files=[("image[]", ("accepted-master.png", master, "image/png"))]
@@ -489,6 +521,37 @@ class StudioProvider:
             )
             call.read(response)
         return self.image_bytes(response)
+
+    def repair_seam(self, brief: dict[str, Any], artwork: bytes) -> bytes:
+        """TASK-0104 (ADR-0034): redraw the band where a sleeve's two edges meet.
+
+        The design is turned half way round so its edges meet in the middle, the editor redraws a
+        narrow band there through a mask, and only that band is taken from its answer. Turned back,
+        the composition the client saw is in the middle again and the join is continuous. One paid
+        edit; the worker decides whether a second one is worth it.
+        """
+        rolled = roll_half(artwork)
+        with Image.open(io.BytesIO(rolled)) as image:
+            width, height = image.size
+        with provider_call("openai", "seam", self.image_model) as call:
+            response = self.client.post(
+                "https://api.openai.com/v1/images/edits",
+                headers={"Authorization": f"Bearer {self.key}"},
+                data={
+                    "model": self.image_model,
+                    "prompt": SEAM_REPAIR,
+                    "size": canvas(brief),
+                    "quality": "high",
+                    "n": "1",
+                },
+                files=[
+                    ("image[]", ("sleeve.png", rolled, "image/png")),
+                    ("mask", ("seam-mask.png", seam_mask(width, height), "image/png")),
+                ],
+            )
+            call.read(response)
+        repaired = keep_outside_band(rolled, self.image_bytes(response))
+        return roll_half(repaired, back=True)
 
     @staticmethod
     def edit_prompt(instruction: str, *, rendered: bool, attached: int = 0) -> str:

@@ -1,4 +1,12 @@
-import { BODY_ZONE_SPANS, SIZE_SCALES, type BodyPart, type StyleName } from '@tattoo/contracts';
+import {
+  BODY_ZONE_SPANS,
+  isSleeve,
+  SIZE_SCALES,
+  wrapRegionOf,
+  wrapSize,
+  type BodyPart,
+  type StyleName,
+} from '@tattoo/contracts';
 import type { ConsultationSlots } from '../types';
 
 const normal = (text: string) =>
@@ -42,6 +50,36 @@ export const BODY_OPTIONS: Partial<Record<BodyPart, string>> = {
   neck: 'Cuello',
   foot: 'Pie',
 };
+
+/** «Estilo manga», «dibujos manga», «anime»: the comic style, not a sleeve. */
+const COMIC_MANGA =
+  /\b(?:estilo|tipo|dibujos?|personajes?|comics?|comic) (?:de )?manga\b|\bmanga y anime\b|\banime\b/;
+const LEG_SLEEVE =
+  /de (?:la )?rodilla (?:al|hasta el) tobillo|del tobillo (?:a|hasta) la rodilla|toda la pierna|pierna (?:entera|completa)|(?:alrededor|la vuelta) (?:de|a) (?:la |mi |toda la )?(?:pierna|pantorrilla|gemelo|espinilla)|manga (?:de|en) (?:la |mi )?pierna|leg sleeve/;
+const FOREARM_SLEEVE =
+  /del codo (?:a|hasta) la muneca|de la muneca (?:al|hasta el) codo|todo el antebrazo|antebrazo (?:entero|completo)|(?:alrededor|la vuelta) (?:del|al|de mi|a mi|de todo el) antebrazo|manga (?:de|en) (?:el |mi )?antebrazo|forearm sleeve/;
+const ANY_SLEEVE = /\bmanga\b|\bsleeve\b|envolvente|que (?:rodee|envuelva|de la vuelta)|\b360\b/;
+
+/**
+ * The limb a client asks a sleeve for, in their own words (TASK-0104, ADR-0034): «una manga de
+ * rodilla a tobillo», «todo el antebrazo», «que rodee el gemelo». A bare «manga» counts when the
+ * zone already says which limb. «Estilo manga» is the comic style and never a sleeve, and the
+ * upper arm has no sleeve yet.
+ */
+export function sleeveLimb(
+  text: string,
+  bodyPart: BodyPart | undefined,
+): 'leg' | 'forearm' | undefined {
+  const plain = text.replace(COMIC_MANGA, ' ');
+  if (LEG_SLEEVE.test(plain)) return 'leg';
+  if (FOREARM_SLEEVE.test(plain)) return 'forearm';
+  if (!ANY_SLEEVE.test(plain)) return undefined;
+  if (/\bpierna|gemelo|pantorrilla|espinilla/.test(plain)) return 'leg';
+  if (/antebrazo/.test(plain)) return 'forearm';
+  const region = wrapRegionOf(bodyPart);
+  if (!region) return undefined;
+  return region.zones.includes('calf') ? 'leg' : 'forearm';
+}
 
 /** Extract only explicit preferences. Technical defaults are visible in the brief. */
 export function extractPreferences(input: string, existing: ConsultationSlots): ConsultationSlots {
@@ -108,6 +146,18 @@ export function extractPreferences(input: string, existing: ConsultationSlots): 
     slots.placement = { ...slots.placement, side: 'centre' };
   if (/horizontal/.test(text)) slots.placement = { ...slots.placement, orientation: 'horizontal' };
   else if (/vertical/.test(text)) slots.placement = { ...slots.placement, orientation: 'vertical' };
+  // TASK-0104 (ADR-0034): a sleeve wraps its limb, on the zone of that limb the client named or
+  // its usual one (the calf, the outer forearm).
+  const sleeve = sleeveLimb(text, slots.placement?.bodyPart);
+  if (sleeve) {
+    const zone = slots.placement?.bodyPart;
+    const fits = wrapRegionOf(zone)?.zones.includes(sleeve === 'leg' ? 'calf' : 'outer_forearm');
+    slots.placement = {
+      ...slots.placement,
+      bodyPart: fits ? zone : sleeve === 'leg' ? 'calf' : 'outer_forearm',
+      orientation: 'wrapping',
+    };
+  }
   // TASK-0039: "parte en blanco y negro y el resto en color" names both, and means both. Reading
   // the first cue alone recorded black and grey as the client's word, which then overrode the
   // architect and made the worker desaturate the whole design. A negated cue ("sin color") is not
@@ -125,9 +175,12 @@ export function extractPreferences(input: string, existing: ConsultationSlots): 
   // proposal replaced the client's measurement. One stated dimension is kept as theirs; the other
   // is proposed, never invented as if they had said it.
   const size = statedSize(text);
-  if (size?.widthMm && size.heightMm) slots.size = size;
+  // TASK-0104: a sleeve's size is its limb's skin unrolled, not a size the client picks.
+  const sleeveSize = sleeve ? wrapSize(slots.placement?.bodyPart) : undefined;
+  if (sleeveSize) slots.size = { ...sleeveSize };
+  else if (size?.widthMm && size.heightMm) slots.size = size;
   else if (size) slots.size = { ...size, proposed: true };
-  else {
+  else if (!isSleeve(slots.placement, slots.size)) {
     // TASK-0027: a qualitative size resolves against the zone, because "grande" on a wrist and
     // "grande" on a back are not the same tattoo. An explicit measurement always wins.
     const scaled = qualitativeSize(text, slots.placement?.bodyPart);

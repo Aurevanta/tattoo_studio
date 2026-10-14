@@ -136,6 +136,51 @@ export const BODY_ZONE_SPANS: Readonly<Record<string, BodyZoneSpan>> = bodyZones
 export const SIZE_SCALES: Readonly<Record<string, number>> = bodyZones.scales;
 
 /**
+ * A sleeve: a design that goes all the way round a limb (TASK-0104, ADR-0034). Its size is the
+ * limb's skin unrolled, the reference circumference by the band's length, in mm.
+ */
+export interface WrapRegion {
+  zones: readonly string[];
+  circumferenceMm: number;
+  lengthMm: number;
+}
+
+export const WRAP_REGIONS: Readonly<Record<string, WrapRegion>> = bodyZones.wraps;
+
+/** The sleeve region a zone belongs to, if a design there can go all the way round. */
+export function wrapRegionOf(bodyPart: string | undefined | null): WrapRegion | undefined {
+  return Object.values(WRAP_REGIONS).find((region) => region.zones.includes(bodyPart ?? ''));
+}
+
+/** The size of a sleeve on this zone: circumference by length, or undefined where none fits. */
+export function wrapSize(
+  bodyPart: string | undefined | null,
+): { widthMm: number; heightMm: number } | undefined {
+  const region = wrapRegionOf(bodyPart);
+  return region ? { widthMm: region.circumferenceMm, heightMm: region.lengthMm } : undefined;
+}
+
+/** A design this much of the way round the limb or more is a sleeve, not a band. */
+export const SLEEVE_SHARE = 0.9;
+
+/**
+ * Whether a brief asks for a sleeve: wrapping, on a zone that can wrap, and wide enough to go
+ * round. A band "alrededor del tobillo" is wrapping too, but a narrow one; it is drawn as any
+ * other design. The worker applies the same rule (`mockup.anatomy.is_sleeve`).
+ */
+export function isSleeve(
+  placement: { bodyPart?: string | undefined; orientation?: string | undefined } | undefined,
+  size: { widthMm?: number | undefined } | undefined,
+): boolean {
+  const region = wrapRegionOf(placement?.bodyPart);
+  return Boolean(
+    region &&
+    placement?.orientation === 'wrapping' &&
+    (size?.widthMm ?? 0) >= SLEEVE_SHARE * region.circumferenceMm,
+  );
+}
+
+/**
  * Style catalogue (TASK-0028, ADR-0012). `phrase` is the visual-characteristics string used both
  * to generate the catalogue image and to describe the style to a client, held once so the two
  * cannot drift. Variants describe what a sub-family looks like, never who makes it.

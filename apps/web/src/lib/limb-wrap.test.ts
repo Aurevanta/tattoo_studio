@@ -4,28 +4,40 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  band,
   defaultPlacement,
   designCoordinate,
   heightRange,
-  isLegZone,
+  isLimbZone,
+  limbOf,
   nearestView,
   perimeterAt,
-  readLegModel,
+  readLimbModel,
+  sleeveNote,
   wrapFraction,
-  type LegModel,
-  type LegPlacement,
-} from './leg-wrap';
+  type LimbModel,
+  type LimbPlacement,
+} from './limb-wrap';
 
-// TASK-0102: the maths the 3D preview's shader runs, and the reference leg it runs on.
+// TASK-0102, TASK-0103: the maths the 3D preview's shader runs, and the reference limbs it runs on.
 
-const model: LegModel = {
-  kneeMm: 380,
+const model: LimbModel = {
+  limb: 'leg',
+  proximalMm: 380,
   topMm: 450,
-  soleMm: -72,
-  calfMm: 265,
-  circumferenceMm: { belowKnee: 330, calf: 344, ankle: 204 },
+  endMm: -72,
+  bellyMm: 265,
+  circumferenceMm: { proximal: 330, belly: 344, distal: 204, distalAtMm: 60 },
 };
-const back: LegPlacement = { around: 0.5, heightMm: 250, widthMm: 80, lengthMm: 150 };
+const forearm: LimbModel = {
+  limb: 'forearm',
+  proximalMm: 226,
+  topMm: 286,
+  endMm: -168,
+  bellyMm: 181,
+  circumferenceMm: { proximal: 217, belly: 218, distal: 136, distalAtMm: 30 },
+};
+const back: LimbPlacement = { around: 0.5, heightMm: 250, widthMm: 80, lengthMm: 150 };
 
 describe('where a point of skin samples the design (TASK-0102/AC-002)', () => {
   it('puts the design centre at its placement', () => {
@@ -67,6 +79,29 @@ describe('where a point of skin samples the design (TASK-0102/AC-002)', () => {
   });
 });
 
+describe('what the summary says of a sleeve (TASK-0104)', () => {
+  it('says it goes round, its size and that it counts as two designs', () => {
+    const leg = sleeveNote(
+      { bodyPart: 'calf', orientation: 'wrapping' },
+      { widthMm: 344, heightMm: 310 },
+    );
+    expect(leg).toContain('la pierna entera');
+    expect(leg).toContain('34,4 × 31 cm');
+    expect(leg).toContain('2 diseños');
+    const arm = sleeveNote(
+      { bodyPart: 'outer_forearm', orientation: 'wrapping' },
+      { widthMm: 255, heightMm: 215 },
+    );
+    expect(arm).toContain('el antebrazo entero');
+  });
+
+  it('says nothing of a band or of an ordinary design', () => {
+    expect(sleeveNote({ bodyPart: 'calf', orientation: 'wrapping' }, { widthMm: 120 })).toBeNull();
+    expect(sleeveNote({ bodyPart: 'calf', orientation: 'vertical' }, { widthMm: 344 })).toBeNull();
+    expect(sleeveNote(undefined, undefined)).toBeNull();
+  });
+});
+
 describe('where a design starts', () => {
   it('puts a calf piece on the back of the calf, a shin piece in front', () => {
     expect(defaultPlacement('calf', model, { widthMm: 80, heightMm: 150 })).toMatchObject({
@@ -81,7 +116,7 @@ describe('where a design starts', () => {
     const tall = defaultPlacement('calf', model, { widthMm: 80, heightMm: 300 });
     const range = heightRange(model, 300);
     expect(tall.heightMm).toBeLessThanOrEqual(range.max);
-    expect(tall.heightMm + 150).toBeLessThanOrEqual(model.kneeMm - 30 + 1e-9);
+    expect(tall.heightMm + 150).toBeLessThanOrEqual(model.proximalMm - 30 + 1e-9);
     expect(tall.heightMm - 150).toBeGreaterThanOrEqual(40 - 1e-9);
   });
 
@@ -90,29 +125,58 @@ describe('where a design starts', () => {
     expect(range.min).toBe(range.max);
   });
 
-  it('names the nearest view and the zones it covers', () => {
-    expect(nearestView(0.27).key).toBe('outside');
-    expect(nearestView(0.97).key).toBe('front');
-    expect(isLegZone('calf')).toBe(true);
-    expect(isLegZone('inner_forearm')).toBe(false);
-    expect(isLegZone(undefined)).toBe(false);
+  it('names the nearest view and the zones it covers (TASK-0103)', () => {
+    expect(nearestView('leg', 0.27).key).toBe('outside');
+    expect(nearestView('leg', 0.97).key).toBe('front');
+    expect(nearestView('forearm', 0.52).label).toBe('Exterior');
+    expect(isLimbZone('calf')).toBe(true);
+    expect(isLimbZone('inner_forearm')).toBe(true);
+    expect(isLimbZone('upper_arm_outer')).toBe(false);
+    expect(isLimbZone('constructor')).toBe(false);
+    expect(isLimbZone(undefined)).toBe(false);
+    expect(limbOf('outer_forearm')).toBe('forearm');
+    expect(limbOf('shin')).toBe('leg');
+  });
+
+  it('starts a forearm piece on its own side, between the wrist and the elbow (TASK-0103)', () => {
+    const inner = defaultPlacement('inner_forearm', forearm, { widthMm: 60, heightMm: 120 });
+    const outer = defaultPlacement('outer_forearm', forearm, { widthMm: 60, heightMm: 120 });
+    expect(inner.around).toBe(0);
+    expect(outer.around).toBe(0.5);
+    expect(inner.heightMm - 60).toBeGreaterThanOrEqual(20 - 1e-9);
+    expect(inner.heightMm + 60).toBeLessThanOrEqual(226 - 30 + 1e-9);
+  });
+
+  it('centres a design that goes all the way round on the band (TASK-0104)', () => {
+    const sleeve = defaultPlacement('calf', model, { widthMm: 344, heightMm: 300 }, true);
+    const { low, high } = band(model);
+    expect(sleeve.heightMm).toBeCloseTo((low + high) / 2, 6);
+    expect(sleeve.around).toBe(0.5);
   });
 
   it('interpolates the perimeter between the measured heights', () => {
+    expect(perimeterAt(forearm, 10)).toBe(136);
     expect(perimeterAt(model, 0)).toBe(204);
     expect(perimeterAt(model, 265)).toBe(344);
     expect(perimeterAt(model, 1000)).toBe(330);
   });
 
   it('refuses a model without its measurements', () => {
-    expect(() => readLegModel({})).toThrow();
-    expect(() => readLegModel({ ...model, kneeMm: 'x' })).toThrow();
+    expect(() => readLimbModel({})).toThrow();
+    expect(() => readLimbModel({ ...model, proximalMm: 'x' })).toThrow();
+    expect(() => readLimbModel({ ...model, limb: 'arm' })).toThrow();
   });
 });
 
-describe('the reference leg model (TASK-0102/AC-001)', () => {
+// An adult reference limb: proximal joint, widest and distal circumferences, mm (TASK-0103/AC-001).
+const ADULT = {
+  leg: { file: 'lower-leg.glb', length: [300, 450], belly: [280, 450], distal: [170, 280] },
+  forearm: { file: 'forearm.glb', length: [200, 300], belly: [180, 320], distal: [120, 200] },
+} as const;
+
+describe.each(Object.entries(ADULT))('the reference %s model (TASK-0102/AC-001)', (limb, adult) => {
   const glb = readFileSync(
-    fileURLToPath(new URL('../../public/models/lower-leg.glb', import.meta.url)),
+    fileURLToPath(new URL(`../../public/models/${adult.file}`, import.meta.url)),
   );
   const jsonLength = glb.readUInt32LE(12);
   const gltf = JSON.parse(glb.subarray(20, 20 + jsonLength).toString('utf8')) as {
@@ -136,34 +200,34 @@ describe('the reference leg model (TASK-0102/AC-001)', () => {
 
   it('carries its measurements, its licence and the attributes the shader reads', () => {
     const extras = gltf.scenes[0]!.extras as { licence: string; source: string };
-    const leg = readLegModel(extras);
+    const leg = readLimbModel(extras);
+    expect(leg.limb).toBe(limb);
     expect(extras.licence).toBe('CC0 1.0 Universal');
     expect(extras.source).toContain('MakeHuman');
     expect(Object.keys(attributes).sort()).toEqual(
       ['NORMAL', 'POSITION', '_HEIGHT', '_PERIM', '_RING'].sort(),
     );
-    // An adult lower leg: knee 30–45 cm above the ankle, calf 28–45 cm round, ankle 17–28 cm.
-    expect(leg.kneeMm).toBeGreaterThan(300);
-    expect(leg.kneeMm).toBeLessThan(450);
-    expect(leg.circumferenceMm.calf).toBeGreaterThan(280);
-    expect(leg.circumferenceMm.calf).toBeLessThan(450);
-    expect(leg.circumferenceMm.ankle).toBeGreaterThan(170);
-    expect(leg.circumferenceMm.ankle).toBeLessThan(280);
+    expect(leg.proximalMm).toBeGreaterThan(adult.length[0]);
+    expect(leg.proximalMm).toBeLessThan(adult.length[1]);
+    expect(leg.circumferenceMm.belly).toBeGreaterThan(adult.belly[0]);
+    expect(leg.circumferenceMm.belly).toBeLessThan(adult.belly[1]);
+    expect(leg.circumferenceMm.distal).toBeGreaterThan(adult.distal[0]);
+    expect(leg.circumferenceMm.distal).toBeLessThan(adult.distal[1]);
   });
 
   it('gives every vertex a unit ring vector and the perimeter of its height', () => {
     const ring = read(attributes._RING!, 2);
     const perim = read(attributes._PERIM!, 1);
     const height = read(attributes._HEIGHT!, 1);
-    const leg = readLegModel(gltf.scenes[0]!.extras);
+    const leg = readLimbModel(gltf.scenes[0]!.extras);
     for (let i = 0; i < perim.length; i++) {
       expect(Math.hypot(ring[2 * i]!, ring[2 * i + 1]!)).toBeCloseTo(1, 4);
-      if (Math.abs(height[i]! - leg.calfMm) < 2)
-        expect(perim[i]! / leg.circumferenceMm.calf).toBeCloseTo(1, 1);
+      if (Math.abs(height[i]! - leg.bellyMm) < 2)
+        expect(perim[i]! / leg.circumferenceMm.belly).toBeCloseTo(1, 1);
     }
   });
 
-  it('agrees with an independent slice of its own surface at the calf', () => {
+  it('agrees with an independent slice of its own surface where it is widest', () => {
     // Slice the triangles at the calf height and measure the outline, sorted by angle.
     const position = read(attributes.POSITION!, 3);
     const indexAccessor = gltf.accessors[gltf.meshes[0]!.primitives[0]!.indices]!;
@@ -175,8 +239,8 @@ describe('the reference leg model (TASK-0102/AC-001)', () => {
     const copy = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
     const index =
       indexAccessor.componentType === 5123 ? new Uint16Array(copy) : new Uint32Array(copy);
-    const leg = readLegModel(gltf.scenes[0]!.extras);
-    const h = leg.calfMm;
+    const leg = readLimbModel(gltf.scenes[0]!.extras);
+    const h = leg.bellyMm;
     const points: [number, number][] = [];
     for (let t = 0; t < indexAccessor.count; t += 3) {
       for (const [a, b] of [
@@ -203,8 +267,8 @@ describe('the reference leg model (TASK-0102/AC-001)', () => {
       const [x1, z1] = points[(i + 1) % points.length]!;
       perimeter += Math.hypot(x1 - x0, z1 - z0);
     }
-    expect(Math.abs(perimeter - leg.circumferenceMm.calf) / leg.circumferenceMm.calf).toBeLessThan(
-      0.005,
-    );
+    expect(
+      Math.abs(perimeter - leg.circumferenceMm.belly) / leg.circumferenceMm.belly,
+    ).toBeLessThan(0.005);
   });
 });

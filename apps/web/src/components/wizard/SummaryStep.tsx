@@ -55,6 +55,7 @@ export function SummaryStep({
   working,
   error,
   quotaNote,
+  sleeve,
   outOfDesigns = false,
   onChange,
   onOwnPhoto,
@@ -72,6 +73,8 @@ export function SummaryStep({
   error?: string;
   /** What is left today (TASK-0095); `outOfDesigns` when nothing is. */
   quotaNote?: string | null;
+  /** TASK-0104: said before a sleeve is drawn (`sleeveNote`). */
+  sleeve?: string | null;
   outOfDesigns?: boolean;
   onChange: (patch: Partial<SummaryValues>) => void;
   onOwnPhoto: (file: File) => void;
@@ -207,6 +210,7 @@ export function SummaryStep({
           : 'Sin referencias: el diseño parte de la descripción. '}
         Al pulsar «Esto es lo que quiero» aceptas este resumen y empezamos a diseñar.
       </p>
+      {sleeve && <p className="small-note sleeve-note">{sleeve}</p>}
       {quotaNote && (
         <p className={outOfDesigns ? 'quota-note quota-note-out' : 'quota-note'}>{quotaNote}</p>
       )}

@@ -13,9 +13,9 @@ export type StudioJobStatus = {
   result: GeneratedTattooArtifact | null;
   error: string | null;
   /**
-   * TASK-0076 (audit UX-03): the pipeline step a running job is in, as the worker reports it. Absent when unknown.
+   * TASK-0076 (audit UX-03): the pipeline step a running job is in, as the worker reports it. Absent when unknown. `seam` (TASK-0104) is a sleeve's join being redrawn.
    */
-  stage?: 'references' | 'skin' | 'drawing' | 'stencil' | 'placing' | 'finishing';
+  stage?: 'references' | 'skin' | 'drawing' | 'seam' | 'stencil' | 'placing' | 'finishing';
   /**
    * TASK-0076: for a queued job, how many jobs (including it) are ahead in the studio's queue.
    */

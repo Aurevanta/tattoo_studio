@@ -13,10 +13,12 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
+from tattoo_contracts.sleeve import is_sleeve
 from tattoo_contracts.validation import validate
 
 from jobs.client_messages import GENERIC, for_client
 from jobs.quota import (
+    SLEEVE_NEEDS_TWO,
     STUDIO_FULL,
     Limits,
     QuotaExceededError,
@@ -41,6 +43,17 @@ def billable_job(payload: dict[str, Any]) -> bool:
     return not (
         edit.get("coverage") and edit.get("mode") == "placement" and not edit.get("referenceIds")
     )
+
+
+def design_cost(payload: dict[str, Any]) -> int:
+    """How many designs a job counts as against the daily limits (TASK-0078, TASK-0104).
+
+    A sleeve is drawn and then has its seam redrawn, a second paid image: it counts as two, as
+    the client is told before it starts. A re-placement counts as none.
+    """
+    if not billable_job(payload):
+        return 0
+    return 2 if is_sleeve(payload.get("brief") or {}) else 1
 
 
 #: The job this thread is executing, so a pipeline step can report itself (TASK-0076).
@@ -69,7 +82,8 @@ class JobQueue:
                 "TEXT, payload TEXT, state TEXT, result TEXT, error TEXT, created REAL, "
                 "UNIQUE(owner,idem))"
             )
-            # TASK-0078: whether the job calls a paid provider. Older rows count as paid.
+            # TASK-0078: whether the job calls a paid provider. Older rows count as paid. Since
+            # TASK-0104 it holds how many designs the job counts as (0, 1, or 2 for a sleeve).
             columns = {row[1] for row in db.execute("PRAGMA table_info(jobs)")}
             if "billable" not in columns:
                 db.execute("ALTER TABLE jobs ADD COLUMN billable INTEGER NOT NULL DEFAULT 1")
@@ -89,11 +103,11 @@ class JobQueue:
         """Billable designs started today by this account, and by everyone (TASK-0078)."""
         today = day_start()
         mine = db.execute(
-            "SELECT count(*) FROM jobs WHERE owner=? AND billable=1 AND created>=?",
+            "SELECT COALESCE(SUM(billable), 0) FROM jobs WHERE owner=? AND created>=?",
             (owner, today),
         ).fetchone()[0]
         everyone = db.execute(
-            "SELECT count(*) FROM jobs WHERE billable=1 AND created>=?", (today,)
+            "SELECT COALESCE(SUM(billable), 0) FROM jobs WHERE created>=?", (today,)
         ).fetchone()[0]
         return int(mine), int(everyone)
 
@@ -123,12 +137,17 @@ class JobQueue:
                 raise ValueError("Ya hay una generación en curso o la cola está llena.")
             # TASK-0078 (audit SEG-02): the daily limits, checked before anything is paid for.
             # A repeated idempotency key returned above, so a retry is never counted twice.
-            billable = billable_job(payload)
+            # TASK-0104: `billable` holds what the job counts as, 2 for a sleeve.
+            billable = design_cost(payload)
             if billable:
                 mine, everyone = self._designs_today(db, owner)
-                if mine >= self.limits.designs_per_account:
-                    raise QuotaExceededError(designs_reached(self.limits.designs_per_account))
-                if everyone >= self.limits.designs_total:
+                if mine + billable > self.limits.designs_per_account:
+                    raise QuotaExceededError(
+                        SLEEVE_NEEDS_TWO
+                        if mine < self.limits.designs_per_account
+                        else designs_reached(self.limits.designs_per_account)
+                    )
+                if everyone + billable > self.limits.designs_total:
                     raise QuotaExceededError(STUDIO_FULL)
             job_id = uuid.uuid4().hex
             db.execute(
@@ -143,7 +162,7 @@ class JobQueue:
                     None,
                     None,
                     time.time(),
-                    int(billable),
+                    billable,
                 ),
             )
         return self.get(owner, job_id)

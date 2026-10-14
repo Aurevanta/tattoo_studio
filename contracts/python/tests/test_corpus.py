@@ -212,3 +212,19 @@ def test_reference_spans_respect_the_contract_bounds() -> None:
             assert bounds["minimum"] <= span[axis] <= bounds["maximum"], (zone, axis)
     # A scale above 1 would claim more of the zone than the zone has.
     assert all(0 < value <= 1 for value in document["scales"].values())
+
+
+def test_sleeve_regions_name_real_zones_and_fit_the_contract() -> None:
+    """TASK-0104: a sleeve's size is a brief size, so it obeys the same millimetre bounds."""
+    document = json.loads((CANONICAL_REFERENCE / "body-zones.json").read_text(encoding="utf-8"))
+    bounds = schema("tattoo-brief")["$defs"]["millimetres"]
+    seen: set[str] = set()
+    for name, region in document["wraps"].items():
+        assert region["zones"], name
+        assert set(region["zones"]) <= set(document["zones"]), name
+        assert not seen & set(region["zones"]), name  # a zone wraps in one region only
+        seen |= set(region["zones"])
+        for axis in ("circumferenceMm", "lengthMm"):
+            assert bounds["minimum"] <= region[axis] <= bounds["maximum"], (name, axis)
+        # Round the widest part of the limb: wider than the zone's front span.
+        assert region["circumferenceMm"] > document["zones"][region["zones"][0]]["widthMm"]

@@ -65,7 +65,7 @@ describe('the front door (TASK-0096)', () => {
   });
 
   it('serves the landing and its example images without a session', () => {
-    for (const path of ['/inicio', '/ejemplos/virgen-piel.webp'])
+    for (const path of ['/inicio', '/ejemplos/valencia-piel.webp'])
       expect(gated(path), path).toBe(false);
   });
 });

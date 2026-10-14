@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0101: the landing example is the owner's Valencia design (`public/ejemplos/valencia-*`). It shows the Valencia CF crest: an exception to TASK-0096/REQ-002 the owner decided; no other third-party trademark is allowed by it.
+
 TASK-0100: the Panel shows `alerts` as a red banner («OpenAI se ha quedado sin crédito desde…»). Reference downloads send `REFERENCE_USER_AGENT`.
 
 TASK-0099 (amends ADR-0029): step 2 always follows the idea and shows all five details (`ALL_DETAILS`), preselected from the consultation, with «Hemos marcado lo que entendimos de tu idea…» when any is set. `afterIdea()` always answers `details`; `resumeStep` still skips to the references when nothing is missing. `vitest.config.ts` resolves the `@/` alias.

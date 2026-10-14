@@ -22,7 +22,7 @@ export const LEG_VIEW_NOTICE =
   'Vista orientativa sobre una pierna de referencia, no la tuya. Las medidas del diseño son reales; la forma de tu pierna no lo es.';
 
 /**
- * The rotatable 3D preview of a design on a reference lower leg (TASK-0101, ADR-0033). It draws the
+ * The rotatable 3D preview of a design on a reference lower leg (TASK-0102, ADR-0033). It draws the
  * design's master at its real size in mm; it is illustrative, and it is never the deliverable.
  */
 export function LegViewer3D({

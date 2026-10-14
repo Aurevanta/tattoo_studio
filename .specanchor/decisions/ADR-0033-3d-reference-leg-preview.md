@@ -32,7 +32,7 @@ The studio cannot show such a piece today. Evidence: OBSERVED.
    three reference skin tones. It is not stored, not shared, and it neither replaces nor validates
    the 2D mockup or the stencil.
 2. **A reference leg, never the client's.** The model is the MakeHuman base mesh `hm08`, released
-   as CC0 1.0 (`evidence/TASK-0101/model-licence.md`). It is cut below the knee by
+   as CC0 1.0 (`evidence/TASK-0102/model-licence.md`). It is cut below the knee by
    `apps/web/scripts/build-leg-model.py` and served as `public/models/lower-leg.glb`. No photograph
    is read, no body is reconstructed, and no provider is called. This clarifies ADR-0002 without
    reversing it: the mockup still ships the 2D composite. Only CC0 or equivalent models may be

@@ -1,4 +1,4 @@
-"""Build the reference lower leg for the 3D preview (TASK-0101, ADR-0033).
+"""Build the reference lower leg for the 3D preview (TASK-0102, ADR-0033).
 
 Input: the MakeHuman base mesh ``hm08`` (``makehuman/data/3dobjs/base.obj``), released as CC0 in
 September 2020. Output: ``apps/web/public/models/lower-leg.glb``, the client's left lower leg from

@@ -16,7 +16,7 @@ import {
   type LegPlacement,
 } from './leg-wrap';
 
-// TASK-0101: the maths the 3D preview's shader runs, and the reference leg it runs on.
+// TASK-0102: the maths the 3D preview's shader runs, and the reference leg it runs on.
 
 const model: LegModel = {
   kneeMm: 380,
@@ -27,7 +27,7 @@ const model: LegModel = {
 };
 const back: LegPlacement = { around: 0.5, heightMm: 250, widthMm: 80, lengthMm: 150 };
 
-describe('where a point of skin samples the design (TASK-0101/AC-002)', () => {
+describe('where a point of skin samples the design (TASK-0102/AC-002)', () => {
   it('puts the design centre at its placement', () => {
     expect(designCoordinate(0.5, 250, 344, back)).toEqual({ u: 0.5, v: 0.5 });
   });
@@ -110,7 +110,7 @@ describe('where a design starts', () => {
   });
 });
 
-describe('the reference leg model (TASK-0101/AC-001)', () => {
+describe('the reference leg model (TASK-0102/AC-001)', () => {
   const glb = readFileSync(
     fileURLToPath(new URL('../../public/models/lower-leg.glb', import.meta.url)),
   );

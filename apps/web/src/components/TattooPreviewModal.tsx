@@ -40,7 +40,7 @@ export function TattooPreviewModal({
   zoneSpan?: { widthMm: number; heightMm: number } | undefined;
   /** What is left today (TASK-0095): a change is a new design. */
   quotaNote?: string | null;
-  /** TASK-0101 (ADR-0033): a lower-leg design can be turned round on a reference leg. */
+  /** TASK-0102 (ADR-0033): a lower-leg design can be turned round on a reference leg. */
   legView?: { zone: LegZone; side: LegSide } | undefined;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);

@@ -16,28 +16,29 @@ export const metadata: Metadata = {
  * to land on the sign-in form with nothing to see. Here they see one real result of the studio,
  * from the idea to the stencil, how it works, and how to get in.
  *
- * The example is the studio's own output (a smoke test on a generated skin plate), never a
- * client's work or photo (ADR-0007).
+ * The example is the studio's own output on a generated skin plate, never a client's photo
+ * (ADR-0007). TASK-0101: the owner's own Valencia design replaced the smoke test; it shows the
+ * Valencia CF crest, a third-party trademark the owner chose to publish.
  */
 const EXAMPLE = [
   {
-    src: '/ejemplos/virgen-diseno.webp',
+    src: '/ejemplos/valencia-diseno.webp',
     width: 640,
-    height: 1199,
+    height: 1280,
     title: 'El diseño',
     text: 'Dibujado a partir de tu idea y de referencias reales de lo que pides.',
   },
   {
-    src: '/ejemplos/virgen-piel.webp',
+    src: '/ejemplos/valencia-piel.webp',
     width: 720,
     height: 1080,
     title: 'Cómo queda en la piel',
     text: 'A su tamaño real sobre la zona, en piel de estudio o en una foto tuya.',
   },
   {
-    src: '/ejemplos/virgen-plantilla.webp',
+    src: '/ejemplos/valencia-plantilla.webp',
     width: 640,
-    height: 1200,
+    height: 1280,
     title: 'La plantilla 1:1',
     text: 'En SVG y PDF a tamaño real, también por piezas en hojas A4, lista para imprimir.',
   },
@@ -96,7 +97,8 @@ export default function Landing(): ReactNode {
       <section className="landing-section" aria-labelledby="ejemplo">
         <h2 id="ejemplo">Un encargo real, de la idea a la plantilla</h2>
         <blockquote className="landing-idea">
-          «La Virgen de los Desamparados en línea fina, en el gemelo, de unos 8 × 15 cm»
+          «El escudo del Valencia CF, el estadio de Mestalla, la senyera y la Virgen de los
+          Desamparados, mezclando color y negro, en todo el gemelo derecho»
         </blockquote>
         <ol className="landing-example">
           {EXAMPLE.map((item) => (

@@ -2815,7 +2815,7 @@ body::after {
   }
 }
 
-/* TASK-0101 (ADR-0033): the design turned round a reference lower leg. */
+/* TASK-0102 (ADR-0033): the design turned round a reference lower leg. */
 .leg-view-toggle {
   display: grid;
   gap: 14px;

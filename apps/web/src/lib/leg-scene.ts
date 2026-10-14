@@ -1,5 +1,5 @@
 /**
- * The 3D scene of the leg preview (TASK-0101, ADR-0033): a reference lower leg the client turns
+ * The 3D scene of the leg preview (TASK-0102, ADR-0033): a reference lower leg the client turns
  * round, with the design laid on its skin in true millimetres.
  *
  * Loaded only in the browser, on demand, so three.js stays out of every other page's bundle. It

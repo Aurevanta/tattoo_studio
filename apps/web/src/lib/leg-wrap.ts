@@ -1,5 +1,5 @@
 /**
- * Where a design sits on the reference leg of the 3D preview (TASK-0101, ADR-0033).
+ * Where a design sits on the reference leg of the 3D preview (TASK-0102, ADR-0033).
  *
  * The model (`public/models/lower-leg.glb`, built by `scripts/build-leg-model.py` from the CC0
  * MakeHuman base mesh) gives every vertex its height along the limb axis, the perimeter of the leg

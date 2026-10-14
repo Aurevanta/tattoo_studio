@@ -1291,7 +1291,7 @@ export default function ConsultationPage(): ReactNode {
           )}
           quotaNote={designsNote(quota)}
           legView={
-            // TASK-0101: like the zone span, the zone is known for the open consultation's designs.
+            // TASK-0102: like the zone span, the zone is known for the open consultation's designs.
             artifact.briefId === session?.sessionId && isLegZone(session?.slots.placement?.bodyPart)
               ? {
                   zone: session.slots.placement.bodyPart,

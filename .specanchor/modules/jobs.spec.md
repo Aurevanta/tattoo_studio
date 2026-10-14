@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: jobs
 
+TASK-0104 (ADR-0034): `design_cost` counts a sleeve as 2 designs, a design as 1 and a re-placement as 0. `billable` stores that weight, and the limits sum it. With one design left, a sleeve is refused with `SLEEVE_NEEDS_TWO`.
+
 TASK-0095: `JobQueue.designs_today` and `TurnLedger.used` expose the counts the limits apply; `designs_left` is the account's allowance within the studio's. `enqueue` uses the same query, so the counter and the refusal agree.
 
 TASK-0085 (audit REN-01): each job event records `detail.waitMs`, the time between creation and start.

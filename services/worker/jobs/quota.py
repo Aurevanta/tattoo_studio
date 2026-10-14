@@ -39,6 +39,12 @@ def designs_reached(limit: int) -> str:
 
 STUDIO_FULL = "El estudio ha llegado a su límite de diseños de hoy. Inténtalo de nuevo mañana."
 
+#: TASK-0104: a sleeve counts as two designs, and only one is left today.
+SLEEVE_NEEDS_TWO = (
+    "Una manga cuenta como 2 diseños y hoy te queda 1. Podrás crearla mañana, o crear ahora un "
+    "diseño que no dé la vuelta completa."
+)
+
 
 def turns_reached(limit: int) -> str:
     return (

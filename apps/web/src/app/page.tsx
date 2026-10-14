@@ -18,7 +18,8 @@ import { TattooPreviewModal } from '@/components/TattooPreviewModal';
 import { GenerationProgress } from '@/components/GenerationProgress';
 import { InkWorking } from '@/components/InkWorking';
 import { BODY_ZONE_SPANS } from '@tattoo/contracts';
-import { isLegZone } from '@/lib/leg-wrap';
+import { isLimbZone, sleeveNote } from '@/lib/limb-wrap';
+import { isSleeve } from '@tattoo/contracts';
 import { messageForError, messageForResponse } from '@/lib/client-errors';
 import type { InkTask } from '@/lib/ink-progress';
 import { StepFlow } from '@/components/StepFlow';
@@ -1290,12 +1291,15 @@ export default function ConsultationPage(): ReactNode {
             disabled || submittingGeneration || !selectedJobId || !canDesign(quota),
           )}
           quotaNote={designsNote(quota)}
-          legView={
-            // TASK-0102: like the zone span, the zone is known for the open consultation's designs.
-            artifact.briefId === session?.sessionId && isLegZone(session?.slots.placement?.bodyPart)
+          limbView={
+            // TASK-0102, TASK-0103: like the zone span, the zone is known for the open
+            // consultation's designs.
+            artifact.briefId === session?.sessionId &&
+            isLimbZone(session?.slots.placement?.bodyPart)
               ? {
                   zone: session.slots.placement.bodyPart,
                   side: session.slots.placement.side === 'right' ? 'right' : 'left',
+                  wraps: isSleeve(session.slots.placement, artifact.size),
                 }
               : undefined
           }
@@ -1371,6 +1375,7 @@ export default function ConsultationPage(): ReactNode {
               working={busy ? task : null}
               error={error}
               quotaNote={designsNote(quota)}
+              sleeve={sleeveNote(session?.slots.placement, session?.slots.size)}
               outOfDesigns={!canDesign(quota)}
               onChange={(patch) => setForm({ ...form, ...patch })}
               onOwnPhoto={(file) => void upload(file, 'body')}

@@ -24,6 +24,11 @@ describe('inkStage (TASK-0069, TASK-0076)', () => {
   });
 
   it('moves forward with the steps', () => {
+    const seam = inkStage('running', { stage: 'seam' });
+    expect(seam.title).toContain('paso 3 de 6');
+    expect(seam.line).toBe('Cerrando la vuelta de la manga…');
+    expect(seam.progress).toBeGreaterThan(inkStage('running', { stage: 'drawing' }).progress!);
+    expect(seam.progress).toBeLessThan(inkStage('running', { stage: 'stencil' }).progress!);
     const progress = STEPS.map((stage) => inkStage('running', { stage }).progress!);
     expect([...progress].sort((a, b) => a - b)).toEqual(progress);
     expect(Math.max(...progress)).toBeLessThan(1);

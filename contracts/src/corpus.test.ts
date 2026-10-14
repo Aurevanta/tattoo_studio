@@ -23,6 +23,10 @@ import {
   schemaNames,
   validateAgainst,
   validateTattooBrief,
+  isSleeve,
+  WRAP_REGIONS,
+  wrapRegionOf,
+  wrapSize,
 } from './index';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -171,5 +175,28 @@ describe('embedded brief', () => {
     const defs = schema['$defs'] as Record<string, unknown>;
     for (const name of Object.keys(sourceDefs).filter((key) => key in defs))
       expect(defs[name], name).toEqual(sourceDefs[name]);
+  });
+});
+
+describe('sleeves (TASK-0104)', () => {
+  it('resolve a sleeve size for the lower leg and the forearm, and none elsewhere', () => {
+    expect(wrapSize('calf')).toEqual({ widthMm: 344, heightMm: 310 });
+    expect(wrapSize('shin')).toEqual(wrapSize('calf'));
+    expect(wrapSize('inner_forearm')).toEqual({ widthMm: 255, heightMm: 215 });
+    expect(wrapSize('outer_forearm')).toEqual(wrapSize('inner_forearm'));
+    expect(wrapSize('chest')).toBeUndefined();
+    expect(wrapSize(undefined)).toBeUndefined();
+    expect(wrapRegionOf('ankle')).toBeUndefined();
+    expect(Object.keys(WRAP_REGIONS).sort()).toEqual(['forearm', 'lower_leg']);
+  });
+
+  it('tell a sleeve from a band that also wraps', () => {
+    const calf = { bodyPart: 'calf', orientation: 'wrapping' };
+    expect(isSleeve(calf, { widthMm: 344 })).toBe(true);
+    expect(isSleeve(calf, { widthMm: 310 })).toBe(true);
+    expect(isSleeve(calf, { widthMm: 120 })).toBe(false);
+    expect(isSleeve({ ...calf, orientation: 'vertical' }, { widthMm: 344 })).toBe(false);
+    expect(isSleeve({ bodyPart: 'ankle', orientation: 'wrapping' }, { widthMm: 344 })).toBe(false);
+    expect(isSleeve(undefined, undefined)).toBe(false);
   });
 });

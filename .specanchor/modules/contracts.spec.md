@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: contracts
 
+TASK-0104 (ADR-0034): `reference/body-zones.json` gains `wraps` (`lower_leg`: calf and shin, 344 × 310 mm; `forearm`: inner and outer forearm, 255 × 215 mm) and `wrapNotes`. `WRAP_REGIONS`, `wrapRegionOf`, `wrapSize`, `SLEEVE_SHARE` and `isSleeve` (TypeScript) and `tattoo_contracts.sleeve` (Python) apply the same rule: wrapping, a zone in a region, a width of at least 90 % of its circumference. `studio-status.stage` gains `seam`. All of it is additive (CONTRACTS-INV-004).
+
 TASK-0097 (ADR-0032): `shared-design.schema.json` — what a link shows a tattooer; never a body photo, capture, body type or account; the skin view null unless on generated skin. Corpus 6 valid / 16 invalid; registered in both runtimes.
 
 TASK-0086 (audit ARQ-03): `studio-status` artifact may carry `stencilReview` {method: lineart | colour_contours, simplification: 0–3}. Fixtures `stencil-review`, `stencil-review-unknown`.

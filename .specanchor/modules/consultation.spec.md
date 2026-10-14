@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: consultation
 
+TASK-0104 (ADR-0034): `sleeveLimb` reads a sleeve from the client's words («manga», «de la rodilla al tobillo», «todo el antebrazo», «que rodee…»). `extractPreferences` then sets `orientation: wrapping`, the zone on that limb (the calf or the outer forearm by default) and `wrapSize`. «Estilo manga», «anime» and the upper arm are never sleeves. A later «grande» or the size proposal does not replace a sleeve's size.
+
 TASK-0100: `REFERENCE_USER_AGENT` (`InkCraft/0.1 (https://inkcraft.aurevanta.es; reference research)`) is how the scout and the web identify themselves to image sources.
 
 TASK-0098: curated entity queries **supplement** the planner instead of winning over it (supersedes TASK-0034's rule): they run first, the planner adds every other named element, a planned query naming one curated entity becomes that verified query, at most five. `curatedQueries` also reads «desamparados», «Valencia CG/C.F.» and «Mestalla»; the planner returns one query per named element, up to five.

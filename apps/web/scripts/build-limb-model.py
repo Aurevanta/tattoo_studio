@@ -1,23 +1,28 @@
-"""Build the reference lower leg for the 3D preview (TASK-0102, ADR-0033).
+"""Build the reference limbs for the 3D preview (TASK-0102, TASK-0103, ADR-0033).
 
 Input: the MakeHuman base mesh ``hm08`` (``makehuman/data/3dobjs/base.obj``), released as CC0 in
-September 2020. Output: ``apps/web/public/models/lower-leg.glb``, the client's left lower leg from
-just above the knee to the sole, in millimetres, with the limb axis on +Y (ankle joint at the
-origin), the front on +Z and the outside of the left leg on +X.
+September 2020. Output, one GLB per limb, in millimetres, with the limb axis on +Y and the distal
+joint (ankle, wrist) at the origin:
+
+- ``leg`` → ``apps/web/public/models/lower-leg.glb``: the left lower leg from just above the knee
+  to the sole. Fraction 0 round the leg is its front (the shin), 0.25 its outside (+X).
+- ``forearm`` → ``apps/web/public/models/forearm.glb``: the left forearm from just above the elbow
+  to the fingertips, hanging. Fraction 0 is its inner, palm side; 0.25 the thumb side (+X).
 
 Each vertex carries, besides its position and normal:
 
 - ``_HEIGHT``: height along the limb axis, in mm.
-- ``_PERIM``: the perimeter of the leg's cross-section at that height, in mm.
+- ``_PERIM``: the perimeter of the limb's cross-section at that height, in mm.
 - ``_RING``: (cos 2πs, sin 2πs), where s in [0, 1) is the arc-length fraction around that
-  cross-section, starting at the front and growing towards the outside. Interpolating the unit
-  vector rather than s itself keeps the ring free of a seam.
+  cross-section from fraction 0 above. Interpolating the unit vector rather than s itself keeps
+  the ring free of a seam.
 
-So the viewer places a design in true millimetres around the leg without hand-made UVs.
+So the viewer places a design in true millimetres around the limb without hand-made UVs.
 
 Usage (numpy only)::
 
-    python apps/web/scripts/build-leg-model.py path/to/base.obj apps/web/public/models/lower-leg.glb
+    python apps/web/scripts/build-limb-model.py path/to/base.obj leg apps/web/public/models/lower-leg.glb
+    python apps/web/scripts/build-limb-model.py path/to/base.obj forearm apps/web/public/models/forearm.glb
 """
 
 from __future__ import annotations
@@ -30,7 +35,36 @@ from pathlib import Path
 import numpy as np
 
 DM_TO_MM = 100.0  # MakeHuman base mesh units are decimetres.
-ABOVE_KNEE_MM = 70.0  # How much of the knee the preview keeps above the joint.
+
+# Per limb: its joints, which way fraction 0 faces, which way fraction 0.25 faces, how much is kept
+# above the proximal joint, how far from the axis a vertex may lie (to leave the torso out), and
+# the height of the distal circumference.
+LIMBS = {
+    'leg': {
+        'proximal': 'joint-l-knee',
+        'distal': 'joint-l-ankle',
+        'zero': (0.0, 0.0, 1.0),  # the shin faces forward
+        'quarter': 'joint-l-knee',  # resolved below: +X, the outside of the left leg
+        'above_mm': 70.0,
+        'radius_dm': 1.2,
+        'distal_band_mm': 60.0,
+        'length_mm': None,  # kept as modelled: 382 mm from ankle to knee, a typical adult
+        'name': 'lower-leg',
+    },
+    'forearm': {
+        'proximal': 'joint-l-elbow',
+        'distal': 'joint-l-hand',
+        'zero': None,  # resolved below: the palm side
+        'quarter': 'joint-l-finger-1-1',  # the thumb side
+        'above_mm': 25.0,
+        'radius_dm': 1.0,
+        'distal_band_mm': 30.0,
+        # The base mesh's forearm is short (226 mm from wrist to elbow); scaled uniformly to a
+        # typical adult's, which is also the reference anatomy's forearm zone (ADR-0011).
+        'length_mm': 265.0,
+        'name': 'forearm',
+    },
+}
 SLICES = 160
 ANGLES = 720
 
@@ -185,7 +219,9 @@ def vertex_normals(vertices: np.ndarray, triangles: np.ndarray) -> np.ndarray:
     return normals / np.maximum(np.linalg.norm(normals, axis=1), 1e-9)[:, None]
 
 
-def write_glb(path: Path, attributes: dict[str, np.ndarray], indices: np.ndarray, extras: dict) -> None:
+def write_glb(
+    path: Path, attributes: dict[str, np.ndarray], indices: np.ndarray, extras: dict, name: str
+) -> None:
     blobs: list[bytes] = []
     views = []
     accessors = []
@@ -221,10 +257,10 @@ def write_glb(path: Path, attributes: dict[str, np.ndarray], indices: np.ndarray
     index_accessor = add(flat, index_type, 34963, 'SCALAR', False)
 
     gltf = {
-        'asset': {'version': '2.0', 'generator': 'tattoo_studio build-leg-model.py'},
+        'asset': {'version': '2.0', 'generator': 'tattoo_studio build-limb-model.py'},
         'scene': 0,
         'scenes': [{'nodes': [0], 'extras': extras}],
-        'nodes': [{'mesh': 0, 'name': 'lower-leg'}],
+        'nodes': [{'mesh': 0, 'name': name}],
         'meshes': [{'primitives': [{'attributes': mapping, 'indices': index_accessor}]}],
         'buffers': [{'byteLength': offset}],
         'bufferViews': views,
@@ -240,35 +276,82 @@ def write_glb(path: Path, attributes: dict[str, np.ndarray], indices: np.ndarray
         out.write(struct.pack('<I4s', len(binary), b'BIN\0') + binary)
 
 
-def main(source: Path, target: Path) -> None:
-    vertices, groups = read_obj(source)
-    knee = joint(vertices, groups, 'joint-l-knee')
-    ankle = joint(vertices, groups, 'joint-l-ankle')
-    ground_y = joint(vertices, groups, 'joint-ground')[1]
+def palm_direction(vertices: np.ndarray, groups: dict[str, list[list[int]]]) -> np.ndarray:
+    """The way the left palm faces: the hand's thinnest direction, signed away from its back.
 
-    # Frame: ankle joint at the origin, limb axis on +Y, front on +Z, outside (+X) kept.
-    up = (knee - ankle) / np.linalg.norm(knee - ankle)
-    front = np.array([0.0, 0.0, 1.0])
-    front = front - up * front.dot(up)
+    The back of the hand bulges with the knuckles; the palm side is the one the fingers curl to.
+    The middle finger's first joint sits on the palm side of the hand's centre in MakeHuman's pose,
+    which gives the sign.
+    """
+    hand = joint(vertices, groups, 'joint-l-hand')
+    tips = joint(vertices, groups, 'joint-l-finger-3-4')
+    near = vertices[np.linalg.norm(vertices - hand, axis=1) < 0.9]
+    centred = near - near.mean(axis=0)
+    _, _, axes = np.linalg.svd(centred, full_matrices=False)
+    normal = axes[2]
+    knuckle = joint(vertices, groups, 'joint-l-finger-3-2')
+    along = (tips - hand) / np.linalg.norm(tips - hand)
+    bend = (knuckle - hand) - along * (knuckle - hand).dot(along)
+    return normal if normal.dot(bend) >= 0 else -normal
+
+
+def main(source: Path, limb: str, target: Path) -> None:
+    spec = LIMBS[limb]
+    vertices, groups = read_obj(source)
+    proximal = joint(vertices, groups, str(spec['proximal']))
+    distal = joint(vertices, groups, str(spec['distal']))
+
+    # Frame: distal joint at the origin, limb axis on +Y, fraction 0 on +Z, fraction 0.25 on +X.
+    up = (proximal - distal) / np.linalg.norm(proximal - distal)
+    zero = (
+        np.array(spec['zero'], dtype=np.float64)
+        if spec['zero'] is not None
+        else palm_direction(vertices, groups)
+    )
+    front = zero - up * zero.dot(up)
     front /= np.linalg.norm(front)
     side = np.cross(up, front)
-    if side[0] < 0:  # Keep the outside of the left leg (+X in MakeHuman) on +X.
-        side = -side
+    if limb == 'leg':
+        if side[0] < 0:  # The outside of the left leg (+X in MakeHuman) on +X.
+            side = -side
+    else:
+        thumb = joint(vertices, groups, str(spec['quarter'])) - distal
+        if side.dot(thumb) < 0:  # The thumb side on +X.
+            side = -side
+    # A left-handed frame would mirror the limb; turn fraction 0 round instead.
+    if np.linalg.det(np.stack([side, up, front])) < 0:
+        front = -front
+        side = np.cross(up, front)
+        if limb == 'leg' and side[0] < 0 or limb != 'leg' and side.dot(thumb) < 0:
+            raise SystemExit('cannot build a right-handed frame for ' + limb)
     frame = np.stack([side, up, front])
 
     body = np.array(groups['body'])
-    knee_h = (knee - ankle).dot(up)
-    local = (vertices - ankle) @ frame.T
-    keep = np.all((vertices[body, 0] > 0.15) & (local[body, 1] < knee_h + 1.6), axis=1)
+    proximal_h = (proximal - distal).dot(up)
+    local = (vertices - distal) @ frame.T
+    radial = np.hypot(local[:, 0], local[:, 2])
+    near_axis = (radial < float(spec['radius_dm'])) | (local[:, 1] < 0)
+    keep = np.all(
+        near_axis[body]
+        & (local[body, 1] < proximal_h + 1.6)
+        & (vertices[body, 0] > 0.15),
+        axis=1,
+    )
+    if limb == 'forearm':
+        # Below the wrist the hand spreads; keep it all, but nothing of the hip beside it.
+        keep &= np.all(np.linalg.norm(vertices[body] - distal, axis=2) < 3.2, axis=1)
     quads = body[keep]
     used, remap = np.unique(quads, return_inverse=True)
     sub_vertices = local[used]
     sub_quads = remap.reshape(-1, 4)
     for _ in range(2):
         sub_vertices, sub_quads = catmull_clark(sub_vertices, sub_quads)
-    sub_vertices *= DM_TO_MM
-    knee_mm = knee_h * DM_TO_MM
-    top_mm = knee_mm + ABOVE_KNEE_MM
+    scale = DM_TO_MM
+    if spec['length_mm'] is not None:
+        scale = float(spec['length_mm']) / proximal_h
+    sub_vertices *= scale
+    proximal_mm = proximal_h * scale
+    top_mm = proximal_mm + float(spec['above_mm'])
 
     # Keep every face that reaches below the cut, then lay the vertices above it onto the cut
     # plane: the mesh rows are not level, and a cut by whole faces would leave a jagged rim.
@@ -281,7 +364,7 @@ def main(source: Path, target: Path) -> None:
     triangles = np.concatenate([sub_quads[:, [0, 1, 2]], sub_quads[:, [0, 2, 3]]])
     sub_vertices, triangles = cap_top(sub_vertices, triangles)
 
-    sole_mm = sub_vertices[:, 1].min()
+    end_mm = sub_vertices[:, 1].min()
     heights = np.linspace(20.0, top_mm - 15.0, SLICES)
     perimeters, centres, fractions = ring_tables(sub_vertices, triangles[:-1], heights)
 
@@ -305,23 +388,26 @@ def main(source: Path, target: Path) -> None:
     def circumference(at_mm: float) -> float:
         return float(np.interp(at_mm, heights, perimeters))
 
-    calf_band = (heights > 0.45 * knee_mm) & (heights < 0.85 * knee_mm)
-    calf_mm = float(heights[calf_band][np.argmax(perimeters[calf_band])])
+    belly_band = (heights > 0.45 * proximal_mm) & (heights < 0.85 * proximal_mm)
+    belly_mm = float(heights[belly_band][np.argmax(perimeters[belly_band])])
+    distal_band = float(spec['distal_band_mm'])
     extras = {
         'source': 'MakeHuman base mesh hm08, makehuman/data/3dobjs/base.obj',
         'licence': 'CC0 1.0 Universal',
         'units': 'mm',
+        'limb': limb,
         'side': 'left',
-        'ankleMm': 0.0,
-        'kneeMm': round(float(knee_mm), 1),
+        'scale': round(scale / DM_TO_MM, 4),
+        'distalMm': 0.0,
+        'proximalMm': round(float(proximal_mm), 1),
         'topMm': round(float(top_mm), 1),
-        'soleMm': round(float(sole_mm), 1),
-        'groundMm': round(float((ground_y - ankle[1]) * DM_TO_MM), 1),
-        'calfMm': round(calf_mm, 1),
+        'endMm': round(float(end_mm), 1),
+        'bellyMm': round(belly_mm, 1),
         'circumferenceMm': {
-            'belowKnee': round(circumference(knee_mm - 40.0), 1),
-            'calf': round(circumference(calf_mm), 1),
-            'ankle': round(circumference(60.0), 1),
+            'proximal': round(circumference(proximal_mm - 40.0), 1),
+            'belly': round(circumference(belly_mm), 1),
+            'distal': round(circumference(distal_band), 1),
+            'distalAtMm': distal_band,
         },
     }
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -336,9 +422,10 @@ def main(source: Path, target: Path) -> None:
         },
         triangles,
         extras,
+        str(spec['name']),
     )
     print(json.dumps({**extras, 'vertices': len(sub_vertices), 'triangles': len(triangles)}))
 
 
 if __name__ == '__main__':
-    main(Path(sys.argv[1]), Path(sys.argv[2]))
+    main(Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]))

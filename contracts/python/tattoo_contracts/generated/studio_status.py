@@ -24,12 +24,13 @@ class State(StrEnum):
 
 class Stage(StrEnum):
     """
-    TASK-0076 (audit UX-03): the pipeline step a running job is in, as the worker reports it. Absent when unknown.
+    TASK-0076 (audit UX-03): the pipeline step a running job is in, as the worker reports it. Absent when unknown. `seam` (TASK-0104) is a sleeve's join being redrawn.
     """
 
     references = 'references'
     skin = 'skin'
     drawing = 'drawing'
+    seam = 'seam'
     stencil = 'stencil'
     placing = 'placing'
     finishing = 'finishing'
@@ -292,7 +293,7 @@ class StudioJobStatus(BaseModel):
     stage: Annotated[
         Stage | None,
         Field(
-            description='TASK-0076 (audit UX-03): the pipeline step a running job is in, as the worker reports it. Absent when unknown.'
+            description="TASK-0076 (audit UX-03): the pipeline step a running job is in, as the worker reports it. Absent when unknown. `seam` (TASK-0104) is a sleeve's join being redrawn."
         ),
     ] = None
     queuePosition: Annotated[

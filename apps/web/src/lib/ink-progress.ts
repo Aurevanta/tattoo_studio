@@ -28,6 +28,8 @@ const STEP_LINES: Record<InkStep, string> = {
   references: 'Analizando tus referencias…',
   skin: 'Preparando la piel…',
   drawing: 'Dibujando el diseño…',
+  // TASK-0104: only a sleeve takes this step.
+  seam: 'Cerrando la vuelta de la manga…',
   stencil: 'Trazando la plantilla…',
   placing: 'Colocándolo sobre la piel…',
   finishing: 'Últimos ajustes y revisión…',
@@ -69,13 +71,16 @@ export function inkStage(
     };
   }
   if (task === 'running') {
-    const index = status.stage ? STEPS.indexOf(status.stage) : -1;
+    // TASK-0104: only a sleeve closes its seam, as part of drawing it; the count stays the same
+    // for every design.
+    const counted = status.stage === 'seam' ? 'drawing' : status.stage;
+    const index = counted ? STEPS.indexOf(counted) : -1;
     if (index < 0) return { title: 'Creando tu diseño', line: 'Empezando…', progress: null };
     return {
       title: `Creando tu diseño · paso ${index + 1} de ${STEPS.length}`,
       line: STEP_LINES[status.stage!],
-      // Half a step in: the step has started, not finished.
-      progress: (index + 0.5) / STEPS.length,
+      // Half a step in: the step has started, not finished. The seam is drawing's second half.
+      progress: (index + (status.stage === 'seam' ? 0.8 : 0.5)) / STEPS.length,
     };
   }
   return { ...TASKS[task], progress: null };

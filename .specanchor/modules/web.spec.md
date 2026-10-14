@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0101 (ADR-0033): a design for the open consultation in `calf`, `shin` or `ankle` offers «Ver en 3D alrededor de la pierna» in the result (`LegViewer3D`). It shows the design's master on the CC0 reference lower leg `public/models/lower-leg.glb`, built by `scripts/build-leg-model.py` from the MakeHuman base mesh. The view turns, has four views, moves the design round and along the leg, and offers left or right and three reference tones. `lib/leg-wrap.ts` places the design in true mm of skin (the shader's twin); `lib/leg-scene.ts` (three.js `0.186.1`) is imported only when the view opens. It reads no photograph, calls no provider and stores nothing; «Vista orientativa sobre una pierna de referencia, no la tuya…» goes with it, and without WebGL it says so. `/models/` is outside the page gate.
+
 TASK-0100: the Panel shows `alerts` as a red banner («OpenAI se ha quedado sin crédito desde…»). Reference downloads send `REFERENCE_USER_AGENT`.
 
 TASK-0099 (amends ADR-0029): step 2 always follows the idea and shows all five details (`ALL_DETAILS`), preselected from the consultation, with «Hemos marcado lo que entendimos de tu idea…» when any is set. `afterIdea()` always answers `details`; `resumeStep` still skips to the references when nothing is missing. `vitest.config.ts` resolves the `@/` alias.

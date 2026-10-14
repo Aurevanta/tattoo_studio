@@ -18,6 +18,7 @@ import { TattooPreviewModal } from '@/components/TattooPreviewModal';
 import { GenerationProgress } from '@/components/GenerationProgress';
 import { InkWorking } from '@/components/InkWorking';
 import { BODY_ZONE_SPANS } from '@tattoo/contracts';
+import { isLegZone } from '@/lib/leg-wrap';
 import { messageForError, messageForResponse } from '@/lib/client-errors';
 import type { InkTask } from '@/lib/ink-progress';
 import { StepFlow } from '@/components/StepFlow';
@@ -1289,6 +1290,15 @@ export default function ConsultationPage(): ReactNode {
             disabled || submittingGeneration || !selectedJobId || !canDesign(quota),
           )}
           quotaNote={designsNote(quota)}
+          legView={
+            // TASK-0101: like the zone span, the zone is known for the open consultation's designs.
+            artifact.briefId === session?.sessionId && isLegZone(session?.slots.placement?.bodyPart)
+              ? {
+                  zone: session.slots.placement.bodyPart,
+                  side: session.slots.placement.side === 'right' ? 'right' : 'left',
+                }
+              : undefined
+          }
           zoneSpan={
             // TASK-0073: the zone is known only when this design belongs to the open consultation.
             artifact.briefId === session?.sessionId && session?.slots.placement?.bodyPart

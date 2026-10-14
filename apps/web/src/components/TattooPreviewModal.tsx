@@ -9,6 +9,8 @@ import { needsA4Pieces } from '@/lib/print-pieces';
 import { IMAGE_FAILURE_TEXT, imageFailure, probe, type ImageFailure } from '@/lib/image-failure';
 import { Confirm } from './Confirm';
 import { ShareWithTattooer } from './ShareWithTattooer';
+import { LegViewer3D } from './LegViewer3D';
+import type { LegSide, LegZone } from '@/lib/leg-wrap';
 export function TattooPreviewModal({
   artifact,
   jobId,
@@ -19,6 +21,7 @@ export function TattooPreviewModal({
   consentControls,
   zoneSpan,
   quotaNote,
+  legView,
 }: {
   artifact: GeneratedTattooArtifact;
   /** The version being shown, so a photo taken with the camera can join it (TASK-0050). */
@@ -37,6 +40,8 @@ export function TattooPreviewModal({
   zoneSpan?: { widthMm: number; heightMm: number } | undefined;
   /** What is left today (TASK-0095): a change is a new design. */
   quotaNote?: string | null;
+  /** TASK-0101 (ADR-0033): a lower-leg design can be turned round on a reference leg. */
+  legView?: { zone: LegZone; side: LegSide } | undefined;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -67,6 +72,7 @@ export function TattooPreviewModal({
   // TASK-0073 (audit UX-01): a new print size is shown and confirmed before it is applied.
   const [confirmZone, setConfirmZone] = useState(false);
   const [overlay, setOverlay] = useState(false);
+  const [show3d, setShow3d] = useState(false);
   const stencil = stencilNotes(artifact.stencilReview);
   const proposal = zoneProposal(artifact.size, zoneSpan);
   return (
@@ -214,6 +220,21 @@ export function TattooPreviewModal({
           </figcaption>
         </figure>
       </div>
+      {legView && (
+        <div className="leg-view-toggle" hidden={Boolean(detail)}>
+          <button type="button" aria-expanded={show3d} onClick={() => setShow3d((value) => !value)}>
+            {show3d ? 'Ocultar la vista 3D' : 'Ver en 3D alrededor de la pierna'}
+          </button>
+          {show3d && (
+            <LegViewer3D
+              designUrl={url(artifact.master.assetId)}
+              size={artifact.size}
+              zone={legView.zone}
+              side={legView.side}
+            />
+          )}
+        </div>
+      )}
       {/* TASK-0084 (audit): the result first, then three short notices; the long one folds. */}
       <ul className="result-notices" aria-label="Lo que debes saber">
         <li>

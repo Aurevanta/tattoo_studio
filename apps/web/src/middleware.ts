@@ -34,6 +34,6 @@ export const config = {
    * their tattooer, `/t/<token>` (TASK-0097).
    */
   matcher: [
-    '/((?!api|inicio|ejemplos/|t/|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
+    '/((?!api|inicio|ejemplos/|models/|t/|entrar|recuperar|restablecer|condiciones|privacidad|robots.txt|sitemap.xml|_next|icons|brand/|sw.js|manifest.webmanifest|favicon.ico).*)',
   ],
 };

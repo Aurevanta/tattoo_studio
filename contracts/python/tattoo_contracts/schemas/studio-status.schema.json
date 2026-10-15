@@ -140,6 +140,12 @@
         "pdfMirror": {
           "$ref": "#/$defs/asset"
         },
+        "panels": {
+          "$ref": "#/$defs/asset"
+        },
+        "panelsMirror": {
+          "$ref": "#/$defs/asset"
+        },
         "mockup": {
           "$ref": "#/$defs/asset"
         },

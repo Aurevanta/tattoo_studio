@@ -78,6 +78,8 @@ export interface SharedDesign {
   stencilMirror: SharedAsset;
   pdf: SharedAsset;
   pdfMirror: SharedAsset;
+  panels?: SharedAsset;
+  panelsMirror?: SharedAsset;
   /**
    * The view on the skin, only when it was composed on a generated skin plate. Null when it was composed on the client's own photograph, which is never shared.
    */

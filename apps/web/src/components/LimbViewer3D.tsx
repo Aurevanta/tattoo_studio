@@ -180,9 +180,20 @@ export function LimbViewer3D({
           </div>
           {perimeter && (
             <p className="small-note">
-              {placement.widthMm} × {placement.lengthMm} mm · {spec.noun} de referencia mide{' '}
-              {Math.round(perimeter / 10)} cm de contorno a esa altura: el diseño rodea{' '}
-              {reach >= 1 ? spec.whole : spec.part(Math.round(reach * 100))}.
+              {placement.wraps ? (
+                // TASK-0105: a sleeve takes the limb's own circumference at every height.
+                <>
+                  Manga de {placement.lengthMm / 10} cm de alto · a esta altura {spec.noun} de
+                  referencia mide {Math.round(perimeter / 10)} cm de contorno, y el diseño da la
+                  vuelta entera, sin sobrar ni faltar.
+                </>
+              ) : (
+                <>
+                  {placement.widthMm} × {placement.lengthMm} mm · {spec.noun} de referencia mide{' '}
+                  {Math.round(perimeter / 10)} cm de contorno a esa altura: el diseño rodea{' '}
+                  {reach >= 1 ? spec.whole : spec.part(Math.round(reach * 100))}.
+                </>
+              )}
             </p>
           )}
         </div>

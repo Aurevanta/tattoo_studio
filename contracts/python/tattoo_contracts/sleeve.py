@@ -19,16 +19,45 @@ _WRAPS = json.loads(
 
 @dataclass(frozen=True)
 class WrapRegion:
-    """Zones a design may wrap round as one sleeve, and its unrolled size in mm."""
+    """Zones a design may wrap round as one sleeve, and its unrolled size in mm.
+
+    TASK-0105: `profile_mm` is the limb's circumference every `step_mm` down the band, from its
+    top; `views` name the limb's sides as fractions round it; `zone_around` is each zone's side.
+    """
 
     zones: tuple[str, ...]
     circumference_mm: float
     length_mm: float
+    step_mm: float
+    profile_mm: tuple[float, ...]
+    views: tuple[tuple[float, str], ...]
+    zone_around: dict[str, float]
+
+    def circumference_at(self, depth_mm: float) -> float:
+        """The limb's circumference `depth_mm` below the band's top, interpolated."""
+        position = min(max(depth_mm, 0.0), self.step_mm * (len(self.profile_mm) - 1)) / self.step_mm
+        index = min(int(position), len(self.profile_mm) - 2)
+        weight = position - index
+        return self.profile_mm[index] * (1 - weight) + self.profile_mm[index + 1] * weight
+
+    def side(self, around: float) -> str:
+        """The name of the side nearest a fraction round the limb."""
+
+        def distance(view: tuple[float, str]) -> float:
+            return abs(((around - view[0] + 0.5) % 1.0) - 0.5)
+
+        return min(self.views, key=distance)[1]
 
 
 WRAP_REGIONS: dict[str, WrapRegion] = {
     name: WrapRegion(
-        tuple(region["zones"]), float(region["circumferenceMm"]), float(region["lengthMm"])
+        tuple(region["zones"]),
+        float(region["circumferenceMm"]),
+        float(region["lengthMm"]),
+        float(region["profileStepMm"]),
+        tuple(float(value) for value in region["circumferenceProfileMm"]),
+        tuple((float(view["around"]), str(view["label"])) for view in region["views"]),
+        {zone: float(value) for zone, value in region["zoneAround"].items()},
     )
     for name, region in _WRAPS.items()
 }

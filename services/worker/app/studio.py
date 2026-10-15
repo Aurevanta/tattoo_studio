@@ -29,7 +29,7 @@ from jobs.queue import JobQueue, designs_left
 from jobs.quota import Limits, QuotaExceededError, TurnLedger, day_start
 from media.sanitize import sanitize
 from media.store import AssetNotFoundError, EncryptedFileStore, RetentionClass
-from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, zone_size
+from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, wrap_region, zone_size
 from mockup.engine import DEFAULT_SURFACE, composite, visible_artwork, visible_size
 from mockup.geometry import BLEND_TOLERANCE, GeometryCheck
 from mockup.placement import Coverage, coverage_request, fit_coverage
@@ -47,6 +47,7 @@ from stencil.engine import (
     trace_colour_artwork,
     trace_native_lineart,
 )
+from stencil.sleeve import export_panels_pdf, panels, unroll
 from telemetry import activity, forget, record, usage
 from telemetry.report import activity as account_activity
 from telemetry.report import overview, window
@@ -347,11 +348,28 @@ class _StudioGenerationDeps:
         return preview.getvalue()
 
     def stencil_files(self, master: Any) -> dict[str, tuple[bytes, str]]:
+        brief = self.payload["brief"]
+        region = wrap_region(brief["placement"]["bodyPart"]) if is_sleeve(brief) else None
+        if region is None:
+            return {
+                "stencil": (export_svg(master), "image/svg+xml"),
+                "stencilMirror": (export_svg(master, True), "image/svg+xml"),
+                "pdf": (export_pdf(master), "application/pdf"),
+                "pdfMirror": (export_pdf(master, True), "application/pdf"),
+            }
+        # TASK-0105 (ADR-0035): a sleeve's stencil is its skin unrolled, every row at the limb's
+        # circumference there, and the same skin in four panels to transfer round the limb.
+        flat = unroll(master, region)
+        quarters = panels(
+            master, region, brief["placement"]["bodyPart"], brief["placement"].get("side", "left")
+        )
         return {
-            "stencil": (export_svg(master), "image/svg+xml"),
-            "stencilMirror": (export_svg(master, True), "image/svg+xml"),
-            "pdf": (export_pdf(master), "application/pdf"),
-            "pdfMirror": (export_pdf(master, True), "application/pdf"),
+            "stencil": (export_svg(flat), "image/svg+xml"),
+            "stencilMirror": (export_svg(flat, True), "image/svg+xml"),
+            "pdf": (export_pdf(flat), "application/pdf"),
+            "pdfMirror": (export_pdf(flat, True), "application/pdf"),
+            "panels": (export_panels_pdf(quarters), "application/pdf"),
+            "panelsMirror": (export_panels_pdf(quarters, True), "application/pdf"),
         }
 
     def ensure_background(self, state: PipelineState) -> bytes:
@@ -423,6 +441,10 @@ class _StudioGenerationDeps:
         the shin, the palm side or the back of the forearm), which is the side the plate is seen
         from. Its middle half, half the circumference wide, is laid over the zone; the 3D view
         shows the whole turn. Nothing of the artwork is redrawn (MOCKUP-INV-001).
+
+        TASK-0105: each row of a sleeve goes once round the limb at its own height. On the plate
+        that is already so: `fit_body` measures how the limb narrows in the photograph and tapers
+        the half with it, so every row covers the visible half of the limb there.
         """
         width, height = raster.size
         visible = raster.crop((width // 4, 0, width - width // 4, height))

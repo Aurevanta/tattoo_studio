@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: contracts
 
+TASK-0105 (ADR-0035): each `wraps` region gains `circumferenceProfileMm` (every `profileStepMm`, 10 mm, down its band, measured on the reference models), `views` and `zoneAround`. `circumferenceAt` (TypeScript) and `WrapRegion.circumference_at`/`side` (Python) read them alike. `studio-status.artifact` and `shared-design` gain optional `panels` and `panelsMirror`; the `shared-design` fixture `sleeve-panels` is added.
+
 TASK-0104 (ADR-0034): `reference/body-zones.json` gains `wraps` (`lower_leg`: calf and shin, 344 × 310 mm; `forearm`: inner and outer forearm, 255 × 215 mm) and `wrapNotes`. `WRAP_REGIONS`, `wrapRegionOf`, `wrapSize`, `SLEEVE_SHARE` and `isSleeve` (TypeScript) and `tattoo_contracts.sleeve` (Python) apply the same rule: wrapping, a zone in a region, a width of at least 90 % of its circumference. `studio-status.stage` gains `seam`. All of it is additive (CONTRACTS-INV-004).
 
 TASK-0097 (ADR-0032): `shared-design.schema.json` — what a link shows a tattooer; never a body photo, capture, body type or account; the skin view null unless on generated skin. Corpus 6 valid / 16 invalid; registered in both runtimes.

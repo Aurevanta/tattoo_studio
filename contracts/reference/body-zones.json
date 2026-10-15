@@ -120,7 +120,64 @@
         "shin"
       ],
       "circumferenceMm": 344.0,
-      "lengthMm": 310.0
+      "lengthMm": 310.0,
+      "zoneAround": {
+        "calf": 0.5,
+        "shin": 0.0
+      },
+      "views": [
+        {
+          "around": 0,
+          "label": "Delante"
+        },
+        {
+          "around": 0.25,
+          "label": "Exterior"
+        },
+        {
+          "around": 0.5,
+          "label": "Detrás"
+        },
+        {
+          "around": 0.75,
+          "label": "Interior"
+        }
+      ],
+      "profileStepMm": 10.0,
+      "circumferenceProfileMm": [
+        331.3,
+        329.3,
+        328.5,
+        329.5,
+        332.2,
+        335.6,
+        339.4,
+        342.0,
+        343.6,
+        343.4,
+        341.8,
+        339.0,
+        333.4,
+        327.2,
+        319.7,
+        308.8,
+        298.2,
+        288.2,
+        278.3,
+        267.3,
+        256.3,
+        250.1,
+        240.9,
+        234.8,
+        226.9,
+        220.3,
+        215.1,
+        210.3,
+        206.0,
+        203.9,
+        203.6,
+        206.5
+      ]
     },
     "forearm": {
       "zones": [
@@ -128,8 +185,55 @@
         "outer_forearm"
       ],
       "circumferenceMm": 255.0,
-      "lengthMm": 215.0
+      "lengthMm": 215.0,
+      "zoneAround": {
+        "inner_forearm": 0.0,
+        "outer_forearm": 0.5
+      },
+      "views": [
+        {
+          "around": 0,
+          "label": "Interior"
+        },
+        {
+          "around": 0.25,
+          "label": "Lado del pulgar"
+        },
+        {
+          "around": 0.5,
+          "label": "Exterior"
+        },
+        {
+          "around": 0.75,
+          "label": "Lado del meñique"
+        }
+      ],
+      "profileStepMm": 10.0,
+      "circumferenceProfileMm": [
+        253.4,
+        253.7,
+        254.7,
+        254.1,
+        251.6,
+        248.0,
+        243.6,
+        238.3,
+        232.6,
+        226.7,
+        221.3,
+        216.0,
+        210.4,
+        204.2,
+        197.7,
+        191.3,
+        184.6,
+        177.5,
+        171.8,
+        165.0,
+        158.4,
+        152.7
+      ]
     }
   },
-  "wrapNotes": "A sleeve goes all the way round a limb (TASK-0104, ADR-0034). Its design is the limb's skin unrolled: widthMm is the reference circumference where the limb is widest, heightMm the band from 40 mm above the ankle to 30 mm below the knee, or from 20 mm above the wrist to 30 mm below the elbow. Measured on the 3D preview's reference limbs (apps/web/scripts/build-limb-model.py); illustrative, not any individual's."
+  "wrapNotes": "A sleeve goes all the way round a limb (TASK-0104, ADR-0034). Its design is the limb's skin unrolled: widthMm is the reference circumference where the limb is widest, heightMm the band from 40 mm above the ankle to 30 mm below the knee, or from 20 mm above the wrist to 30 mm below the elbow. Measured on the 3D preview's reference limbs (apps/web/scripts/build-limb-model.py); illustrative, not any individual's. circumferenceProfileMm is the limb's circumference every profileStepMm down the band, from its top (below the knee or elbow) to its bottom, measured on the same models (TASK-0105): each row of a sleeve's design goes once round the limb at that height. views name the limb's sides as fractions round it, from the front of the leg or the palm side of the forearm, growing towards the outside of the left leg or the thumb; zoneAround is where each zone's own side is."
 }

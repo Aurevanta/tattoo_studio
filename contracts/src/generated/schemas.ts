@@ -301,6 +301,12 @@ export const schemas: Record<string, Record<string, unknown>> = {
     "pdfMirror": {
       "$ref": "#/$defs/asset"
     },
+    "panels": {
+      "$ref": "#/$defs/asset"
+    },
+    "panelsMirror": {
+      "$ref": "#/$defs/asset"
+    },
     "mockup": {
       "description": "The view on the skin, only when it was composed on a generated skin plate. Null when it was composed on the client's own photograph, which is never shared.",
       "anyOf": [
@@ -941,6 +947,12 @@ export const schemas: Record<string, Record<string, unknown>> = {
           "$ref": "#/$defs/asset"
         },
         "pdfMirror": {
+          "$ref": "#/$defs/asset"
+        },
+        "panels": {
+          "$ref": "#/$defs/asset"
+        },
+        "panelsMirror": {
           "$ref": "#/$defs/asset"
         },
         "mockup": {

@@ -285,6 +285,14 @@ export function TattooPreviewModal({
         He revisado los símbolos. El tatuador debe validar el trazo y la impresión antes de
         utilizarlo.
       </label>
+      {reviewed && artifact.panels && (
+        <p className="small-note">
+          {/* TASK-0105 */}
+          Es una manga: la plantilla es su piel desenrollada, más estrecha donde el miembro es más
+          fino. Para colocarla, el PDF de paneles la divide en 4 piezas de un cuarto de vuelta, cada
+          una con su nombre, 1 cm de solape y marcas numeradas para alinearlas.
+        </p>
+      )}
       {reviewed && needsA4Pieces(artifact.size) && (
         <p className="small-note">
           {/* TASK-0088 (audit, «Impresión profesional»). */}
@@ -305,6 +313,20 @@ export function TattooPreviewModal({
           <a href={url(artifact.pdfMirror.assetId)} download="inkcraft-stencil-espejo.pdf">
             PDF espejo
           </a>
+          {/* TASK-0105 (ADR-0035): a sleeve's stencil in four panels to place round the limb. */}
+          {artifact.panels && (
+            <a href={url(artifact.panels.assetId)} download="inkcraft-manga-paneles.pdf">
+              Manga en 4 paneles (PDF)
+            </a>
+          )}
+          {artifact.panelsMirror && (
+            <a
+              href={url(artifact.panelsMirror.assetId)}
+              download="inkcraft-manga-paneles-espejo.pdf"
+            >
+              Paneles en espejo
+            </a>
+          )}
           <a href={url(artifact.stencil.assetId)} download="inkcraft-stencil.svg">
             SVG
           </a>

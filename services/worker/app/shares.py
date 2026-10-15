@@ -29,6 +29,8 @@ MAX_ACTIVE = 20
 TOKEN = re.compile(r"[A-Za-z0-9_-]{32}")
 #: The parts of a result a tattooer may open.
 SHARED_FILES = ("master", "stencil", "stencilMirror", "pdf", "pdfMirror")
+#: TASK-0105: a sleeve's panels, shared when the result has them.
+SHARED_IF_PRESENT = ("panels", "panelsMirror")
 
 TOO_MANY = (
     "Tienes demasiados enlaces abiertos. Deja de compartir alguno de tus diseños antes de crear "
@@ -131,6 +133,7 @@ def shared_design(
         "style": brief["style"]["primary"],
         "colourMode": colour["mode"],
         **{name: dict(result[name]) for name in SHARED_FILES},
+        **{name: dict(result[name]) for name in SHARED_IF_PRESENT if result.get(name)},
         "mockup": dict(result["mockup"]) if on_generated_skin else None,
         "stencilMethod": (result.get("stencilReview") or {}).get("method"),
         "reviewRequired": True,
@@ -143,7 +146,7 @@ def shared_design(
 
 def shared_files(shared: dict[str, Any]) -> set[str]:
     """The asset ids a link may open."""
-    names = (*SHARED_FILES, "mockup")
+    names = (*SHARED_FILES, *SHARED_IF_PRESENT, "mockup")
     return {shared[name]["assetId"] for name in names if shared.get(name)}
 
 

@@ -211,3 +211,40 @@ def test_a_sleeve_is_not_resized_by_the_coverage_controls(tmp_path: Path) -> Non
     failed = studio.jobs.get(OWNER, queued["jobId"])
     assert failed["state"] == "failed" and failed["error"] == SLEEVE_FIXED
     assert first["size"] == {"widthMm": 344, "heightMm": 310}
+
+
+def test_a_sleeve_brings_its_stencil_unrolled_and_in_four_panels(tmp_path: Path) -> None:
+    """TASK-0105: the SVG is the skin at each height's circumference; the panels are a PDF."""
+    import re
+
+    from tattoo_contracts.sleeve import WRAP_REGIONS
+    from tattoo_contracts.validation import validate
+
+    from app.shares import shared_design, shared_files
+
+    provider = SleeveProvider([wrapping_lines()])
+    studio = Studio(tmp_path, b"x" * 32, provider)
+    request = sleeve_payload()
+    artifact = run(studio, request)
+    assert (
+        artifact["panels"]["mimeType"] == artifact["panelsMirror"]["mimeType"] == "application/pdf"
+    )
+    pdf = studio.owned(OWNER, artifact["panels"]["assetId"])
+    assert b"Panel 1 of 4: Detr" in pdf and b"Panel 3 of 4: Delante" in pdf
+    svg = studio.owned(OWNER, artifact["stencil"]["assetId"]).decode()
+    xs = [float(x) for x in re.findall(r"(-?\d+(?:\.\d+)?),-?\d+(?:\.\d+)?", svg)]
+    region = WRAP_REGIONS["lower_leg"]
+    # Unrolled: nothing lies outside the widest circumference, and the ink narrows with the limb.
+    assert min(xs) >= -0.5 and max(xs) <= region.circumference_mm + 0.5
+    # The tattooer's link shares the panels as well.
+    shared = shared_design(artifact, request, 0.0, 86400.0)
+    assert not validate("shared-design", shared)
+    assert artifact["panels"]["assetId"] in shared_files(shared)
+
+
+def test_an_ordinary_design_has_no_panels(tmp_path: Path) -> None:
+    provider = SleeveProvider([])
+    request = sleeve_payload()
+    request["brief"]["size"] = {"widthMm": 120, "heightMm": 60}
+    artifact = run(Studio(tmp_path, b"x" * 32, provider), request)
+    assert "panels" not in artifact and "panelsMirror" not in artifact

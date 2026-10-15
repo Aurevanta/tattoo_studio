@@ -3,12 +3,15 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { WRAP_REGIONS } from '@tattoo/contracts';
+
 import {
   band,
   defaultPlacement,
   designCoordinate,
   heightRange,
   isLimbZone,
+  LIMBS,
   limbOf,
   nearestView,
   perimeterAt,
@@ -71,6 +74,22 @@ describe('where a point of skin samples the design (TASK-0102/AC-002)', () => {
     const right = designCoordinate(0.52, 250, 344, back, 'right')!;
     expect(left.u + right.u).toBeCloseTo(1, 6);
     expect(left.v).toBe(right.v);
+  });
+
+  it('lays each row of a sleeve once round the limb at its own height (TASK-0105)', () => {
+    const sleeve = { ...back, widthMm: 344, lengthMm: 300, wraps: true };
+    // A quarter turn from the centre is a quarter of the design, on a wide or a narrow row alike.
+    for (const perimeter of [344, 204]) {
+      expect(designCoordinate(0.75, 250, perimeter, sleeve)!.u).toBeCloseTo(0.75, 9);
+      expect(designCoordinate(0.75, 250, perimeter, sleeve, 'right')!.u).toBeCloseTo(0.25, 9);
+    }
+    // The whole turn is the whole design: nothing is cut off on a narrow row.
+    expect(designCoordinate(0.0001, 250, 204, sleeve)).not.toBeNull();
+    // Without `wraps`, millimetres across the skin: a narrow row reaches less of the design.
+    expect(designCoordinate(0.9, 250, 204, { ...sleeve, wraps: false })!.u).toBeCloseTo(
+      (0.4 * 204) / 344 + 0.5,
+      9,
+    );
   });
 
   it('says how far round the leg a design reaches', () => {
@@ -138,6 +157,24 @@ describe('where a design starts', () => {
     expect(limbOf('shin')).toBe('leg');
   });
 
+  it('names the sides as the contracts do, so the stencil panels match the 3D view (TASK-0105)', () => {
+    for (const [limb, region] of [
+      ['leg', 'lower_leg'],
+      ['forearm', 'forearm'],
+    ] as const) {
+      expect(LIMBS[limb].views.map(({ around, label }) => ({ around, label }))).toEqual(
+        WRAP_REGIONS[region]!.views,
+      );
+    }
+    for (const [zone, around] of Object.entries({
+      ...WRAP_REGIONS['lower_leg']!.zoneAround,
+      ...WRAP_REGIONS['forearm']!.zoneAround,
+    }))
+      expect(defaultPlacement(zone as 'calf', model, { widthMm: 60, heightMm: 60 }).around).toBe(
+        around,
+      );
+  });
+
   it('starts a forearm piece on its own side, between the wrist and the elbow (TASK-0103)', () => {
     const inner = defaultPlacement('inner_forearm', forearm, { widthMm: 60, heightMm: 120 });
     const outer = defaultPlacement('outer_forearm', forearm, { widthMm: 60, heightMm: 120 });
@@ -152,6 +189,7 @@ describe('where a design starts', () => {
     const { low, high } = band(model);
     expect(sleeve.heightMm).toBeCloseTo((low + high) / 2, 6);
     expect(sleeve.around).toBe(0.5);
+    expect(sleeve.wraps).toBe(true);
   });
 
   it('interpolates the perimeter between the measured heights', () => {

@@ -37,6 +37,11 @@ export interface LimbPlacement {
   heightMm: number;
   widthMm: number;
   lengthMm: number;
+  /**
+   * TASK-0105 (ADR-0035): a sleeve. Each row of it goes once round the limb at its own height, so
+   * across the skin it takes the limb's circumference there rather than `widthMm`.
+   */
+  wraps?: boolean | undefined;
 }
 
 interface View {
@@ -216,7 +221,13 @@ export function defaultPlacement(
       : zone === 'ankle'
         ? low + size.heightMm / 2
         : model.proximalMm * 0.55;
-  return { around, heightMm: clamp(height), widthMm: size.widthMm, lengthMm: size.heightMm };
+  return {
+    around,
+    heightMm: clamp(height),
+    widthMm: size.widthMm,
+    lengthMm: size.heightMm,
+    ...(wraps ? { wraps: true } : {}),
+  };
 }
 
 /**
@@ -238,9 +249,11 @@ export function designCoordinate(
   const turn = fract(s - placement.around + 0.5) - 0.5;
   // On the left limb s grows towards +X, which a viewer facing that skin sees as rightwards on the
   // fraction-0 side and leftwards on the opposite one; arc length along the skin is what the
-  // design keeps.
-  const acrossMm = turn * perimeterMm * (side === 'left' ? 1 : -1);
-  const u = acrossMm / placement.widthMm + 0.5;
+  // design keeps, or, for a sleeve, the share of the turn (TASK-0105).
+  const sign = side === 'left' ? 1 : -1;
+  const u = placement.wraps
+    ? turn * sign + 0.5
+    : (turn * perimeterMm * sign) / placement.widthMm + 0.5;
   const v = 0.5 - (heightMm - placement.heightMm) / placement.lengthMm;
   if (u < 0 || u > 1 || v < 0 || v > 1) return null;
   return { u, v };

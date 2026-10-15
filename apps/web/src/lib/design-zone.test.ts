@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { designZone, limbViewOf, zoneSpanOf } from './design-zone';
+import { bodyViewOf, designZone, limbViewOf, zoneSpanOf } from './design-zone';
 
 const calf = { bodyPart: 'calf', orientation: 'vertical', side: 'left' } as const;
 
@@ -33,5 +33,17 @@ describe('where a design goes (TASK-0108)', () => {
   it('gives the zone its reference span', () => {
     expect(zoneSpanOf(calf)?.heightMm).toBeGreaterThan(0);
     expect(zoneSpanOf(undefined)).toBeUndefined();
+  });
+});
+
+describe('the whole-body 3D view (TASK-0109)', () => {
+  it('opens for every zone the limb view does not cover, on its side', () => {
+    expect(bodyViewOf({ bodyPart: 'chest', side: 'right' })).toEqual({
+      zone: 'chest',
+      side: 'right',
+    });
+    expect(bodyViewOf({ bodyPart: 'upper_back' })).toEqual({ zone: 'upper_back', side: 'left' });
+    expect(bodyViewOf({ bodyPart: 'calf' })).toBeUndefined();
+    expect(bodyViewOf(undefined)).toBeUndefined();
   });
 });

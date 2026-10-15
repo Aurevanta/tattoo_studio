@@ -9,6 +9,7 @@
 import { BODY_ZONE_SPANS, isSleeve } from '@tattoo/contracts';
 import type { GeneratedTattooArtifact } from '@/types/generation';
 import { isLimbZone, type LimbSide, type LimbZone } from './limb-wrap';
+import { isBodyZone, type BodySide } from './body-zones';
 
 export interface DesignZone {
   bodyPart: string;
@@ -57,4 +58,12 @@ export function zoneSpanOf(
   zone: DesignZone | undefined,
 ): { widthMm: number; heightMm: number } | undefined {
   return zone ? BODY_ZONE_SPANS[zone.bodyPart] : undefined;
+}
+
+/** TASK-0109 (ADR-0037): the whole-body 3D view, for every zone the limb view does not cover. */
+export function bodyViewOf(
+  zone: DesignZone | undefined,
+): { zone: string; side: BodySide } | undefined {
+  if (!zone || !isBodyZone(zone.bodyPart)) return undefined;
+  return { zone: zone.bodyPart, side: zone.side === 'right' ? 'right' : 'left' };
 }

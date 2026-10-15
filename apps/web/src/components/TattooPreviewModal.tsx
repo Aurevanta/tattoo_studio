@@ -10,6 +10,8 @@ import { IMAGE_FAILURE_TEXT, imageFailure, probe, type ImageFailure } from '@/li
 import { Confirm } from './Confirm';
 import { ShareWithTattooer } from './ShareWithTattooer';
 import { LimbViewer3D } from './LimbViewer3D';
+import { BodyViewer3D } from './BodyViewer3D';
+import { BODY_ZONE_NOUN, type BodySide } from '@/lib/body-zones';
 import { LIMBS, limbOf, type LimbSide, type LimbZone } from '@/lib/limb-wrap';
 import { MockupEditor } from './MockupEditor';
 import type { EditorPlacement } from '@/lib/mockup-editor';
@@ -24,6 +26,7 @@ export function TattooPreviewModal({
   zoneSpan,
   quotaNote,
   limbView,
+  bodyView,
 }: {
   artifact: GeneratedTattooArtifact;
   /** The version being shown, so a photo taken with the camera can join it (TASK-0050). */
@@ -46,6 +49,8 @@ export function TattooPreviewModal({
   quotaNote?: string | null;
   /** TASK-0102, TASK-0103 (ADR-0033): a lower-leg or forearm design turns round in 3D. */
   limbView?: { zone: LimbZone; side: LimbSide; wraps: boolean } | undefined;
+  /** TASK-0109 (ADR-0037): every other zone turns round on a reference body. */
+  bodyView?: { zone: string; side: BodySide } | undefined;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -255,6 +260,23 @@ export function TattooPreviewModal({
             />
           )}
           {adjusting && quotaNote && <p className="quota-note">{quotaNote}</p>}
+        </div>
+      )}
+      {bodyView && !limbView && (
+        <div className="leg-view-toggle" hidden={Boolean(detail)}>
+          <button type="button" aria-expanded={show3d} onClick={() => setShow3d((value) => !value)}>
+            {show3d
+              ? 'Ocultar la vista 3D'
+              : `Ver en 3D sobre ${BODY_ZONE_NOUN[bodyView.zone] ?? 'el cuerpo'}`}
+          </button>
+          {show3d && (
+            <BodyViewer3D
+              designUrl={url(artifact.master.assetId)}
+              size={artifact.size}
+              zone={bodyView.zone}
+              side={bodyView.side}
+            />
+          )}
         </div>
       )}
       {limbView && (

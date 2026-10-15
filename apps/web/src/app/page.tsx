@@ -18,7 +18,7 @@ import { TattooPreviewModal } from '@/components/TattooPreviewModal';
 import { GenerationProgress } from '@/components/GenerationProgress';
 import { InkWorking } from '@/components/InkWorking';
 import { sleeveNote } from '@/lib/limb-wrap';
-import { designZone, limbViewOf, zoneSpanOf } from '@/lib/design-zone';
+import { bodyViewOf, designZone, limbViewOf, zoneSpanOf } from '@/lib/design-zone';
 import { messageForError, messageForResponse } from '@/lib/client-errors';
 import type { InkTask } from '@/lib/ink-progress';
 import { StepFlow } from '@/components/StepFlow';
@@ -1307,6 +1307,7 @@ export default function ConsultationPage(): ReactNode {
             limbViewOf(zone, artifact.size)
           }
           zoneSpan={zoneSpanOf(zone)}
+          bodyView={bodyViewOf(zone)}
         />
       )}
 

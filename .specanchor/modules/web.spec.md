@@ -9,6 +9,13 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0109 (ADR-0037): every zone the limb view does not cover has a 3D view on one neutral reference body.
+
+- **Model:** `scripts/build-body-model.py` builds `public/models/body.glb` from the CC0 `hm08` base mesh. It carries each zone's projection in its extras: a plane decal with a depth slab and a facing test, or an arc round a joint axis.
+- **Code:** `lib/body-zones.ts` is the pure twin of the shader in `lib/body-scene.ts`. `BodyViewer3D` lets the client orbit, look at the zone or the whole body, move and turn the design, and choose the side (for paired zones) and the tone.
+- **Notices:** it shows the reference-body notice, plus a deformation warning on the neck, behind the ear, the hand, the foot and the finger.
+- **Result:** the result offers «Ver en 3D sobre …» through `bodyViewOf`. The lower leg and the forearm keep `LimbViewer3D`.
+
 TASK-0108: `lib/design-zone.ts` takes a design's zone from the result itself (`artifact.placement`). It falls back to the open consultation only for that consultation's own designs. The 3D view (`limbViewOf`) and the zone span (`zoneSpanOf`) use it, so a lower-leg or forearm design opened from the history opens in 3D.
 
 TASK-0107 (ADR-0036): «Ajustar sobre la piel» in the result (`MockupEditor`, `lib/mockup-editor.ts`) composes the master over the result's `background` in the browser, with drag, the arrow keys, and sliders for size, width, height and angle. It ports `_shape`'s cylinder and reuses `skin-blend`. It shows «≈ W × H mm» and the stretch, limited to ±25 % accumulated, and makes no request while adjusting (ADR-0019; source scan in `mockup-editor.test.ts`). Saving with new millimetres is confirmed, then sends `edit.placement`. It is absent for sleeves, camera versions and results without `background`. A calibrated photo offers position and angle only. «Más pequeño» and «Más grande» are removed, and so is the «Solo ampliar la vista» answer of «Ocupar toda la zona». `trimmedArtwork` (`lib/try-on.ts`) also returns the crop.

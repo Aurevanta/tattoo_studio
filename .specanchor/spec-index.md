@@ -90,6 +90,7 @@ exist and its field set is unproven against any consumer.
 | ADR-0034 | A sleeve goes all the way round a lower leg or a forearm | accepted |
 | ADR-0035 | A sleeve's stencil follows the limb and comes in four panels | accepted |
 | ADR-0036 | The client places, sizes, stretches and turns the design on the skin, live | accepted |
+| ADR-0037 | Every tattooable zone can be seen in 3D, on one reference body | accepted |
 | ADR-0024 | The studio records what it does, and never what a body looks like | accepted |
 | ADR-0023 | Designs last; photographs of a body expire (refines MEDIA-INV-006) | accepted |
 | ADR-0022 | One camera photograph may be kept, when the client takes it and chooses to (amends ADR-0019) | accepted |

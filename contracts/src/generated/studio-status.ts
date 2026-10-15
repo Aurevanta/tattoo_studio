@@ -35,6 +35,8 @@ export interface GeneratedTattooArtifact {
   stencilMirror: StudioAsset;
   pdf: StudioAsset;
   pdfMirror: StudioAsset;
+  panels?: StudioAsset;
+  panelsMirror?: StudioAsset;
   mockup: StudioAsset;
   referenceAnalysis: string;
   reviewRequired: true;

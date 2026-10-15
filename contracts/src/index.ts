@@ -143,6 +143,12 @@ export interface WrapRegion {
   zones: readonly string[];
   circumferenceMm: number;
   lengthMm: number;
+  /** TASK-0105: the circumference every `profileStepMm` down the band, from its top. */
+  profileStepMm: number;
+  circumferenceProfileMm: readonly number[];
+  /** The limb's sides as fractions round it, and each zone's own side. */
+  views: readonly { around: number; label: string }[];
+  zoneAround: Readonly<Record<string, number>>;
 }
 
 export const WRAP_REGIONS: Readonly<Record<string, WrapRegion>> = bodyZones.wraps;
@@ -158,6 +164,21 @@ export function wrapSize(
 ): { widthMm: number; heightMm: number } | undefined {
   const region = wrapRegionOf(bodyPart);
   return region ? { widthMm: region.circumferenceMm, heightMm: region.lengthMm } : undefined;
+}
+
+/**
+ * The limb's circumference `depthMm` below the top of a sleeve's band (TASK-0105): each row of the
+ * design goes once round the limb there. The same interpolation as
+ * `tattoo_contracts.sleeve.WrapRegion.circumference_at`.
+ */
+export function circumferenceAt(region: WrapRegion, depthMm: number): number {
+  const profile = region.circumferenceProfileMm;
+  const last = profile.length - 1;
+  const position =
+    Math.min(Math.max(depthMm, 0), region.profileStepMm * last) / region.profileStepMm;
+  const index = Math.min(Math.floor(position), last - 1);
+  const weight = position - index;
+  return profile[index]! * (1 - weight) + profile[index + 1]! * weight;
 }
 
 /** A design this much of the way round the limb or more is a sleeve, not a band. */

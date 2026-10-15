@@ -112,6 +112,22 @@ export function SharedDesignView({
               Plantilla en PDF, en espejo (para papel de transfer)
             </a>
           </li>
+          {design.panels && (
+            <li>
+              {/* TASK-0105 (ADR-0035) */}
+              <a href={file(design.panels)} download="manga-paneles.pdf">
+                Manga en 4 paneles, para colocarla alrededor del miembro (PDF)
+              </a>
+              {design.panelsMirror && (
+                <>
+                  {' · '}
+                  <a href={file(design.panelsMirror)} download="manga-paneles-espejo.pdf">
+                    en espejo
+                  </a>
+                </>
+              )}
+            </li>
+          )}
           <li>
             <a href={file(design.stencil)} download="plantilla.svg">
               Plantilla en SVG

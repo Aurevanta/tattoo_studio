@@ -76,6 +76,7 @@ uniform float uAround;
 uniform float uHeight;
 uniform vec2 uSize;
 uniform float uMirror;
+uniform float uWrap;
 varying vec2 vRing;
 varying float vPerim;
 varying float vHeight;
@@ -87,14 +88,18 @@ const FRAGMENT_INK = /* glsl */ `
   float s = atan(vRing.y, vRing.x) / 6.28318530718;
   float turn = fract(s - uAround + 0.5) - 0.5;
   float across = turn * vPerim * uMirror;
-  vec2 duv = vec2(across / uSize.x + 0.5, 0.5 - (vHeight - uHeight) / uSize.y);
+  // TASK-0105: a sleeve's row goes once round the limb at its own height (uWrap = 1); any other
+  // design keeps its millimetres across the skin.
+  float ux = mix(across / uSize.x, turn * uMirror, uWrap) + 0.5;
+  vec2 duv = vec2(ux, 0.5 - (vHeight - uHeight) / uSize.y);
   if (duv.x >= 0.0 && duv.x <= 1.0 && duv.y >= 0.0 && duv.y <= 1.0) {
     // The coordinate jumps on the far side of the ring, so its screen derivatives are taken from
     // the ring vector, which is continuous: mipmaps then work without drawing a seam.
     float ds = (vRing.x * dFdx(vRing.y) - vRing.y * dFdx(vRing.x)) / (6.28318530718 * dot(vRing, vRing));
     float dt = (vRing.x * dFdy(vRing.y) - vRing.y * dFdy(vRing.x)) / (6.28318530718 * dot(vRing, vRing));
-    vec2 gx = vec2(ds * vPerim * uMirror / uSize.x, -dFdx(vHeight) / uSize.y);
-    vec2 gy = vec2(dt * vPerim * uMirror / uSize.x, -dFdy(vHeight) / uSize.y);
+    float scale = mix(vPerim / uSize.x, 1.0, uWrap) * uMirror;
+    vec2 gx = vec2(ds * scale, -dFdx(vHeight) / uSize.y);
+    vec2 gy = vec2(dt * scale, -dFdy(vHeight) / uSize.y);
     vec4 art = textureGrad(uDesign, duv, gx, gy);
     // Paper reads as no ink; the multiply is the 2D mockup's, a touch under full strength because
     // ink sits beneath the skin's surface.
@@ -160,6 +165,7 @@ export async function createLimbScene(
     uHeight: { value: initial.placement.heightMm },
     uSize: { value: [initial.placement.widthMm, initial.placement.lengthMm] },
     uMirror: { value: initial.side === 'left' ? 1 : -1 },
+    uWrap: { value: initial.placement.wraps ? 1 : 0 },
   };
   const skin = new MeshStandardMaterial({ roughness: 0.62, metalness: 0 });
   skin.onBeforeCompile = (shader) => {
@@ -245,6 +251,7 @@ export async function createLimbScene(
       uniforms.uAround.value = placement.around;
       uniforms.uHeight.value = placement.heightMm;
       uniforms.uSize.value = [placement.widthMm, placement.lengthMm];
+      uniforms.uWrap.value = placement.wraps ? 1 : 0;
     },
     setSide,
     setTone,

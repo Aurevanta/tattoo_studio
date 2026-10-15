@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0105 (ADR-0035), `app/studio.py` and `app/shares.py`: a sleeve's `stencil`, `stencilMirror`, `pdf` and `pdfMirror` are its unrolled skin, and its result adds `panels` and `panelsMirror`. The tattooer's link shares them when present (`SHARED_IF_PRESENT`).
+
 TASK-0104 (ADR-0034), `app/studio.py`: a sleeve is drawn, cleared of backdrop and has its seam repaired (stage `seam`): once, and again if `seamless` still reads a cut. It is then fitted to its proportions. `compose_sleeve` lays the design's middle half over the zone's plate. The result carries `sleeve_notice` («Manga completa…», and a line when the join may still show). The coverage controls refuse a sleeve with `SLEEVE_FIXED`.
 
 TASK-0100: an upload refused because the moderation provider has no credit says «El estudio no puede revisar imágenes ahora mismo. Inténtalo más tarde…» instead of retrying in seconds.

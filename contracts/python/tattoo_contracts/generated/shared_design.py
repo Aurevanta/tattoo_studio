@@ -144,6 +144,8 @@ class SharedDesign(BaseModel):
     stencilMirror: Asset
     pdf: Asset
     pdfMirror: Asset
+    panels: Asset | None = None
+    panelsMirror: Asset | None = None
     mockup: Annotated[
         Asset | None,
         Field(

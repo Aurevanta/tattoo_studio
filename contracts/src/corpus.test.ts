@@ -23,6 +23,7 @@ import {
   schemaNames,
   validateAgainst,
   validateTattooBrief,
+  circumferenceAt,
   isSleeve,
   WRAP_REGIONS,
   wrapRegionOf,
@@ -198,5 +199,18 @@ describe('sleeves (TASK-0104)', () => {
     expect(isSleeve({ ...calf, orientation: 'vertical' }, { widthMm: 344 })).toBe(false);
     expect(isSleeve({ bodyPart: 'ankle', orientation: 'wrapping' }, { widthMm: 344 })).toBe(false);
     expect(isSleeve(undefined, undefined)).toBe(false);
+  });
+});
+
+describe('the circumference down a sleeve (TASK-0105)', () => {
+  it('interpolates the profile as the Python twin does', () => {
+    const leg = WRAP_REGIONS['lower_leg']!;
+    const profile = leg.circumferenceProfileMm;
+    expect(profile.length).toBe(leg.lengthMm / leg.profileStepMm + 1);
+    expect(circumferenceAt(leg, 0)).toBe(profile[0]);
+    expect(circumferenceAt(leg, 5)).toBeCloseTo((profile[0]! + profile[1]!) / 2, 9);
+    expect(circumferenceAt(leg, -10)).toBe(profile[0]);
+    expect(circumferenceAt(leg, 1e6)).toBe(profile[profile.length - 1]);
+    expect(Math.abs(Math.max(...profile) - leg.circumferenceMm)).toBeLessThan(1);
   });
 });

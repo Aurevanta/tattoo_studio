@@ -260,6 +260,8 @@ class Artifact(BaseModel):
     stencilMirror: Asset
     pdf: Asset
     pdfMirror: Asset
+    panels: Asset | None = None
+    panelsMirror: Asset | None = None
     mockup: Asset
     referenceAnalysis: Annotated[str, Field(max_length=3000, min_length=1)]
     reviewRequired: Literal[True]

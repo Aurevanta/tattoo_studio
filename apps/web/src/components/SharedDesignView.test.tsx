@@ -52,6 +52,14 @@ describe('the page a tattooer opens (TASK-0097)', () => {
     expect(html).not.toContain(`/files/${'1'.repeat(32)}`);
   });
 
+  it('offers a sleeve’s four panels, mirrored too, only when there are panels (TASK-0105)', () => {
+    const html = render(fixture('sleeve-panels'));
+    expect(html).toContain(`/files/${'7'.repeat(32)}`);
+    expect(html).toContain(`/files/${'8'.repeat(32)}`);
+    expect(html).toContain('Manga en 4 paneles');
+    expect(render(fixture('full'))).not.toContain('paneles');
+  });
+
   it('leaves out what is not there', () => {
     expect(render(fixture('no-refined'))).not.toContain('Descripción profesional');
     const html = render(fixture('black-and-grey-lineart'));

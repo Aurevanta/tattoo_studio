@@ -8,7 +8,7 @@ cannot disagree about what a sleeve is or how large it is.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from importlib import resources
 from typing import Any
 
@@ -32,13 +32,27 @@ class WrapRegion:
     profile_mm: tuple[float, ...]
     views: tuple[tuple[float, str], ...]
     zone_around: dict[str, float]
+    #: TASK-0110 (ADR-0038): the profile on the masculine and the feminine reference limbs.
+    body_profiles: dict[str, tuple[float, ...]] = field(default_factory=dict)
 
-    def circumference_at(self, depth_mm: float) -> float:
-        """The limb's circumference `depth_mm` below the band's top, interpolated."""
-        position = min(max(depth_mm, 0.0), self.step_mm * (len(self.profile_mm) - 1)) / self.step_mm
-        index = min(int(position), len(self.profile_mm) - 2)
+    def circumference_at(self, depth_mm: float, body_type: str | None = None) -> float:
+        """The limb's circumference `depth_mm` below the band's top, interpolated.
+
+        On the named body's own profile; the neutral one when none is named (TASK-0110).
+        """
+        profile = self.body_profiles.get(body_type or "", self.profile_mm)
+        position = min(max(depth_mm, 0.0), self.step_mm * (len(profile) - 1)) / self.step_mm
+        index = min(int(position), len(profile) - 2)
         weight = position - index
-        return self.profile_mm[index] * (1 - weight) + self.profile_mm[index + 1] * weight
+        return profile[index] * (1 - weight) + profile[index + 1] * weight
+
+    def for_body(self, body_type: str | None) -> WrapRegion:
+        """The region on the named body: its own profile, the neutral one when none is named.
+
+        TASK-0110 (ADR-0038). The band's length and the size a sleeve is asked at do not change.
+        """
+        profile = self.body_profiles.get(body_type or "")
+        return replace(self, profile_mm=profile) if profile else self
 
     def side(self, around: float) -> str:
         """The name of the side nearest a fraction round the limb."""
@@ -58,6 +72,10 @@ WRAP_REGIONS: dict[str, WrapRegion] = {
         tuple(float(value) for value in region["circumferenceProfileMm"]),
         tuple((float(view["around"]), str(view["label"])) for view in region["views"]),
         {zone: float(value) for zone, value in region["zoneAround"].items()},
+        {
+            body: tuple(float(value) for value in profile["circumferenceProfileMm"])
+            for body, profile in region.get("bodies", {}).items()
+        },
     )
     for name, region in _WRAPS.items()
 }

@@ -35,6 +35,20 @@ CENTRED = {"chest", "sternum", "stomach", "upper_back", "lower_back", "spine"}
 WEBP_QUALITY = 88
 
 
+def plate_body(brief: dict[str, Any]) -> str:
+    """The body a generated plate shows: the brief's, or one of the two when it names none.
+
+    The same for every version of a design. TASK-0110: the 3D views and a sleeve's stencil use
+    the same body, so the skin, the limb and the stencil agree.
+    """
+    body = (brief.get("placement") or {}).get("bodyType")
+    if body in BODIES:
+        return str(body)
+    # No body named: one of the two, the same for every version of this design.
+    digest = hashlib.sha256(str(brief.get("briefId", "")).encode()).digest()
+    return BODIES[digest[0] % 2]
+
+
 @dataclass(frozen=True)
 class Plate:
     zone: str
@@ -69,11 +83,7 @@ class PlateLibrary:
         zone = placement.get("bodyPart")
         if zone not in ZONE_VIEWS:
             return None
-        body = placement.get("bodyType")
-        if body not in BODIES:
-            # No body named: one of the two, the same for every version of this design.
-            digest = hashlib.sha256(str(brief.get("briefId", "")).encode()).digest()
-            body = BODIES[digest[0] % 2]
+        body = plate_body(brief)
         path = self.directory / Plate(zone, body).filename
         if not path.is_file():
             return None

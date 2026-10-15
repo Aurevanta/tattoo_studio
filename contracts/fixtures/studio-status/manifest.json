@@ -179,13 +179,13 @@
       "name": "with-zone",
       "file": "valid/with-zone.json",
       "valid": true,
-      "why": "TASK-0108: a result says which zone it goes on"
+      "why": "TASK-0108, TASK-0110: a result says which zone it goes on, and on which body"
     },
     {
-      "name": "zone-with-body-type",
-      "file": "invalid/zone-with-body-type.json",
+      "name": "zone-with-subject",
+      "file": "invalid/zone-with-subject.json",
       "valid": false,
-      "why": "TASK-0108: the zone carries no more of the brief than where it goes"
+      "why": "TASK-0108: the zone carries no more of the brief than where it goes and on which body"
     }
   ]
 }

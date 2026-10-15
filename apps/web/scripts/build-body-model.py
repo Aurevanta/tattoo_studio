@@ -3,7 +3,7 @@
 Input: the MakeHuman base mesh ``hm08`` (``makehuman/data/3dobjs/base.obj``), released as CC0 in
 September 2020 (source and SHA-256 in ``.specanchor/evidence/TASK-0102/model-licence.md``).
 
-Output: ``apps/web/public/models/body.glb``. It is the ``body`` group only (no genital helper, no
+Output: ``apps/web/public/models/body-{masculine,feminine}.glb``. It is the ``body`` group only (no genital helper, no
 clothing) after one Catmull-Clark step, in millimetres. The floor is at y = 0, the body faces +Z,
 and its left side is on +X. The scene extras carry, for each of the 21 zones the limb models do
 not cover, how a design is laid there. ``lib/body-zones.ts`` reads the extras, and its shader
@@ -15,9 +15,10 @@ twin (``lib/body-scene.ts``) runs the projection:
 - ``cylinder``: round the axis ``up`` through ``origin``, with ``normal`` as fraction 0 and the arc
   measured at the skin's own distance from the axis. It is limited to ``radiusMm``.
 
-Usage (numpy only)::
+Usage (numpy only), once per body (TASK-0110, ADR-0038)::
 
-    python apps/web/scripts/build-body-model.py path/to/base.obj apps/web/public/models/body.glb
+    python apps/web/scripts/build-body-model.py base.obj apps/web/public/models/body-masculine.glb targets masculine
+    python apps/web/scripts/build-body-model.py base.obj apps/web/public/models/body-feminine.glb targets feminine
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ PLANES = {
     'chest': ((0.85, 4.5), (0, 0, 1), (0, 1, 0), 140, True, False),
     'sternum': ((0.0, 4.2), (0, 0, 1), (0, 1, 0), 140, False, False),
     'stomach': ((0.0, 2.4), (0, 0, 1), (0, 1, 0), 160, False, False),
-    'ribs': ((0.9, 3.6), (1, 0, 0), (0, 1, 0), 120, True, False),
+    'ribs': ((0.9, 3.3), (1, 0, 0), (0, 1, 0), 120, True, False),
     'hip': ((0.9, 0.8), (1, 0, 0.35), (0, 1, 0), 120, True, False),
     'upper_back': ((0.0, 4.9), (0, 0, -1), (0, 1, 0), 140, False, False),
     'lower_back': ((0.0, 1.5), (0, 0, -1), (0, 1, 0), 140, False, False),
@@ -85,10 +86,10 @@ PLANES = {
 # Cylinder zones: the distal and proximal joints, where along that axis the design sits (share of
 # the length), fraction 0 round it, the radius beyond which skin belongs to something else (mm).
 CYLINDERS = {
-    'thigh_front': ('joint-l-knee', 'joint-l-upper-leg', 0.5, 'front', 110),
-    'thigh_outer': ('joint-l-knee', 'joint-l-upper-leg', 0.5, 'outside', 110),
-    'upper_arm_inner': ('joint-l-elbow', 'joint-l-shoulder', 0.45, 'inside', 65),
-    'upper_arm_outer': ('joint-l-elbow', 'joint-l-shoulder', 0.45, 'outside', 65),
+    'thigh_front': ('joint-l-knee', 'joint-l-upper-leg', 0.5, 'front', 150),
+    'thigh_outer': ('joint-l-knee', 'joint-l-upper-leg', 0.5, 'outside', 150),
+    'upper_arm_inner': ('joint-l-elbow', 'joint-l-shoulder', 0.45, 'inside', 80),
+    'upper_arm_outer': ('joint-l-elbow', 'joint-l-shoulder', 0.45, 'outside', 80),
     'wrist_inner': ('joint-l-hand', 'joint-l-elbow', 0.12, 'palm', 55),
     'wrist_outer': ('joint-l-hand', 'joint-l-elbow', 0.12, 'back', 55),
     'finger': ('joint-l-finger-2-4', 'joint-l-finger-2-1', 0.5, 'back', 14),
@@ -105,8 +106,10 @@ SPECIAL = {'hand', 'foot'}
 COMPLEX = {'neck', 'behind_ear', 'hand', 'foot', 'finger'}
 
 
-def main(source: Path, target: Path) -> None:
-    vertices, groups = limb.read_obj(source)
+def main(source: Path, target: Path, targets: Path, body_type: str) -> None:
+    base, groups = limb.read_obj(source)
+    # TASK-0110 (ADR-0038): a masculine or a feminine adult, never the neutral base.
+    vertices = limb.apply_body(base, targets, body_type)
     ground = limb.joint(vertices, groups, 'joint-ground')
 
     def j(name: str) -> np.ndarray:
@@ -145,12 +148,19 @@ def main(source: Path, target: Path) -> None:
             'complex': name in COMPLEX,
         }
 
-    skin = vertices[np.unique(body)]
+    skin_ids = np.unique(body)
+    skin = base[skin_ids]
 
     def inside(x: float, y: float) -> np.ndarray:
-        """A point inside the body at (x, y): the middle of its section's depth there."""
+        """A point inside the body at (x, y): the middle of its section's depth there.
+
+        Found on the neutral base, where the anchors were placed and checked (TASK-0109), then
+        carried with the skin round it into the chosen body.
+        """
         near = skin[(np.abs(skin[:, 1] - y) < 0.1) & (np.abs(skin[:, 0] - x) < 0.2)]
-        return np.array([x, y, (near[:, 2].min() + near[:, 2].max()) / 2])
+        point = np.array([x, y, (near[:, 2].min() + near[:, 2].max()) / 2])
+        nearest = skin_ids[np.argsort(np.linalg.norm(skin - point, axis=1))[:12]]
+        return point + (vertices[nearest] - base[nearest]).mean(axis=0)
 
     for name, (xy, outward, up_hint, behind, paired, _) in PLANES.items():
         plane(name, inside(*xy), np.array(outward, float), np.array(up_hint, float), behind, paired)
@@ -210,7 +220,7 @@ def main(source: Path, target: Path) -> None:
         'source': 'MakeHuman base mesh hm08, makehuman/data/3dobjs/base.obj',
         'licence': 'CC0 1.0 Universal',
         'units': 'mm',
-        'body': 'neutral',
+        'body': body_type,
         'side': 'left',
         'heightMm': round(float(mesh_mm[:, 1].max()), 1),
         'zones': {name: {k: tidy(v) for k, v in zone.items()} for name, zone in sorted(zones.items())},
@@ -222,4 +232,4 @@ def main(source: Path, target: Path) -> None:
 
 
 if __name__ == '__main__':
-    main(Path(sys.argv[1]), Path(sys.argv[2]))
+    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4])

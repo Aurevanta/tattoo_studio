@@ -295,9 +295,14 @@ class Side(Enum):
     centre = 'centre'
 
 
+class BodyType(Enum):
+    masculine = 'masculine'
+    feminine = 'feminine'
+
+
 class Placement2(BaseModel):
     """
-    TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.
+    TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. TASK-0110: and which reference body (bodyType) it was drawn for. Not the brief itself: no subject, no sizes beyond `size`.
     """
 
     model_config = ConfigDict(
@@ -312,6 +317,7 @@ class Placement2(BaseModel):
     ]
     orientation: Orientation
     side: Side | None = None
+    bodyType: BodyType | None = None
 
 
 class Artifact(BaseModel):
@@ -352,7 +358,7 @@ class Artifact(BaseModel):
     placement: Annotated[
         Placement2 | None,
         Field(
-            description='TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.'
+            description='TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. TASK-0110: and which reference body (bodyType) it was drawn for. Not the brief itself: no subject, no sizes beyond `size`.'
         ),
     ] = None
 

@@ -9,6 +9,14 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0111: the 3D views draw the artwork as the mockup does. `lib/design-art.ts::loadArtwork` trims the margin, and `lib/mockup-pose.ts::visibleSize` gives the visible artwork the brief's height; a sleeve or a calibrated photo keeps the whole canvas. On a generated plate, `mockupOffset` turns the mockup's placement (on the background's worker frame) into mm from the zone's centre and an angle, and the views start there. The scenes take the artwork as a canvas.
+
+TASK-0110 (ADR-0038): the 3D views show a masculine or a feminine body.
+
+- **Models:** `scripts/build-body-model.py` and `build-limb-model.py` take MakeHuman's CC0 race targets of the chosen sex (`apply_body`). A limb keeps the reference length and takes that body's girth. `scripts/measure-limb-profile.py` measures the sleeve profiles. The models are `body-*.glb`, `lower-leg-*.glb` and `forearm-*.glb`; the neutral `body.glb` is removed, and the neutral limbs stay for the landing.
+- **Code:** `lib/body-type.ts` has the labels and `defaultBody`, the browser twin of `plate_body`. `limbModelUrl` and `bodyModelUrl` name the models. `LimbViewer3D` and `BodyViewer3D` offer «Hombre / Mujer»; switching keeps the placement, side and tone.
+- **Result:** the result passes the design's `bodyType`, or `defaultBody(briefId)`.
+
 TASK-0109 (ADR-0037): every zone the limb view does not cover has a 3D view on one neutral reference body.
 
 - **Model:** `scripts/build-body-model.py` builds `public/models/body.glb` from the CC0 `hm08` base mesh. It carries each zone's projection in its extras: a plane decal with a depth slab and a facing test, or an arc round a joint axis.

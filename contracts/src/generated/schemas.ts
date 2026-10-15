@@ -1364,7 +1364,7 @@ export const schemas: Record<string, Record<string, unknown>> = {
           }
         },
         "placement": {
-          "description": "TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.",
+          "description": "TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. TASK-0110: and which reference body (bodyType) it was drawn for. Not the brief itself: no subject, no sizes beyond `size`.",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -1390,6 +1390,12 @@ export const schemas: Record<string, Record<string, unknown>> = {
                 "left",
                 "right",
                 "centre"
+              ]
+            },
+            "bodyType": {
+              "enum": [
+                "masculine",
+                "feminine"
               ]
             }
           }

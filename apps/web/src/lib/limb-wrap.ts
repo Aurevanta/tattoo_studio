@@ -107,6 +107,15 @@ export const LIMBS: Readonly<Record<Limb, LimbSpec>> = {
   },
 };
 
+/**
+ * TASK-0110 (ADR-0038): the limb of a masculine or a feminine body, which keeps the reference
+ * length and takes that body's girth. Without a body, the neutral limb (the landing's example).
+ */
+export function limbModelUrl(limb: Limb, body?: 'masculine' | 'feminine' | undefined): string {
+  const model = LIMBS[limb].model;
+  return body ? model.replace(/\.glb$/, `-${body}.glb`) : model;
+}
+
 /** Zones the preview covers, and the limb each is on. */
 const ZONE_LIMB = {
   calf: 'leg',

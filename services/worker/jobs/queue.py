@@ -74,7 +74,8 @@ def body_zone(payload: str | None) -> dict[str, str] | None:
         placement.get("bodyPart") and placement.get("orientation")
     ):
         return None
-    return {k: placement[k] for k in ("bodyPart", "orientation", "side") if k in placement}
+    keys = ("bodyPart", "orientation", "side", "bodyType")
+    return {k: placement[k] for k in keys if k in placement}
 
 
 class JobQueue:

@@ -48,25 +48,30 @@ describe('every tattooable zone has a 3D view (TASK-0109, ADR-0037)', () => {
     expect(isBodyZone(undefined)).toBe(false);
   });
 
-  it('the committed body carries all 21 zones, its source and its licence', () => {
-    const extras = glbExtras(resolve(__dirname, '../../public/models/body.glb')) as {
-      source: string;
-      licence: string;
-    };
-    expect(extras.source).toMatch(/MakeHuman base mesh hm08/);
-    expect(extras.licence).toBe('CC0 1.0 Universal');
-    const model = readBodyModel(extras);
-    expect(model.heightMm).toBeGreaterThan(1500);
-    expect(Object.keys(model.zones).sort()).toEqual(
-      Object.keys(BODY_ZONE_NOUN).filter(isBodyZone).sort(),
-    );
-    for (const zone of Object.values(model.zones)) {
-      // Unit vectors, and the camera's target on the skin.
-      for (const v of [zone.normal, zone.up, zone.right])
-        expect(Math.hypot(...v)).toBeCloseTo(1, 2);
-    }
-    expect(() => readBodyModel({ units: 'cm' })).toThrow();
-  });
+  it.each(['masculine', 'feminine'])(
+    'the %s body carries all 21 zones, its source and its licence',
+    (body) => {
+      const extras = glbExtras(resolve(__dirname, `../../public/models/body-${body}.glb`)) as {
+        source: string;
+        licence: string;
+        body: string;
+      };
+      expect(extras.body).toBe(body);
+      expect(extras.source).toMatch(/MakeHuman base mesh hm08/);
+      expect(extras.licence).toBe('CC0 1.0 Universal');
+      const model = readBodyModel(extras);
+      expect(model.heightMm).toBeGreaterThan(1500);
+      expect(Object.keys(model.zones).sort()).toEqual(
+        Object.keys(BODY_ZONE_NOUN).filter(isBodyZone).sort(),
+      );
+      for (const zone of Object.values(model.zones)) {
+        // Unit vectors, and the camera's target on the skin.
+        for (const v of [zone.normal, zone.up, zone.right])
+          expect(Math.hypot(...v)).toBeCloseTo(1, 2);
+      }
+      expect(() => readBodyModel({ units: 'cm' })).toThrow();
+    },
+  );
 });
 
 describe('where skin samples the design, as the shader does', () => {

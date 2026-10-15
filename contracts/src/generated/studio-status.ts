@@ -146,7 +146,7 @@ export interface GeneratedTattooArtifact {
     };
   };
   /**
-   * TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.
+   * TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. TASK-0110: and which reference body (bodyType) it was drawn for. Not the brief itself: no subject, no sizes beyond `size`.
    */
   placement?: {
     /**
@@ -155,6 +155,7 @@ export interface GeneratedTattooArtifact {
     bodyPart: string;
     orientation: 'vertical' | 'horizontal' | 'diagonal' | 'wrapping';
     side?: 'left' | 'right' | 'centre';
+    bodyType?: 'masculine' | 'feminine';
   };
 }
 export interface StudioAsset {

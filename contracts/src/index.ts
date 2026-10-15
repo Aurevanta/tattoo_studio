@@ -149,7 +149,15 @@ export interface WrapRegion {
   /** The limb's sides as fractions round it, and each zone's own side. */
   views: readonly { around: number; label: string }[];
   zoneAround: Readonly<Record<string, number>>;
+  /**
+   * TASK-0110 (ADR-0038): the same profile on the masculine and the feminine reference limbs,
+   * which keep the band's length and take their own girth.
+   */
+  bodies?: Readonly<Record<BodyType, { circumferenceProfileMm: readonly number[] }>>;
 }
+
+/** The reference bodies a brief may name (`placement.bodyType`). */
+export type BodyType = 'masculine' | 'feminine';
 
 export const WRAP_REGIONS: Readonly<Record<string, WrapRegion>> = bodyZones.wraps;
 
@@ -171,8 +179,16 @@ export function wrapSize(
  * design goes once round the limb there. The same interpolation as
  * `tattoo_contracts.sleeve.WrapRegion.circumference_at`.
  */
-export function circumferenceAt(region: WrapRegion, depthMm: number): number {
-  const profile = region.circumferenceProfileMm;
+export function circumferenceAt(
+  region: WrapRegion,
+  depthMm: number,
+  bodyType?: string | undefined,
+): number {
+  // TASK-0110: the named body's own profile; the neutral one when none is named.
+  const profile =
+    (bodyType === 'masculine' || bodyType === 'feminine'
+      ? region.bodies?.[bodyType]?.circumferenceProfileMm
+      : undefined) ?? region.circumferenceProfileMm;
   const last = profile.length - 1;
   const position =
     Math.min(Math.max(depthMm, 0), region.profileStepMm * last) / region.profileStepMm;

@@ -117,3 +117,14 @@ def test_the_pdf_has_each_panel_at_full_size_then_in_a4_pieces() -> None:
     assert b"Overlaps panel 4 and panel 2" in pdf
     mirrored = export_panels_pdf(quarters, mirrored=True)
     assert mirrored != pdf
+
+
+@pytest.mark.parametrize("body", ["masculine", "feminine"])
+def test_a_sleeve_unrolls_to_the_named_bodys_limb(body: str) -> None:
+    """TASK-0110 (ADR-0038): the stencil follows the limb the 3D view and the plate show."""
+    region = LEG.for_body(body)
+    y = LEG.length_mm / 3  # the calf
+    flat = unroll(sleeve([row(y)]), region)
+    xs = [x for x, _ in flat.paths[0]]
+    assert max(xs) - min(xs) == pytest.approx(LEG.circumference_at(y, body), abs=0.01)
+    assert LEG.circumference_at(y, body) != pytest.approx(LEG.circumference_at(y), abs=1)

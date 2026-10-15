@@ -21,7 +21,7 @@ import {
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
-  TextureLoader,
+  CanvasTexture,
   Vector3,
   WebGLRenderer,
   type Texture,
@@ -30,7 +30,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
-  BODY_MODEL_URL,
+  bodyModelUrl,
   readBodyModel,
   viewDistance,
   type BodyModel,
@@ -111,8 +111,10 @@ const FRAGMENT_INK = /* glsl */ `
 export async function createBodyScene(
   container: HTMLElement,
   zoneName: string,
-  designUrl: string,
+  /** TASK-0111: the artwork as the mockup draws it (`loadArtwork`). */
+  artwork: HTMLCanvasElement,
   initial: { placement: BodyPlacement; side: BodySide; tone: SkinTone },
+  body: 'masculine' | 'feminine',
 ): Promise<BodyScene> {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -149,8 +151,8 @@ export async function createBodyScene(
   let root: Awaited<ReturnType<GLTFLoader['loadAsync']>>['scene'];
   try {
     const [gltf, texture] = await Promise.all([
-      new GLTFLoader().loadAsync(BODY_MODEL_URL),
-      new TextureLoader().loadAsync(designUrl),
+      new GLTFLoader().loadAsync(bodyModelUrl(body)),
+      Promise.resolve(new CanvasTexture(artwork)),
     ]);
     model = readBodyModel(gltf.scene.userData);
     if (!model.zones[zoneName]) throw new Error(`The body has no zone ${zoneName}.`);

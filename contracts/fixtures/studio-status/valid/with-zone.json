@@ -55,7 +55,8 @@
     "placement": {
       "bodyPart": "calf",
       "orientation": "vertical",
-      "side": "left"
+      "side": "left",
+      "bodyType": "masculine"
     }
   },
   "error": null

@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 
 from app.studio import Studio, router
+from generation.plate_library import plate_body
 from generation.studio import ArtworkCheck, StudioProvider
 from jobs import client_messages
 from jobs.queue import JobQueue, billable_job, body_zone
@@ -2179,6 +2180,8 @@ def test_every_result_says_which_zone_it_goes_on(tmp_path: Path) -> None:
         for k in ("bodyPart", "orientation", "side")
         if k in original["brief"]["placement"]
     }
+    # TASK-0110: and the body its plate shows, chosen as the plate library chooses it.
+    expected["bodyType"] = plate_body(original["brief"])
     assert studio.jobs.get(owner, job)["result"]["placement"] == expected
     assert studio.jobs.history(owner)[0]["result"]["placement"] == expected
     assert body_zone("not json") is None

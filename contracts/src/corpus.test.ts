@@ -202,6 +202,23 @@ describe('sleeves (TASK-0104)', () => {
   });
 });
 
+describe('a sleeve on a masculine or a feminine limb (TASK-0110)', () => {
+  it('reads the named body profile, and the neutral one otherwise', () => {
+    for (const region of Object.values(WRAP_REGIONS)) {
+      const male = region.bodies!.masculine.circumferenceProfileMm;
+      const female = region.bodies!.feminine.circumferenceProfileMm;
+      // The same band, measured every step, on each body.
+      expect(male.length).toBe(region.circumferenceProfileMm.length);
+      expect(female.length).toBe(region.circumferenceProfileMm.length);
+      expect(circumferenceAt(region, 0, 'masculine')).toBe(male[0]);
+      expect(circumferenceAt(region, 0, 'feminine')).toBe(female[0]);
+      expect(circumferenceAt(region, 0)).toBe(region.circumferenceProfileMm[0]);
+      expect(circumferenceAt(region, 0, 'other')).toBe(region.circumferenceProfileMm[0]);
+      expect(Math.max(...female)).toBeLessThan(Math.max(...male));
+    }
+  });
+});
+
 describe('the circumference down a sleeve (TASK-0105)', () => {
   it('interpolates the profile as the Python twin does', () => {
     const leg = WRAP_REGIONS['lower_leg']!;

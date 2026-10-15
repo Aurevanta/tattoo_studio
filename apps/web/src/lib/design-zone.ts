@@ -10,11 +10,14 @@ import { BODY_ZONE_SPANS, isSleeve } from '@tattoo/contracts';
 import type { GeneratedTattooArtifact } from '@/types/generation';
 import { isLimbZone, type LimbSide, type LimbZone } from './limb-wrap';
 import { isBodyZone, type BodySide } from './body-zones';
+import { isBodyType, type BodyType } from './body-type';
 
 export interface DesignZone {
   bodyPart: string;
   orientation?: string | undefined;
   side?: string | undefined;
+  /** TASK-0110: the reference body the design was made for. */
+  bodyType?: string | undefined;
 }
 
 /** The design's own zone, or the open consultation's when the design is one of its own. */
@@ -44,12 +47,13 @@ export function designZone(
 export function limbViewOf(
   zone: DesignZone | undefined,
   size: { widthMm: number },
-): { zone: LimbZone; side: LimbSide; wraps: boolean } | undefined {
+): { zone: LimbZone; side: LimbSide; wraps: boolean; body?: BodyType } | undefined {
   if (!zone || !isLimbZone(zone.bodyPart)) return undefined;
   return {
     zone: zone.bodyPart,
     side: zone.side === 'right' ? 'right' : 'left',
     wraps: isSleeve(zone, size),
+    ...(isBodyType(zone.bodyType) ? { body: zone.bodyType } : {}),
   };
 }
 
@@ -63,7 +67,11 @@ export function zoneSpanOf(
 /** TASK-0109 (ADR-0037): the whole-body 3D view, for every zone the limb view does not cover. */
 export function bodyViewOf(
   zone: DesignZone | undefined,
-): { zone: string; side: BodySide } | undefined {
+): { zone: string; side: BodySide; body?: BodyType } | undefined {
   if (!zone || !isBodyZone(zone.bodyPart)) return undefined;
-  return { zone: zone.bodyPart, side: zone.side === 'right' ? 'right' : 'left' };
+  return {
+    zone: zone.bodyPart,
+    side: zone.side === 'right' ? 'right' : 'left',
+    ...(isBodyType(zone.bodyType) ? { body: zone.bodyType } : {}),
+  };
 }

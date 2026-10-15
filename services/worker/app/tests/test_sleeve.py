@@ -248,3 +248,17 @@ def test_an_ordinary_design_has_no_panels(tmp_path: Path) -> None:
     request["brief"]["size"] = {"widthMm": 120, "heightMm": 60}
     artifact = run(Studio(tmp_path, b"x" * 32, provider), request)
     assert "panels" not in artifact and "panelsMirror" not in artifact
+
+
+def test_a_sleeves_stencil_is_drawn_for_the_body_its_plate_shows() -> None:
+    """TASK-0110: a generated plate's body names the profile; an own photo keeps the neutral one."""
+    from app.studio import design_body, design_zone
+
+    placement = {"bodyPart": "calf", "orientation": "wrapping"}
+    brief: dict[str, object] = {"briefId": "b", "placement": placement}
+    named: dict[str, object] = {"briefId": "b", "placement": {**placement, "bodyType": "feminine"}}
+    assert design_body(named, {}) == "feminine"
+    assert design_body(brief, {}) in ("masculine", "feminine")
+    assert design_body(named, {"bodyPhotoId": "x"}) is None
+    assert design_zone(named, {})["bodyType"] == "feminine"
+    assert "bodyType" not in design_zone(named, {"bodyPhotoId": "x"})

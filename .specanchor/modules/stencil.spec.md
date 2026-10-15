@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: stencil
 
+TASK-0110 (ADR-0038): `unroll` and `panels` are unchanged. They receive the region already on its body (`WrapRegion.for_body`), and `tests/test_sleeve.py` checks a sleeve unrolled to the named body's circumference.
+
 TASK-0107 (ADR-0036): `rescale_axes` scales a vector master exactly per axis, with the stroke scaled by the geometric mean of the factors. At equal factors it equals `rescale`. It is used when the live editor widens or lengthens a design, so the stencil follows the mockup (PROD-INV-001). Never a retrace (ADR-0003).
 
 TASK-0105 (ADR-0035): `stencil.sleeve`. `unroll` lays each row of a sleeve's master at the limb's circumference at its height, centred, with strokes densified. `panels` gives four quarter turns from the zone's own side (mirrored on the right), each overlapping its neighbours by at least 10 mm, with the neighbours' lines, a centre line and ticks numbered «n·k» every 50 mm. `export_panels_pdf` prints each panel at 1:1 and then in A4 pieces (TASK-0088). The master is moved and cut, never redrawn (ADR-0003).

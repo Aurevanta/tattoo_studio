@@ -1,7 +1,7 @@
 /**
  * Where a design sits on the reference body of the whole-body 3D preview (TASK-0109, ADR-0037).
  *
- * The body (`public/models/body.glb`, built by `scripts/build-body-model.py` from the CC0 MakeHuman
+ * The bodies (`public/models/body-{masculine,feminine}.glb`, built by `scripts/build-body-model.py` from the CC0 MakeHuman
  * base mesh) carries, per zone, how a design is laid there: projected as a decal from the zone's
  * outward direction (`plane`), or round a limb's axis (`cylinder`). This module is the maths the
  * shader runs, kept pure so it is verified without a GPU. It says where each point of skin samples
@@ -52,7 +52,10 @@ export interface BodyPlacement {
 
 export type BodySide = 'left' | 'right';
 
-export const BODY_MODEL_URL = '/models/body.glb';
+/** TASK-0110 (ADR-0038): a masculine or a feminine reference body. */
+export function bodyModelUrl(body: 'masculine' | 'feminine'): string {
+  return `/models/body-${body}.glb`;
+}
 
 /** Spanish noun for each zone, for the labels. */
 export const BODY_ZONE_NOUN: Readonly<Record<string, string>> = {

@@ -47,3 +47,14 @@ describe('the whole-body 3D view (TASK-0109)', () => {
     expect(bodyViewOf(undefined)).toBeUndefined();
   });
 });
+
+describe('the body comes with the zone (TASK-0110)', () => {
+  it('passes the design body to whichever 3D view opens', () => {
+    expect(bodyViewOf({ bodyPart: 'chest', bodyType: 'feminine' })?.body).toBe('feminine');
+    expect(limbViewOf({ bodyPart: 'calf', bodyType: 'masculine' }, { widthMm: 100 })?.body).toBe(
+      'masculine',
+    );
+    expect(bodyViewOf({ bodyPart: 'chest' })?.body).toBeUndefined();
+    expect(bodyViewOf({ bodyPart: 'chest', bodyType: 'other' })?.body).toBeUndefined();
+  });
+});

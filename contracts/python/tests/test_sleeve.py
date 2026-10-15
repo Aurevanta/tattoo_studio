@@ -49,3 +49,23 @@ def test_the_sides_are_named_round_each_limb() -> None:
     )
     assert arm.side(0.0) == "Interior" and arm.side(0.5) == "Exterior"
     assert leg.zone_around == {"calf": 0.5, "shin": 0.0}
+
+
+def test_a_sleeve_follows_the_named_body() -> None:
+    """TASK-0110: the masculine and the feminine limbs have their own profile on the same band."""
+    for region in WRAP_REGIONS.values():
+        male, female = region.body_profiles["masculine"], region.body_profiles["feminine"]
+        assert len(male) == len(female) == len(region.profile_mm)
+        assert region.circumference_at(0, "masculine") == male[0]
+        assert region.circumference_at(0, "feminine") == female[0]
+        assert region.circumference_at(0) == region.profile_mm[0]
+        assert region.circumference_at(0, "other") == region.profile_mm[0]
+        assert max(female) < max(male)
+
+
+def test_a_region_on_a_body_carries_that_body_profile() -> None:
+    leg = WRAP_REGIONS["lower_leg"]
+    assert leg.for_body("feminine").profile_mm == leg.body_profiles["feminine"]
+    assert leg.for_body("feminine").length_mm == leg.length_mm
+    assert leg.for_body(None) is leg
+    assert leg.for_body("other") is leg

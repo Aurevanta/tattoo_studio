@@ -12,6 +12,9 @@ import { ShareWithTattooer } from './ShareWithTattooer';
 import { LimbViewer3D } from './LimbViewer3D';
 import { BodyViewer3D } from './BodyViewer3D';
 import { BODY_ZONE_NOUN, type BodySide } from '@/lib/body-zones';
+import { defaultBody, type BodyType } from '@/lib/body-type';
+import type { MockupPose } from '@/lib/mockup-pose';
+import { workerFrame } from '@/lib/mockup-editor';
 import { LIMBS, limbOf, type LimbSide, type LimbZone } from '@/lib/limb-wrap';
 import { MockupEditor } from './MockupEditor';
 import type { EditorPlacement } from '@/lib/mockup-editor';
@@ -48,9 +51,9 @@ export function TattooPreviewModal({
   /** What is left today (TASK-0095): a change is a new design. */
   quotaNote?: string | null;
   /** TASK-0102, TASK-0103 (ADR-0033): a lower-leg or forearm design turns round in 3D. */
-  limbView?: { zone: LimbZone; side: LimbSide; wraps: boolean } | undefined;
+  limbView?: { zone: LimbZone; side: LimbSide; wraps: boolean; body?: BodyType } | undefined;
   /** TASK-0109 (ADR-0037): every other zone turns round on a reference body. */
-  bodyView?: { zone: string; side: BodySide } | undefined;
+  bodyView?: { zone: string; side: BodySide; body?: BodyType } | undefined;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -82,6 +85,30 @@ export function TattooPreviewModal({
   const [confirmZone, setConfirmZone] = useState(false);
   const [overlay, setOverlay] = useState(false);
   const [show3d, setShow3d] = useState(false);
+  // TASK-0110 (ADR-0038): the body the design was made for, or the one its plate would show.
+  const namedBody = limbView?.body ?? bodyView?.body;
+  const [fallbackBody, setFallbackBody] = useState<BodyType>('feminine');
+  useEffect(() => {
+    if (!namedBody) void defaultBody(artifact.briefId).then(setFallbackBody);
+  }, [namedBody, artifact.briefId]);
+  const body = namedBody ?? fallbackBody;
+  // TASK-0111: the 3D views start where the mockup shows the design, read from the mockup's own
+  // picture. Only on a generated plate: an own photograph frames no reference zone.
+  const [mockupFrame, setMockupFrame] = useState<[number, number] | null>(null);
+  const backgroundId = artifact.background?.assetId;
+  useEffect(() => {
+    if (!backgroundId) return;
+    // The transform is in the pixels of the skin as the worker composed on it: the background,
+    // thumbnailed to 2048 (`workerFrame`), whatever size the finished mockup came back at.
+    const image = new Image();
+    image.onload = () => setMockupFrame(workerFrame(image.naturalWidth, image.naturalHeight));
+    image.src = url(backgroundId);
+  }, [backgroundId]);
+  const pose: MockupPose | undefined =
+    mockupFrame && !artifact.capture && artifact.backgroundKind === 'generated_anatomy'
+      ? { transform: artifact.transform, frame: mockupFrame }
+      : undefined;
+  const wholeCanvas = artifact.transform.scaleCalibrated;
   const [adjusting, setAdjusting] = useState(false);
   // TASK-0107 (ADR-0036): the design is adjusted over the skin it was composed on. Not for a
   // sleeve (already a full turn), a camera version (the photograph is the composite) or a result
@@ -275,6 +302,9 @@ export function TattooPreviewModal({
               size={artifact.size}
               zone={bodyView.zone}
               side={bodyView.side}
+              body={body}
+              pose={pose}
+              wholeCanvas={wholeCanvas}
             />
           )}
         </div>
@@ -293,6 +323,9 @@ export function TattooPreviewModal({
               zone={limbView.zone}
               side={limbView.side}
               wraps={limbView.wraps}
+              body={body}
+              pose={pose}
+              wholeCanvas={wholeCanvas}
             />
           )}
         </div>

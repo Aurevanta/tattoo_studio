@@ -17,6 +17,9 @@ import {
   type SkinTone,
 } from '@/lib/limb-wrap';
 import type { LimbScene } from '@/lib/limb-scene';
+import { BODY_LABEL, BODY_TYPES, type BodyType } from '@/lib/body-type';
+import { BODY_ZONE_SPANS } from '@tattoo/contracts';
+import { mockupOffset, visibleSize, type MockupPose } from '@/lib/mockup-pose';
 
 /**
  * The rotatable 3D preview of a design on a reference lower leg or forearm (TASK-0102, TASK-0103,
@@ -29,6 +32,9 @@ export function LimbViewer3D({
   zone,
   side: initialSide = 'left',
   wraps = false,
+  body: initialBody,
+  pose,
+  wholeCanvas = false,
 }: {
   designUrl: string;
   size: { widthMm: number; heightMm: number };
@@ -36,6 +42,12 @@ export function LimbViewer3D({
   side?: LimbSide;
   /** TASK-0104: the design goes all the way round; it starts centred on the band. */
   wraps?: boolean;
+  /** TASK-0110: a masculine or a feminine limb, which the client may switch; none on the landing. */
+  body?: BodyType | undefined;
+  /** TASK-0111: where the 2D mockup shows the design, on a generated plate. */
+  pose?: MockupPose | undefined;
+  /** A calibrated photograph draws the whole canvas, margins included. */
+  wholeCanvas?: boolean;
 }): ReactNode {
   const limb = limbOf(zone);
   const spec = LIMBS[limb];
@@ -46,6 +58,7 @@ export function LimbViewer3D({
   const [placement, setPlacement] = useState<LimbPlacement | null>(null);
   const [side, setSide] = useState<LimbSide>(initialSide);
   const [tone, setTone] = useState<SkinTone>('medium');
+  const [body, setBody] = useState<BodyType | undefined>(initialBody);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,22 +68,48 @@ export function LimbViewer3D({
       if (cancelled) return;
       if (!webglAvailable()) return setState('unsupported');
       try {
+        // TASK-0111: the artwork as the mockup draws it, its margin trimmed; a sleeve is its
+        // whole unrolled skin.
+        const { loadArtwork } = await import('@/lib/design-art');
+        const whole = wholeCanvas || wraps;
+        const art = await loadArtwork(designUrl, whole);
+        const artSize = visibleSize(size, art.box, whole);
         // The first placement needs the model's measurements; the scene starts with a neutral one
         // and is moved as soon as they are read.
         const neutral = {
           around: 0,
           heightMm: 150,
-          widthMm: size.widthMm,
-          lengthMm: size.heightMm,
+          widthMm: artSize.widthMm,
+          lengthMm: artSize.heightMm,
         };
-        created = await createLimbScene(stage.current!, limb, designUrl, {
-          placement: neutral,
-          side: initialSide,
-          tone: 'medium',
-        });
+        created = await createLimbScene(
+          stage.current!,
+          limb,
+          art.canvas,
+          {
+            placement: neutral,
+            side,
+            tone,
+          },
+          body,
+        );
         if (cancelled) return created.dispose();
         scene.current = created;
-        const start = defaultPlacement(zone, created.model, size, wraps);
+        // TASK-0110: switching the body keeps where the design was; the limb has the same length.
+        let start = placement ?? defaultPlacement(zone, created.model, artSize, wraps);
+        // TASK-0111: the first view starts at the height the mockup shows the design at.
+        const span = BODY_ZONE_SPANS[zone];
+        const offset =
+          !placement && !wraps && pose && span
+            ? mockupOffset(pose, art.box, span.heightMm)
+            : undefined;
+        if (offset) {
+          const range = heightRange(created.model, artSize.heightMm);
+          start = {
+            ...start,
+            heightMm: Math.min(range.max, Math.max(range.min, start.heightMm + offset.yMm)),
+          };
+        }
         created.setPlacement(start);
         created.view(start.around);
         setModel(created.model);
@@ -85,8 +124,8 @@ export function LimbViewer3D({
       created?.dispose();
       scene.current = null;
     };
-    // The scene is built once per design; later changes go through its setters.
-  }, [designUrl, limb]);
+    // The scene is built once per design and body; later changes go through its setters.
+  }, [designUrl, limb, body]);
 
   function move(next: LimbPlacement) {
     setPlacement(next);
@@ -162,6 +201,23 @@ export function LimbViewer3D({
                 </button>
               ))}
             </div>
+            {initialBody && (
+              <div role="group" aria-label="Cuerpo">
+                {BODY_TYPES.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    aria-pressed={body === b}
+                    onClick={() => {
+                      setState('loading');
+                      setBody(b);
+                    }}
+                  >
+                    {BODY_LABEL[b]}
+                  </button>
+                ))}
+              </div>
+            )}
             <div role="group" aria-label="Tono de piel">
               {SKIN_TONES.map((t) => (
                 <button

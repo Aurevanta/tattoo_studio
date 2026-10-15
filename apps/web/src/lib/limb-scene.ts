@@ -22,7 +22,7 @@ import {
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
-  TextureLoader,
+  CanvasTexture,
   Vector3,
   WebGLRenderer,
   type Texture,
@@ -31,7 +31,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
-  LIMBS,
+  limbModelUrl,
   readLimbModel,
   SKIN_TONES,
   type Limb,
@@ -112,8 +112,10 @@ const FRAGMENT_INK = /* glsl */ `
 export async function createLimbScene(
   container: HTMLElement,
   limb: Limb,
-  designUrl: string,
+  /** TASK-0111: the artwork as the mockup draws it (`loadArtwork`). */
+  artwork: HTMLCanvasElement,
   initial: { placement: LimbPlacement; side: LimbSide; tone: SkinTone },
+  body?: 'masculine' | 'feminine',
 ): Promise<LimbScene> {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -145,8 +147,8 @@ export async function createLimbScene(
   let model: LimbModel;
   try {
     [gltf, design] = await Promise.all([
-      new GLTFLoader().loadAsync(LIMBS[limb].model),
-      new TextureLoader().loadAsync(designUrl),
+      new GLTFLoader().loadAsync(limbModelUrl(limb, body)),
+      Promise.resolve(new CanvasTexture(artwork)),
     ]);
     model = readLimbModel(gltf.scene.userData);
     if (model.limb !== limb) throw new Error(`Expected the ${limb} model.`);

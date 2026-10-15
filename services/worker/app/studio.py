@@ -21,7 +21,7 @@ from tattoo_contracts.validation import validate
 from app.settings import Settings, SettingsError
 from app.shares import ShareLedger, shared_design, shared_files
 from generation.bfl_studio import BflStudioProvider
-from generation.plate_library import PlateLibrary
+from generation.plate_library import PlateLibrary, plate_body
 from generation.seam import fit_aspect, seamless
 from generation.studio import StudioProvider
 from jobs.client_messages import for_client
@@ -170,6 +170,23 @@ class _StudioBlend:
         if photo is not None:
             return None
         return self.provider.blend_mockup(warped_mockup, finish)
+
+
+def design_body(brief: dict[str, Any], payload: dict[str, Any]) -> str | None:
+    """The reference body a design is shown on (TASK-0110, ADR-0038).
+
+    On a generated plate, the plate's own body; on the client's photograph, none: their body is
+    not a reference one, and a sleeve's stencil then keeps the neutral profile.
+    """
+    return None if payload.get("bodyPhotoId") else plate_body(brief)
+
+
+def design_zone(brief: dict[str, Any], payload: dict[str, Any]) -> dict[str, str]:
+    """Where a design goes and on which body, as the result carries it (TASK-0108, TASK-0110)."""
+    placement = brief["placement"]
+    zone = {k: placement[k] for k in ("bodyPart", "orientation", "side") if k in placement}
+    body = design_body(brief, payload)
+    return {**zone, "bodyType": body} if body else zone
 
 
 def manual_notice(layout: ManualLayout, size: dict[str, float], resized: bool) -> str:
@@ -386,6 +403,9 @@ class _StudioGenerationDeps:
     def stencil_files(self, master: Any) -> dict[str, tuple[bytes, str]]:
         brief = self.payload["brief"]
         region = wrap_region(brief["placement"]["bodyPart"]) if is_sleeve(brief) else None
+        if region is not None:
+            # TASK-0110 (ADR-0038): on the body the plate and the 3D view show.
+            region = region.for_body(design_body(brief, self.payload))
         if region is None:
             return {
                 "stencil": (export_svg(master), "image/svg+xml"),
@@ -866,6 +886,7 @@ class Studio:
                 "simplification": master.simplification,
             },
             "backgroundKind": "own_photo" if payload.get("bodyPhotoId") else "generated_anatomy",
+            "placement": design_zone(brief, payload),
             "notice": (
                 "Propuesta con acabado y sombreado. El stencil aproxima los contornos "
                 "del mismo dibujo; "

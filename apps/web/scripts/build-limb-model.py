@@ -23,6 +23,11 @@ Usage (numpy only)::
 
     python apps/web/scripts/build-limb-model.py path/to/base.obj leg apps/web/public/models/lower-leg.glb
     python apps/web/scripts/build-limb-model.py path/to/base.obj forearm apps/web/public/models/forearm.glb
+
+TASK-0110 (ADR-0038): with a targets directory and a body (``masculine`` or ``feminine``), the
+base mesh is first given that adult body, as MakeHuman does at its defaults (see ``apply_body``)::
+
+    python apps/web/scripts/build-limb-model.py base.obj leg lower-leg-masculine.glb targets masculine
 """
 
 from __future__ import annotations
@@ -83,6 +88,29 @@ def read_obj(path: Path) -> tuple[np.ndarray, dict[str, list[list[int]]]]:
                 [int(t.split('/')[0]) - 1 for t in line.split()[1:]]
             )
     return np.array(vertices, dtype=np.float64), groups
+
+
+#: MakeHuman's default ethnic mix: each of the three race targets of the chosen sex at one third.
+RACES = ('african', 'asian', 'caucasian')
+BODY_SEX = {'masculine': 'male', 'feminine': 'female'}
+
+
+def apply_body(vertices: np.ndarray, targets: Path, body: str) -> np.ndarray:
+    """The base mesh given an adult masculine or feminine body (TASK-0110, ADR-0038).
+
+    MakeHuman's macro modifiers at gender 0 or 1, age 25, average muscle, weight and height: the
+    ``{race}-{sex}-young`` targets at one third each. The ``universal-*-averagemuscle-
+    averageweight`` targets are empty, so nothing else applies. All are CC0, like the mesh.
+    """
+    moved = vertices.copy()
+    for race in RACES:
+        path = targets / f'{race}-{BODY_SEX[body]}-young.target'
+        for line in path.read_text(encoding='utf-8').splitlines():
+            if not line.strip() or line.startswith('#'):
+                continue
+            index, dx, dy, dz = line.split()
+            moved[int(index)] += np.array([float(dx), float(dy), float(dz)]) / len(RACES)
+    return moved
 
 
 def joint(vertices: np.ndarray, groups: dict[str, list[list[int]]], name: str) -> np.ndarray:
@@ -295,9 +323,25 @@ def palm_direction(vertices: np.ndarray, groups: dict[str, list[list[int]]]) -> 
     return normal if normal.dot(bend) >= 0 else -normal
 
 
-def main(source: Path, limb: str, target: Path) -> None:
+def main(
+    source: Path,
+    limb: str,
+    target: Path,
+    targets: Path | None = None,
+    body_type: str | None = None,
+) -> None:
     spec = LIMBS[limb]
     vertices, groups = read_obj(source)
+    # TASK-0110 (ADR-0038): a body keeps the reference length of the limb (what a sleeve's band
+    # and its stencil are measured on) and takes its own girth.
+    reference_dm = float(
+        np.linalg.norm(
+            joint(vertices, groups, str(spec['proximal']))
+            - joint(vertices, groups, str(spec['distal']))
+        )
+    )
+    if targets is not None and body_type is not None:
+        vertices = apply_body(vertices, targets, body_type)
     proximal = joint(vertices, groups, str(spec['proximal']))
     distal = joint(vertices, groups, str(spec['distal']))
 
@@ -349,8 +393,21 @@ def main(source: Path, limb: str, target: Path) -> None:
     scale = DM_TO_MM
     if spec['length_mm'] is not None:
         scale = float(spec['length_mm']) / proximal_h
+    axial = scale
+    if body_type is not None:
+        reference_mm = (
+            float(spec['length_mm'])
+            if spec['length_mm'] is not None
+            else reference_dm * DM_TO_MM
+        )
+        scale = DM_TO_MM
+        axial = reference_mm / proximal_h
     sub_vertices *= scale
-    proximal_mm = proximal_h * scale
+    # Only the limb itself is lengthened: the hand or the foot below the distal joint keeps its own.
+    sub_vertices[:, 1] = np.where(
+        sub_vertices[:, 1] > 0, sub_vertices[:, 1] * axial / scale, sub_vertices[:, 1]
+    )
+    proximal_mm = proximal_h * axial
     top_mm = proximal_mm + float(spec['above_mm'])
 
     # Keep every face that reaches below the cut, then lay the vertices above it onto the cut
@@ -397,7 +454,9 @@ def main(source: Path, limb: str, target: Path) -> None:
         'units': 'mm',
         'limb': limb,
         'side': 'left',
+        'body': body_type or 'neutral',
         'scale': round(scale / DM_TO_MM, 4),
+        'axialScale': round(axial / DM_TO_MM, 4),
         'distalMm': 0.0,
         'proximalMm': round(float(proximal_mm), 1),
         'topMm': round(float(top_mm), 1),
@@ -428,4 +487,10 @@ def main(source: Path, limb: str, target: Path) -> None:
 
 
 if __name__ == '__main__':
-    main(Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]))
+    main(
+        Path(sys.argv[1]),
+        sys.argv[2],
+        Path(sys.argv[3]),
+        Path(sys.argv[4]) if len(sys.argv) > 4 else None,
+        sys.argv[5] if len(sys.argv) > 5 else None,
+    )

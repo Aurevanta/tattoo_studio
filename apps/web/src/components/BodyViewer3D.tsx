@@ -13,6 +13,9 @@ import {
 } from '@/lib/body-zones';
 import { SKIN_TONES, type SkinTone } from '@/lib/limb-wrap';
 import type { BodyScene } from '@/lib/body-scene';
+import { BODY_LABEL, BODY_TYPES, type BodyType } from '@/lib/body-type';
+import { BODY_ZONE_SPANS } from '@tattoo/contracts';
+import { mockupOffset, visibleSize, type MockupPose } from '@/lib/mockup-pose';
 
 /**
  * The rotatable 3D preview of a design on a reference body, on any zone the limb viewer does not
@@ -24,11 +27,20 @@ export function BodyViewer3D({
   size,
   zone,
   side: initialSide = 'left',
+  body: initialBody,
+  pose,
+  wholeCanvas = false,
 }: {
   designUrl: string;
   size: { widthMm: number; heightMm: number };
   zone: string;
   side?: BodySide;
+  /** TASK-0110 (ADR-0038): the body it starts on; the client may switch. */
+  body: BodyType;
+  /** TASK-0111: where the 2D mockup shows the design, on a generated plate. */
+  pose?: MockupPose | undefined;
+  /** A calibrated photograph draws the whole canvas, margins included. */
+  wholeCanvas?: boolean;
 }): ReactNode {
   const stage = useRef<HTMLDivElement>(null);
   const scene = useRef<BodyScene | null>(null);
@@ -37,7 +49,11 @@ export function BodyViewer3D({
   const [placement, setPlacement] = useState<BodyPlacement>(() => defaultBodyPlacement(size));
   const [side, setSide] = useState<BodySide>(initialSide);
   const [tone, setTone] = useState<SkinTone>('medium');
+  const [body, setBody] = useState<BodyType>(initialBody);
   const [bodyHeight, setBodyHeight] = useState(0);
+  // TASK-0111: the artwork's size as the mockup draws it, known once the master is read.
+  const [drawn, setDrawn] = useState(size);
+  const placed = useRef(false);
   const noun = BODY_ZONE_NOUN[zone] ?? 'la zona';
 
   useEffect(() => {
@@ -49,11 +65,40 @@ export function BodyViewer3D({
       if (cancelled) return;
       if (!webglAvailable()) return setState('unsupported');
       try {
-        created = await createBodyScene(stage.current!, zone, designUrl, {
-          placement: defaultBodyPlacement(size),
-          side: initialSide,
-          tone: 'medium',
-        });
+        const { loadArtwork } = await import('@/lib/design-art');
+        const art = await loadArtwork(designUrl, wholeCanvas);
+        const artSize = visibleSize(size, art.box, wholeCanvas);
+        // The first view starts where the mockup shows the design; a later one (another body)
+        // keeps where the client put it.
+        let start = placement;
+        if (!placed.current) {
+          start = defaultBodyPlacement(artSize);
+          const span = BODY_ZONE_SPANS[zone];
+          const offset = pose && span ? mockupOffset(pose, art.box, span.heightMm) : undefined;
+          if (offset) start = { ...start, ...offset };
+        }
+        created = await createBodyScene(
+          stage.current!,
+          zone,
+          art.canvas,
+          { placement: start, side, tone },
+          body,
+        );
+        if (cancelled) return created.dispose();
+        const zoneModel = created.model.zones[zone];
+        if (!placed.current && zoneModel) {
+          const range = moveRange(zoneModel, artSize);
+          start = {
+            ...start,
+            xMm: Math.max(-range.x, Math.min(range.x, start.xMm)),
+            yMm: Math.max(-range.y, Math.min(range.y, start.yMm)),
+          };
+        }
+        placed.current = true;
+        created.setPlacement(start);
+        created.view(false);
+        setDrawn(artSize);
+        setPlacement(start);
         if (cancelled) return created.dispose();
         scene.current = created;
         setModel(created.model.zones[zone] ?? null);
@@ -68,15 +113,15 @@ export function BodyViewer3D({
       created?.dispose();
       scene.current = null;
     };
-    // The scene is built once per design; later changes go through its setters.
-  }, [designUrl, zone]);
+    // The scene is built once per design and body; later changes go through its setters.
+  }, [designUrl, zone, body]);
 
   function move(next: BodyPlacement) {
     setPlacement(next);
     scene.current?.setPlacement(next);
   }
 
-  const range = model ? moveRange(model, size) : null;
+  const range = model ? moveRange(model, drawn) : null;
 
   return (
     <section className="leg-viewer" aria-label={`Vista 3D en ${noun}`}>
@@ -164,6 +209,21 @@ export function BodyViewer3D({
                 ))}
               </div>
             )}
+            <div role="group" aria-label="Cuerpo">
+              {BODY_TYPES.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  aria-pressed={body === b}
+                  onClick={() => {
+                    setState('loading');
+                    setBody(b);
+                  }}
+                >
+                  {BODY_LABEL[b]}
+                </button>
+              ))}
+            </div>
             <div role="group" aria-label="Tono de piel">
               {SKIN_TONES.map((t) => (
                 <button
@@ -181,7 +241,8 @@ export function BodyViewer3D({
             </div>
           </div>
           <p className="small-note">
-            {size.widthMm} × {size.heightMm} mm sobre {noun} de un cuerpo de referencia de{' '}
+            Dibujo de {Math.round(drawn.widthMm)} × {Math.round(drawn.heightMm)} mm, como en el
+            mockup, sobre {noun} de un cuerpo de referencia de{' '}
             {(bodyHeight / 1000).toFixed(2).replace('.', ',')} m.
           </p>
         </div>

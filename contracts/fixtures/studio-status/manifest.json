@@ -162,6 +162,18 @@
       "file": "invalid/stencil-review-unknown.json",
       "valid": false,
       "why": "TASK-0086: the method is a closed vocabulary and the level is 0 to 3"
+    },
+    {
+      "name": "manual-placement",
+      "file": "valid/manual-placement.json",
+      "valid": true,
+      "why": "TASK-0107: a re-placed result records its placement and stretch"
+    },
+    {
+      "name": "stretch-too-far",
+      "file": "invalid/stretch-too-far.json",
+      "valid": false,
+      "why": "TASK-0107 (ADR-0036): the stretch stays within 25 per cent"
     }
   ]
 }

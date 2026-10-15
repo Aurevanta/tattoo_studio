@@ -52,7 +52,7 @@ _NUDGE = (
 class Coverage:
     """A resolved coverage request. `full` is a zone request and resizes the brief."""
 
-    kind: str  # "full" | "larger" | "smaller"
+    kind: str  # "full" | "larger" | "smaller" | "manual"
     placement_only: bool
 
     @property
@@ -110,6 +110,9 @@ def whole_zone_intent(text: str) -> bool:
 
 
 def coverage_request(edit: dict[str, Any]) -> Coverage | None:
+    if edit.get("placement"):
+        # TASK-0107: a placement chosen in the live editor; it moves the design, never redraws it.
+        return Coverage("manual", True)
     explicit = edit.get("coverage")
     if explicit:
         # The fill-zone control is an explicit whole-zone request, like the phrase.
@@ -162,3 +165,91 @@ def fit_coverage(
         width = min(maximum, old * (1.35 if coverage == "larger" else 0.75))
     height = width * ratio / aspect
     return {"x": (1 - width) / 2, "y": (1 - height) / 2, "width": width}
+
+
+#: TASK-0107 (ADR-0036): how far a design's width-to-height ratio may move from the drawing.
+MIN_STRETCH, MAX_STRETCH = 0.75, 1.25
+#: Below this relative change a size or a ratio counts as unchanged (rounding in the browser).
+UNCHANGED = 0.005
+STRETCH_LIMIT = "Ensanchar o alargar puede cambiar las proporciones del dibujo un 25 % como máximo."
+CALIBRATED_SIZE = (
+    "La foto está calibrada: el tamaño es tu medida. Aquí solo puedes mover y girar el diseño."
+)
+SIZE_LIMIT = "El tamaño queda fuera de lo que se puede tatuar (de 5 a 600 mm)."
+
+
+@dataclass(frozen=True)
+class ManualLayout:
+    """What a placement chosen in the live editor means in millimetres (TASK-0107)."""
+
+    placement: dict[str, float]
+    #: Factors on each axis against the parent's projection.
+    sx: float
+    sy: float
+    #: Accumulated against the drawing as generated; 1 is undeformed.
+    stretch: float
+
+    @property
+    def resizes(self) -> bool:
+        return abs(self.sx - 1) > UNCHANGED or abs(self.sy - 1) > UNCHANGED
+
+    @property
+    def stretches(self) -> bool:
+        return abs(self.sx / self.sy - 1) > UNCHANGED
+
+    def size(self, width_mm: float, height_mm: float) -> dict[str, float]:
+        size = {"widthMm": round(width_mm * self.sx, 1), "heightMm": round(height_mm * self.sy, 1)}
+        if not all(5 <= value <= 600 for value in size.values()):
+            raise ValueError(SIZE_LIMIT)
+        return size
+
+
+def parent_placement(
+    transform: dict[str, Any],
+    frame: tuple[int, int],
+    visible: tuple[int, int, int, int, int, int] | None = None,
+) -> dict[str, float]:
+    """The placement of the visible artwork in a result, as the live editor starts from it.
+
+    A result saved from the editor records it. Any other is read from its pixel box, which is
+    unrotated and unclipped for those (`lib/mockup-editor.ts` reads it the same way). A box drawn
+    from the whole canvas, white margins included, is narrowed to the visible artwork, which is
+    what a manual placement draws: ``visible`` is (left, top, width, height) of the artwork inside
+    a canvas of (width, height), as `visible_artwork` finds it.
+    """
+    if transform.get("placement"):
+        return dict(transform["placement"])
+    width, height = frame
+    x, y, w, h = (transform[k] for k in ("xPx", "yPx", "widthPx", "heightPx"))
+    if visible is not None and not transform.get("sourceCropPx"):
+        left, top, cw, ch, canvas_w, canvas_h = visible
+        x, y = x + w * left / canvas_w, y + h * top / canvas_h
+        w, h = w * cw / canvas_w, h * ch / canvas_h
+    return {
+        "centreX": (x + w / 2) / width,
+        "centreY": (y + h / 2) / height,
+        "width": w / width,
+        "height": h / height,
+        "angle": 0.0,
+    }
+
+
+def manual_layout(
+    transform: dict[str, Any],
+    frame: tuple[int, int],
+    chosen: dict[str, float],
+    visible: tuple[int, int, int, int, int, int] | None = None,
+) -> ManualLayout:
+    """Scale factors and the accumulated stretch of a chosen placement (ADR-0036).
+
+    The millimetres follow the view proportionally on each axis, derived here and never taken
+    from the client. A calibrated photo keeps its scale: only position and angle may change.
+    """
+    before = parent_placement(transform, frame, visible)
+    sx, sy = chosen["width"] / before["width"], chosen["height"] / before["height"]
+    if transform.get("scaleCalibrated") and max(abs(sx - 1), abs(sy - 1)) > UNCHANGED:
+        raise ValueError(CALIBRATED_SIZE)
+    stretch = float(transform.get("stretch", 1.0)) * sx / sy
+    if not MIN_STRETCH - 1e-3 <= stretch <= MAX_STRETCH + 1e-3:
+        raise ValueError(STRETCH_LIMIT)
+    return ManualLayout(dict(chosen), sx, sy, round(min(MAX_STRETCH, max(MIN_STRETCH, stretch)), 4))

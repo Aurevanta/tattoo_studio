@@ -33,6 +33,24 @@ export interface Placement {
 export function trimArtwork(
   image: CanvasImageSource & { width: number; height: number },
 ): HTMLCanvasElement {
+  return trimmedArtwork(image).canvas;
+}
+
+/** Where the artwork sits inside its canvas, white margin aside (TASK-0107). */
+export interface ArtworkBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  canvasWidth: number;
+  canvasHeight: number;
+}
+
+/** `trimArtwork`, also saying where the crop was taken, as `visible_artwork` records it. */
+export function trimmedArtwork(image: CanvasImageSource & { width: number; height: number }): {
+  canvas: HTMLCanvasElement;
+  box: ArtworkBox;
+} {
   const width = Number(image.width);
   const height = Number(image.height);
   const full = document.createElement('canvas');
@@ -56,7 +74,8 @@ export function trimArtwork(
       }
     }
   }
-  if (right < left || bottom < top) return full;
+  const whole = { left: 0, top: 0, width, height, canvasWidth: width, canvasHeight: height };
+  if (right < left || bottom < top) return { canvas: full, box: whole };
   const margin = Math.max(2, Math.round(Math.min(width, height) * 0.01));
   left = Math.max(0, left - margin);
   top = Math.max(0, top - margin);
@@ -68,7 +87,17 @@ export function trimArtwork(
   cropped
     .getContext('2d')!
     .drawImage(full, left, top, cropped.width, cropped.height, 0, 0, cropped.width, cropped.height);
-  return cropped;
+  return {
+    canvas: cropped,
+    box: {
+      left,
+      top,
+      width: cropped.width,
+      height: cropped.height,
+      canvasWidth: width,
+      canvasHeight: height,
+    },
+  };
 }
 
 export interface FrameOptions {

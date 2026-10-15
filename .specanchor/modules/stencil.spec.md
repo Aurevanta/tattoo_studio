@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: stencil
 
+TASK-0107 (ADR-0036): `rescale_axes` scales a vector master exactly per axis, with the stroke scaled by the geometric mean of the factors. At equal factors it equals `rescale`. It is used when the live editor widens or lengthens a design, so the stencil follows the mockup (PROD-INV-001). Never a retrace (ADR-0003).
+
 TASK-0105 (ADR-0035): `stencil.sleeve`. `unroll` lays each row of a sleeve's master at the limb's circumference at its height, centred, with strokes densified. `panels` gives four quarter turns from the zone's own side (mirrored on the right), each overlapping its neighbours by at least 10 mm, with the neighbours' lines, a centre line and ticks numbered «n·k» every 50 mm. `export_panels_pdf` prints each panel at 1:1 and then in A4 pieces (TASK-0088). The master is moved and cut, never redrawn (ADR-0003).
 
 TASK-0089: `backdrop.clear_backdrop` turns a smooth, light, border-connected backdrop covering ≥ 15 % of the artwork to white; white and dark grounds are untouched.

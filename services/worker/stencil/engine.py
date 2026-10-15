@@ -361,3 +361,21 @@ def rescale(master: Master, width_mm: float, height_mm: float) -> Master:
         master.stroke_mm * factor,
         master.source_hash,
     )
+
+
+def rescale_axes(master: Master, width_mm: float, height_mm: float) -> Master:
+    """Exact per-axis vector scale (TASK-0107, ADR-0036). Never re-traces (ADR-0003).
+
+    The live editor may widen or lengthen a design, so the stencil follows the mockup on each
+    axis. A stroke has one width, so it scales by the geometric mean of the two factors.
+    """
+    if width_mm <= 0 or height_mm <= 0:
+        raise ValueError("Las medidas deben ser positivas.")
+    sx, sy = width_mm / master.width_mm, height_mm / master.height_mm
+    return Master(
+        [[(x * sx, y * sy) for x, y in path] for path in master.paths],
+        width_mm,
+        height_mm,
+        master.stroke_mm * (sx * sy) ** 0.5,
+        master.source_hash,
+    )

@@ -2888,3 +2888,48 @@ body::after {
   border-color: var(--accent-gold);
   color: var(--accent-gold);
 }
+
+/* TASK-0107 (ADR-0036): the design adjusted over its skin, live. */
+.mockup-editor {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.mockup-editor-stage {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 12px;
+  touch-action: none;
+  cursor: grab;
+  background: #14161c;
+}
+.mockup-editor-stage:active {
+  cursor: grabbing;
+}
+.mockup-editor-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px;
+}
+.mockup-editor-controls label {
+  display: grid;
+  gap: 4px;
+}
+.mockup-editor-controls label > span {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+.mockup-editor-controls input[type='range'] {
+  width: 100%;
+}
+.mockup-editor-size {
+  margin: 0;
+  font-weight: 600;
+}
+.mockup-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

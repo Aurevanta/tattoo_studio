@@ -211,6 +211,44 @@ def _fit_to_body(
     )
 
 
+#: The fields of a placement chosen in the live editor (TASK-0107), as `edit.placement` has them.
+MANUAL_KEYS = ("centreX", "centreY", "width", "height", "angle")
+
+
+def _manual(
+    master: Image.Image,
+    photo: Image.Image,
+    p: dict[str, float],
+    curvature: float,
+    taper: float,
+) -> tuple[int, int, int, int, Image.Image]:
+    """The ink box of a placement chosen in the live editor, clipped to the frame (TASK-0107).
+
+    Resize to the chosen width and height (a stretch the platform has bounded), turn clockwise by
+    the angle, then wrap on the cylinder, in the order `lib/mockup-editor.ts` uses. Geometric
+    only: the artwork is resampled, never redrawn (MOCKUP-INV-001).
+    """
+    if not -180 <= p["angle"] <= 180:
+        raise ValueError("Giro fuera del rango admitido.")
+    width, height = round(photo.width * p["width"]), round(photo.height * p["height"])
+    if width < 2 or height < 2:
+        raise ValueError("El diseño es demasiado pequeño para colocarlo.")
+    art = master.resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
+    if p["angle"]:
+        art = art.rotate(
+            -p["angle"], resample=Image.Resampling.BICUBIC, expand=True, fillcolor="white"
+        )
+    ink = _shape(art, art.width, art.height, curvature, taper)
+    left = round(photo.width * p["centreX"] - ink.width / 2)
+    top = round(photo.height * p["centreY"] - ink.height / 2)
+    x, y = max(0, left), max(0, top)
+    right, bottom = min(photo.width, left + ink.width), min(photo.height, top + ink.height)
+    if right - x < 2 or bottom - y < 2:
+        raise ValueError("El diseño queda fuera de la fotografía. Muévelo hacia la piel.")
+    ink = ink.crop((x - left, y - top, right - left, bottom - top))
+    return x, y, right - x, bottom - y, ink
+
+
 def composite(
     master: Image.Image,
     background: bytes,
@@ -224,7 +262,16 @@ def composite(
     freshness: float = DEFAULT_FRESHNESS,
     surface: float = 0.0,
     fit_body: bool = False,
+    manual: bool = False,
 ) -> tuple[bytes, dict[str, Any]]:
+    """Lay the master into the photograph by multiply, never redrawing it (MOCKUP-INV-001).
+
+    ``manual`` (TASK-0107, ADR-0036) takes a placement the client chose in the live editor:
+    ``centreX``/``centreY`` and the design's ``width``/``height`` before rotation, as fractions of
+    the frame, and ``angle`` in degrees clockwise. The design is turned before the cylinder warp,
+    as the browser does, and clipped to the frame and the silhouette; it is never re-centred or
+    shrunk, since that would undo the client's choice.
+    """
     with Image.open(io.BytesIO(background)) as source:
         photo = source.convert("RGB")
         photo.thumbnail((2048, 2048))
@@ -236,29 +283,33 @@ def composite(
             "widthMm": size["heightMm"] * master.width / master.height,
             "heightMm": size["heightMm"],
         }
-    width = (
-        round(photo.width * size["widthMm"] / p["photoWidthMm"])
-        if p.get("photoWidthMm")
-        else round(photo.width * p["width"])
-    )
-    height = round(width * size["heightMm"] / size["widthMm"])
-    x, y = round(photo.width * p["x"]), round(photo.height * p["y"])
-    if width < 2 or height < 2 or x + width > photo.width or y + height > photo.height:
-        raise ValueError(
-            "El diseño queda fuera de la fotografía. Ajusta posición, anchura o calibración."
-        )
     if not 0 <= curvature <= 1.2 or not 0 <= taper <= 0.35:
         raise ValueError("Curvatura fuera del rango admitido.")
     if not 0 <= surface <= SURFACE_LIMIT:
         raise ValueError("Ajuste de superficie fuera del rango admitido.")
-    body = limb.body_mask(photo) if fit_body else None
     fitted: dict[str, Any] | None = None
-    if body is not None:
-        # TASK-0039: fit to the body actually in the photograph, not to an assumed framing.
-        x, y, width, height, taper, fitted = _fit_to_body(
-            master, body, x, y, width, height, curvature, taper, bool(p.get("photoWidthMm"))
+    if manual:
+        x, y, width, height, ink_image = _manual(master, photo, p, curvature, taper)
+        body = limb.body_mask(photo) if fit_body else None
+    else:
+        width = (
+            round(photo.width * size["widthMm"] / p["photoWidthMm"])
+            if p.get("photoWidthMm")
+            else round(photo.width * p["width"])
         )
-    ink_image = _shape(master, width, height, curvature, taper)
+        height = round(width * size["heightMm"] / size["widthMm"])
+        x, y = round(photo.width * p["x"]), round(photo.height * p["y"])
+        if width < 2 or height < 2 or x + width > photo.width or y + height > photo.height:
+            raise ValueError(
+                "El diseño queda fuera de la fotografía. Ajusta posición, anchura o calibración."
+            )
+        body = limb.body_mask(photo) if fit_body else None
+        if body is not None:
+            # TASK-0039: fit to the body actually in the photograph, not to an assumed framing.
+            x, y, width, height, taper, fitted = _fit_to_body(
+                master, body, x, y, width, height, curvature, taper, bool(p.get("photoWidthMm"))
+            )
+        ink_image = _shape(master, width, height, curvature, taper)
     if fresh:
         ink_image = ink_image.filter(ImageFilter.GaussianBlur(0.3))
     ink = np.asarray(ink_image, dtype=np.float32) / 255
@@ -327,6 +378,7 @@ def composite(
         "freshness": freshness if fresh else 0.0,
         **({"sourceCropPx": crop} if crop else {}),
         **({"bodyFit": fitted} if fitted else {}),
+        **({"placement": {k: round(float(p[k]), 4) for k in MANUAL_KEYS}} if manual else {}),
         "scaleCalibrated": bool(p.get("photoWidthMm")),
         "generativePostprocess": False,
     }

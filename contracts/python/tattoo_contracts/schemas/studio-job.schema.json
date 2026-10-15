@@ -368,6 +368,45 @@
             "artwork",
             "placement"
           ]
+        },
+        "placement": {
+          "description": "TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "centreX",
+            "centreY",
+            "width",
+            "height",
+            "angle"
+          ],
+          "properties": {
+            "centreX": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "centreY": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 2
+            },
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 2
+            },
+            "angle": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            }
+          }
         }
       }
     }

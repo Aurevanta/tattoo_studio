@@ -138,6 +138,18 @@
       "file": "valid/widened-style.json",
       "valid": true,
       "why": "TASK-0057: a style added to the brief vocabulary by TASK-0027 (biomechanical) is accepted in a job too."
+    },
+    {
+      "name": "edit-manual-placement",
+      "file": "valid/edit-manual-placement.json",
+      "valid": true,
+      "why": "TASK-0107: a placement the client chose in the live editor"
+    },
+    {
+      "name": "edit-placement-angle",
+      "file": "invalid/edit-placement-angle.json",
+      "valid": false,
+      "why": "TASK-0107: the angle is bounded to plus or minus 180 degrees"
     }
   ]
 }

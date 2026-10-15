@@ -49,6 +49,7 @@ import { isCurrentDesign, openingFor, reopensNewest } from '@/lib/opening';
 import { asQuota, canDesign, designsNote, type Quota } from '@/lib/quota';
 
 import type { StudioJobStatus, GeneratedTattooArtifact } from '@/types/generation';
+import type { EditorPlacement } from '@/lib/mockup-editor';
 
 interface Form {
   style: string;
@@ -561,6 +562,7 @@ export default function ConsultationPage(): ReactNode {
     instruction: string,
     coverage?: 'larger' | 'smaller' | 'full',
     referenceIds?: string[],
+    placement?: EditorPlacement,
   ) {
     setSubmittingGeneration(true);
     setShowResult(false);
@@ -572,6 +574,8 @@ export default function ConsultationPage(): ReactNode {
             parentJobId: selectedJobId,
             instruction,
             ...(coverage ? { coverage, mode: 'placement' } : {}),
+            // TASK-0107 (ADR-0036): a placement chosen in the live editor moves, never redraws.
+            ...(placement ? { placement, mode: 'placement' } : {}),
             ...(referenceIds?.length ? { referenceIds } : {}),
           },
         });
@@ -1283,8 +1287,8 @@ export default function ConsultationPage(): ReactNode {
           artifact={artifact}
           jobId={selectedJobId}
           onClose={() => setShowResult(false)}
-          onEdit={(instruction, coverage, referenceIds) =>
-            void editProposal(instruction, coverage, referenceIds)
+          onEdit={(instruction, coverage, referenceIds, placement) =>
+            void editProposal(instruction, coverage, referenceIds, placement)
           }
           onAttach={attachForEdit}
           editingDisabled={Boolean(

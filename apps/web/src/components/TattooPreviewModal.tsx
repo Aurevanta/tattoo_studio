@@ -11,6 +11,8 @@ import { Confirm } from './Confirm';
 import { ShareWithTattooer } from './ShareWithTattooer';
 import { LimbViewer3D } from './LimbViewer3D';
 import { LIMBS, limbOf, type LimbSide, type LimbZone } from '@/lib/limb-wrap';
+import { MockupEditor } from './MockupEditor';
+import type { EditorPlacement } from '@/lib/mockup-editor';
 export function TattooPreviewModal({
   artifact,
   jobId,
@@ -31,6 +33,8 @@ export function TattooPreviewModal({
     instruction: string,
     coverage?: 'larger' | 'smaller' | 'full',
     referenceIds?: string[],
+    /** TASK-0107 (ADR-0036): a placement chosen in the live editor. */
+    placement?: EditorPlacement,
   ) => void;
   /** Uploads a photo for the change request; resolves to its asset ID (TASK-0036). */
   onAttach?: (file: File) => Promise<string>;
@@ -73,6 +77,13 @@ export function TattooPreviewModal({
   const [confirmZone, setConfirmZone] = useState(false);
   const [overlay, setOverlay] = useState(false);
   const [show3d, setShow3d] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  // TASK-0107 (ADR-0036): the design is adjusted over the skin it was composed on. Not for a
+  // sleeve (already a full turn), a camera version (the photograph is the composite) or a result
+  // stored without its skin.
+  const adjustable = Boolean(
+    onEdit && artifact.background && !artifact.capture && !limbView?.wraps && !skinGone,
+  );
   const stencil = stencilNotes(artifact.stencilReview);
   const proposal = zoneProposal(artifact.size, zoneSpan);
   return (
@@ -220,6 +231,32 @@ export function TattooPreviewModal({
           </figcaption>
         </figure>
       </div>
+      {adjustable && (
+        <div className="leg-view-toggle" hidden={Boolean(detail)}>
+          <button
+            type="button"
+            aria-expanded={adjusting}
+            onClick={() => setAdjusting((value) => !value)}
+          >
+            {adjusting ? 'Cerrar el ajuste' : 'Ajustar sobre la piel: tamaño, posición y giro'}
+          </button>
+          {adjusting && onEdit && (
+            <MockupEditor
+              artifact={artifact}
+              disabled={editingDisabled}
+              onSave={(placement) =>
+                onEdit(
+                  'Ajuste manual de tamaño, posición y giro sobre la piel',
+                  undefined,
+                  undefined,
+                  placement,
+                )
+              }
+            />
+          )}
+          {adjusting && quotaNote && <p className="quota-note">{quotaNote}</p>}
+        </div>
+      )}
       {limbView && (
         <div className="leg-view-toggle" hidden={Boolean(detail)}>
           <button type="button" aria-expanded={show3d} onClick={() => setShow3d((value) => !value)}>
@@ -438,26 +475,15 @@ export function TattooPreviewModal({
             <div className="coverage-controls">
               <strong>Tamaño del tatuaje sobre la piel</strong>
               <p>
-                «Más pequeño» y «Más grande» cambian solo la vista: las medidas del PDF no cambian.
-                «Ocupar toda la zona» sí ajusta las medidas de impresión a la zona del cuerpo, con
-                anatomía de referencia adulta que debes confirmar con tu tatuador. Ninguna de las
-                tres vuelve a dibujar el tatuaje.
+                {/* TASK-0107: the live editor replaced «Más pequeño» and «Más grande». */}
+                {adjustable
+                  ? 'Para agrandarlo, ensancharlo, alargarlo, moverlo o girarlo, usa «Ajustar sobre la piel», arriba. '
+                  : ''}
+                «Ocupar toda la zona» ajusta las medidas de impresión a la zona del cuerpo, con
+                anatomía de referencia adulta que debes confirmar con tu tatuador. No vuelve a
+                dibujar el tatuaje.
               </p>
               <div>
-                <button
-                  type="button"
-                  disabled={editingDisabled}
-                  onClick={() => onEdit('Reducir la cobertura del tatuaje sobre piel', 'smaller')}
-                >
-                  Más pequeño
-                </button>
-                <button
-                  type="button"
-                  disabled={editingDisabled}
-                  onClick={() => onEdit('Ampliar la cobertura del tatuaje sobre piel', 'larger')}
-                >
-                  Más grande
-                </button>
                 <button
                   type="button"
                   disabled={editingDisabled}
@@ -483,13 +509,6 @@ export function TattooPreviewModal({
           onCancel={() => setConfirmZone(false)}
           actions={[
             { label: 'Cancelar', onClick: () => setConfirmZone(false) },
-            {
-              label: 'Solo ampliar la vista',
-              onClick: () => {
-                setConfirmZone(false);
-                onEdit('Ampliar la cobertura del tatuaje sobre piel', 'larger');
-              },
-            },
             {
               label: 'Cambiar las medidas',
               primary: true,

@@ -27,7 +27,13 @@ from jobs.quota import Limits, QuotaExceededError, TurnLedger
 from media.store import EncryptedFileStore, RetentionClass
 from mockup.anatomy import ZONE_SPAN_MM
 from mockup.engine import composite, visible_size
-from mockup.placement import Coverage, coverage_request, fit_coverage
+from mockup.placement import (
+    Coverage,
+    coverage_request,
+    fit_coverage,
+    manual_layout,
+    parent_placement,
+)
 from safety.gate import ModerationOutcome
 from stencil.engine import (
     Master,
@@ -2023,3 +2029,135 @@ def test_an_unavailable_review_lets_the_artwork_through(tmp_path: Path) -> None:
     studio = Studio(tmp_path, b"x" * 32, Unreviewed())
     job = a_design_for(studio, ACCOUNT)
     assert studio.jobs.get(ACCOUNT, job)["state"] == "succeeded"
+
+
+def _manual_edit(
+    tmp_path: Path, sx: float, sy: float, angle: float = 0.0
+) -> tuple[Any, dict[str, Any], Any, Any]:
+    """TASK-0107: a design, then a placement chosen in the live editor scaled by (sx, sy)."""
+    provider = FakeProvider()
+    studio = Studio(tmp_path, b"x" * 32, provider)
+    owner = "11111111-1111-4111-8111-111111111111"
+    ref = studio.ingest(
+        owner, {"data": base64.b64encode(picture()).decode(), "adult": True, "consent": True}
+    )
+    original = payload()
+    original["referenceIds"] = [ref["assetId"]]
+    original["placement"] = {"x": 0.32, "y": 0.22, "width": 0.36}
+    parent_id = studio.jobs.enqueue(owner, original)["jobId"]
+    assert studio.jobs.tick()
+    parent = studio.jobs.get(owner, parent_id)["result"]
+    with Image.open(
+        io.BytesIO(studio.owned(owner, parent["background"]["assetId"], "artifact"))
+    ) as image:
+        image.thumbnail((2048, 2048))
+        frame = image.size
+    before = parent_placement(parent["transform"], frame, studio.visible_box(owner, parent))
+    chosen = {
+        **before,
+        "centreX": 0.5,
+        "width": before["width"] * sx,
+        "height": before["height"] * sy,
+        "angle": angle,
+    }
+    app = FastAPI()
+    app.include_router(router(studio, "test-only-token"))
+    response = TestClient(app).post(
+        "/studio/jobs",
+        json={
+            "edit": {
+                "parentJobId": parent_id,
+                "instruction": "Ajuste manual sobre la piel",
+                "mode": "placement",
+                "placement": chosen,
+            },
+            "idempotencyKey": "44444444-4444-4444-8444-444444444444",
+        },
+        headers={"Authorization": "Bearer test-only-token", "X-Owner-Id": owner},
+    )
+    assert response.status_code == 202, response.text
+    assert studio.jobs.tick()
+    return provider, parent, studio.jobs.get(owner, response.json()["jobId"]), studio
+
+
+def test_a_placement_from_the_editor_resizes_what_gets_printed(tmp_path: Path) -> None:
+    """TASK-0107/AC-004 (ADR-0036): the stencil and the PDFs follow the millimetres seen."""
+    provider, parent, status, studio = _manual_edit(tmp_path, 1.5, 1.2, angle=-20)
+    owner = "11111111-1111-4111-8111-111111111111"
+    assert status["state"] == "succeeded", status
+    result = status["result"]
+    assert result["size"] == {
+        "widthMm": round(parent["size"]["widthMm"] * 1.5, 1),
+        "heightMm": round(parent["size"]["heightMm"] * 1.2, 1),
+    }
+    for name in ("stencil", "stencilMirror", "pdf", "pdfMirror", "master", "mockup"):
+        assert result[name]["assetId"] != parent[name]["assetId"]
+        assert result[name]["designId"] == result["designId"]
+    assert result["background"] == parent["background"]
+    assert result["transform"]["placement"]["angle"] == -20
+    assert result["transform"]["stretch"] == pytest.approx(1.25)
+    assert result["edit"]["placement"]["centreX"] == 0.5
+    assert "ensanchadas un 25 %" in result["notice"]
+    assert "Girado 20 grados a la izquierda" in result["notice"]
+    with (
+        Image.open(
+            io.BytesIO(studio.owned(owner, result["master"]["assetId"], "artifact"))
+        ) as stretched,
+        Image.open(
+            io.BytesIO(studio.owned(owner, parent["master"]["assetId"], "artifact"))
+        ) as source,
+    ):
+        assert stretched.height == source.height
+        assert stretched.width == round(source.width * 1.25)
+    assert provider.calls == 1  # a re-placement redraws nothing
+
+
+def test_a_uniform_resize_from_the_editor_keeps_the_drawing(tmp_path: Path) -> None:
+    _, parent, status, _ = _manual_edit(tmp_path, 0.8, 0.8)
+    result = status["result"]
+    assert result["size"]["widthMm"] == pytest.approx(parent["size"]["widthMm"] * 0.8, abs=0.1)
+    assert result["master"]["assetId"] == parent["master"]["assetId"]
+    assert "stretch" not in result["transform"]
+    assert "Plantilla y PDF reexportados" in result["notice"]
+
+
+def test_a_stretch_past_a_quarter_is_refused(tmp_path: Path) -> None:
+    """ADR-0036: the drawing's proportions move by 25 % at most."""
+    _, _, status, _ = _manual_edit(tmp_path, 1.4, 1.0)
+    assert status["state"] == "failed"
+    assert "25 %" in status["error"]
+
+
+def test_manual_layout_derives_millimetres_and_bounds_the_stretch() -> None:
+    transform = {"xPx": 100, "yPx": 50, "widthPx": 200, "heightPx": 400, "scaleCalibrated": False}
+    before = parent_placement(transform, (1000, 1000))
+    assert before == {"centreX": 0.2, "centreY": 0.25, "width": 0.2, "height": 0.4, "angle": 0.0}
+    layout = manual_layout(transform, (1000, 1000), {**before, "width": 0.24})
+    assert layout.size(100, 200) == {"widthMm": 120.0, "heightMm": 200.0}
+    assert layout.stretch == pytest.approx(1.2) and layout.stretches
+    # The stretch accumulates across versions.
+    with pytest.raises(ValueError, match="25 %"):
+        manual_layout({**transform, "stretch": 1.2}, (1000, 1000), {**before, "width": 0.24})
+    with pytest.raises(ValueError, match="calibrada"):
+        manual_layout(
+            {**transform, "scaleCalibrated": True}, (1000, 1000), {**before, "width": 0.3}
+        )
+    moved = manual_layout(
+        {**transform, "scaleCalibrated": True}, (1000, 1000), {**before, "angle": 30}
+    )
+    assert not moved.resizes
+    with pytest.raises(ValueError, match="600 mm"):
+        manual_layout(transform, (1000, 1000), {**before, "width": 1.0, "height": 2.0}).size(
+            150, 200
+        )
+
+
+def test_a_box_drawn_with_its_margins_starts_from_the_visible_artwork() -> None:
+    """TASK-0107: a manual placement draws the artwork without its white margins."""
+    transform = {"xPx": 100, "yPx": 100, "widthPx": 400, "heightPx": 200}
+    narrowed = parent_placement(transform, (1000, 1000), (100, 0, 200, 100, 400, 100))
+    assert narrowed["width"] == pytest.approx(0.2) and narrowed["height"] == pytest.approx(0.2)
+    assert narrowed["centreX"] == pytest.approx(0.3) and narrowed["centreY"] == pytest.approx(0.2)
+    # A box already trimmed is the visible artwork.
+    trimmed = {**transform, "sourceCropPx": {"left": 0, "top": 0, "width": 1, "height": 1}}
+    assert parent_placement(trimmed, (1000, 1000), (100, 0, 200, 100, 400, 100))["width"] == 0.4

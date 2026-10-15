@@ -104,6 +104,21 @@ class SourceCropPx(BaseModel):
     height: Annotated[int, Field(ge=1)]
 
 
+class Placement(BaseModel):
+    """
+    TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    centreX: Annotated[float, Field(ge=0.0, le=1.0)]
+    centreY: Annotated[float, Field(ge=0.0, le=1.0)]
+    width: Annotated[float, Field(gt=0.0, le=2.0)]
+    height: Annotated[float, Field(gt=0.0, le=2.0)]
+    angle: Annotated[float, Field(ge=-180.0, le=180.0)]
+
+
 class Transform(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -163,6 +178,20 @@ class Transform(BaseModel):
             description='Strength of the fresh-ink reddening around the strokes. 0 when the render is a plain multiply. Illustrative, never a clinical prediction of healing (PROD-INV-003).',
             ge=0.0,
             le=4.0,
+        ),
+    ] = None
+    placement: Annotated[
+        Placement | None,
+        Field(
+            description="TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise."
+        ),
+    ] = None
+    stretch: Annotated[
+        float | None,
+        Field(
+            description="TASK-0107 (ADR-0036): how far the design's width-to-height ratio has been stretched from the drawing as generated, accumulated across versions. 1 = undeformed.",
+            ge=0.75,
+            le=1.25,
         ),
     ] = None
 
@@ -245,6 +274,12 @@ class Edit(BaseModel):
     ] = None
     coverage: Coverage | None = None
     mode: Mode | None = None
+    placement: Annotated[
+        Placement | None,
+        Field(
+            description="TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise."
+        ),
+    ] = None
 
 
 class Artifact(BaseModel):

@@ -32,7 +32,13 @@ from media.store import AssetNotFoundError, EncryptedFileStore, RetentionClass
 from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, wrap_region, zone_size
 from mockup.engine import DEFAULT_SURFACE, composite, visible_artwork, visible_size
 from mockup.geometry import BLEND_TOLERANCE, GeometryCheck
-from mockup.placement import Coverage, coverage_request, fit_coverage
+from mockup.placement import (
+    Coverage,
+    ManualLayout,
+    coverage_request,
+    fit_coverage,
+    manual_layout,
+)
 from orchestration import PipelineState, build_finish_graph, build_generation_graph
 from safety.gate import InputGate, ReasonCode
 from stencil.backdrop import clear_backdrop
@@ -43,6 +49,7 @@ from stencil.engine import (
     export_svg,
     rasterize,
     rescale,
+    rescale_axes,
     serialize_master,
     trace_colour_artwork,
     trace_native_lineart,
@@ -92,6 +99,11 @@ NODE_STAGES = {
 SLEEVE_FIXED = (
     "Una manga ya rodea toda la zona: su tamaño es el de la pierna o el antebrazo. Para cambiarla, "
     "pide un cambio en el dibujo."
+)
+# TASK-0107: a design stored before TASK-0024 has no vector, so its stencil cannot follow a stretch.
+NO_VECTOR_STRETCH = (
+    "Este diseño es anterior a las plantillas escalables: puedes moverlo, girarlo o cambiar su "
+    "tamaño en la vista, pero no ensancharlo ni alargarlo."
 )
 
 #: TASK-0090: said when the model drew something else twice, instead of delivering it.
@@ -158,6 +170,30 @@ class _StudioBlend:
         if photo is not None:
             return None
         return self.provider.blend_mockup(warped_mockup, finish)
+
+
+def manual_notice(layout: ManualLayout, size: dict[str, float], resized: bool) -> str:
+    """What a placement saved from the live editor changed (TASK-0107, ADR-0036)."""
+    measure = f"{size['widthMm']:.0f} x {size['heightMm']:.0f} mm"
+    notice = (
+        f"Colocación ajustada por ti. Plantilla y PDF reexportados a {measure}; "
+        if resized
+        else f"Colocación ajustada por ti. Las medidas del PDF siguen siendo {measure}; "
+    )
+    change = round((layout.stretch - 1) * 100)
+    if change:
+        notice += (
+            f"proporciones {'ensanchadas' if change > 0 else 'alargadas'} un {abs(change)} % "
+            "respecto al dibujo original: revisa círculos, letras y caras. "
+        )
+    angle = round(layout.placement["angle"])
+    if angle:
+        side = "a la derecha" if angle > 0 else "a la izquierda"
+        notice += (
+            f"Girado {abs(angle)} grados {side} sobre la piel: la plantilla se imprime recta, "
+            "colócala con ese giro. "
+        )
+    return notice + "El tamaño sobre la piel es orientativo. "
 
 
 def finished_transform(state: PipelineState) -> dict[str, Any]:
@@ -888,6 +924,23 @@ class Studio:
                 (master.design_hash, owner, self.register(owner, asset.asset_id, "artifact")),
             )
 
+    def visible_box(
+        self, owner: str, parent: dict[str, Any]
+    ) -> tuple[int, int, int, int, int, int]:
+        """Where the artwork sits in its master's canvas, white margins aside (TASK-0107)."""
+        with Image.open(
+            io.BytesIO(self.owned(owner, parent["master"]["assetId"], "artifact"))
+        ) as source:
+            _, crop = visible_artwork(source)
+            return (
+                crop["left"],
+                crop["top"],
+                crop["width"],
+                crop["height"],
+                source.width,
+                source.height,
+            )
+
     def load_vector(self, owner: str, design_id: str) -> bytes | None:
         """A design created before TASK-0024 has no stored vector; the caller must cope."""
         with self.db() as db:
@@ -956,15 +1009,34 @@ class Studio:
         previous = dict(payload.get("placement") or {})
         with Image.open(io.BytesIO(background)) as image:
             image.thumbnail((2048, 2048))
+            frame = image.size
             previous["width"] = parent["transform"]["widthPx"] / image.width
-        stored_vector = (
-            self.load_vector(owner, parent["designId"])
-            if coverage.resizes_zone
-            and resizes_print(payload.get("edit"))
-            and not previous.get("photoWidthMm")
+        # TASK-0107 (ADR-0036): a placement chosen in the live editor. Its millimetres follow the
+        # view on each axis, derived here from the parent's placement, never from the client.
+        layout = (
+            manual_layout(
+                parent["transform"],
+                frame,
+                payload["edit"]["placement"],
+                None if previous.get("photoWidthMm") else self.visible_box(owner, parent),
+            )
+            if coverage.kind == "manual"
             else None
         )
-        resize = stored_vector is not None and body_part in ZONE_SPAN_MM
+        stored_vector = (
+            self.load_vector(owner, parent["designId"])
+            if (
+                coverage.resizes_zone
+                and resizes_print(payload.get("edit"))
+                and not previous.get("photoWidthMm")
+            )
+            or (layout is not None and layout.resizes)
+            else None
+        )
+        if layout is not None and layout.stretches and stored_vector is None:
+            raise ValueError(NO_VECTOR_STRETCH)
+        resize = stored_vector is not None and (layout is not None or body_part in ZONE_SPAN_MM)
+        stretched: bytes | None = None
         files: dict[str, tuple[bytes, str]] = {}
         design_id = parent["designId"]
         result_master = parent["master"]
@@ -972,16 +1044,30 @@ class Studio:
             io.BytesIO(self.owned(owner, parent["master"]["assetId"], "artifact"))
         ) as source:
             artwork_size = source.size
-            if resize:
-                _, bounds = visible_artwork(source)
-                brief["size"] = zone_size(body_part, bounds["height"] / bounds["width"])
-            placement = fit_coverage(
-                background,
-                visible_size(source, brief["size"]),
-                coverage.kind,
-                previous,
-                body_part=body_part,
-            )
+            if layout is not None:
+                if resize:
+                    brief["size"] = layout.size(brief["size"]["widthMm"], brief["size"]["heightMm"])
+                placement = {**previous, **layout.placement}
+                if layout.stretches:
+                    # The raster master takes the same proportions, so the 3D view, the overlay
+                    # and the tattooer's link agree with the stencil. Resampled, never redrawn.
+                    resampled = io.BytesIO()
+                    source.resize(
+                        (max(1, round(source.width * layout.sx / layout.sy)), source.height),
+                        Image.Resampling.LANCZOS,
+                    ).save(resampled, format="PNG")
+                    stretched = resampled.getvalue()
+            else:
+                if resize:
+                    _, bounds = visible_artwork(source)
+                    brief["size"] = zone_size(body_part, bounds["height"] / bounds["width"])
+                placement = fit_coverage(
+                    background,
+                    visible_size(source, brief["size"]),
+                    coverage.kind,
+                    previous,
+                    body_part=body_part,
+                )
             mockup, transform = composite(
                 source.convert("RGB"),
                 background,
@@ -993,7 +1079,11 @@ class Studio:
                 taper=parent["transform"].get("taper", 0.25 if body_part == "calf" else 0),
                 surface=parent["transform"].get("surface", DEFAULT_SURFACE),
                 fit_body=True,
+                manual=layout is not None,
             )
+        stretch = layout.stretch if layout is not None else parent["transform"].get("stretch")
+        if stretch is not None and abs(stretch - 1) > 1e-4:
+            transform["stretch"] = stretch
         # TASK-0040: a re-placed design gets the same finish, through the same nodes, as a new one.
         own_photo = bool(payload.get("bodyPhotoId")) or parent.get("backgroundKind") == "own_photo"
         finished = build_finish_graph(
@@ -1010,7 +1100,7 @@ class Studio:
         mockup, transform = finished.mockup, finished_transform(finished)
         if resize:
             assert stored_vector is not None
-            master = rescale(
+            master = (rescale_axes if layout is not None else rescale)(
                 deserialize_master(stored_vector),
                 brief["size"]["widthMm"],
                 brief["size"]["heightMm"],
@@ -1025,7 +1115,11 @@ class Studio:
                 "pdf": (export_pdf(master), "application/pdf"),
                 "pdfMirror": (export_pdf(master, True), "application/pdf"),
             }
-        if resize:
+            if stretched is not None:
+                files["master"] = (stretched, "image/png")
+        if layout is not None:
+            notice = manual_notice(layout, brief["size"], resize)
+        elif resize:
             notice = (
                 f"Tamaño ajustado a la zona: {brief['size']['widthMm']:.0f} x "
                 f"{brief['size']['heightMm']:.0f} mm. Plantilla y PDF reexportados a esa medida; "
@@ -1374,6 +1468,11 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
                 if not isinstance(instruction, str) or not 3 <= len(instruction.strip()) <= 1000:
                     raise ValueError("Escribe entre 3 y 1000 caracteres para describir el cambio.")
                 body["edit"]["instruction"] = instruction.strip()
+                if body["edit"].get("placement") and (
+                    body["edit"].get("coverage") or body["edit"].get("referenceIds")
+                ):
+                    # TASK-0107: a placement moves the design as it is; it changes nothing else.
+                    raise ValueError("Guarda la colocación por separado de otros cambios.")
                 # TASK-0073 (audit UX-01): covering the whole zone with nothing else changed is a
                 # print-size change. A sentence cannot confirm it; the control says what it does.
                 phrased = coverage_request({"instruction": body["edit"]["instruction"]})

@@ -550,5 +550,15 @@ export interface StudioJob {
     referenceIds?: [string] | [string, string] | [string, string, string];
     coverage?: 'larger' | 'smaller' | 'full';
     mode?: 'artwork' | 'placement';
+    /**
+     * TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.
+     */
+    placement?: {
+      centreX: number;
+      centreY: number;
+      width: number;
+      height: number;
+      angle: number;
+    };
   };
 }

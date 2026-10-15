@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: mockup
 
+TASK-0107 (ADR-0036): `composite(..., manual=True)` renders a placement chosen in the live editor: centre, width and height before rotation as frame fractions, and an angle in degrees clockwise. The design is resized, turned, wrapped on the cylinder (the same order the browser uses), clipped to the frame and the silhouette, and never re-centred or shrunk. The transform records `placement`. `placement.manual_layout` and `parent_placement` derive the per-axis factors from the parent's visible artwork, bound the accumulated stretch to [0.75, 1.25] and refuse a size change on a calibrated photo. `coverage_request` maps `edit.placement` to `Coverage("manual", True)`. Geometric only (MOCKUP-INV-001).
+
 TASK-0104 (ADR-0034): `anatomy` re-exports the sleeve rule (`WRAP_REGIONS`, `wrap_region`, `is_sleeve`) from `tattoo_contracts.sleeve`, so the consultation and the worker cannot disagree. The composite is unchanged; a sleeve's visible half is chosen by the platform.
 
 TASK-0087 (audit ARQ-02, ADR-0018 amended): `worst_tile_iou` over a 4 × 4 grid and `min_tile_iou` (0.21 in `BLEND_TOLERANCE`); `mockup.corpus` is the synthetic validation corpus (`python -m mockup.corpus`).

@@ -742,6 +742,45 @@ export const schemas: Record<string, Record<string, unknown>> = {
             "artwork",
             "placement"
           ]
+        },
+        "placement": {
+          "description": "TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "centreX",
+            "centreY",
+            "width",
+            "height",
+            "angle"
+          ],
+          "properties": {
+            "centreX": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "centreY": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 2
+            },
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 2
+            },
+            "angle": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            }
+          }
         }
       }
     }
@@ -1094,6 +1133,51 @@ export const schemas: Record<string, Record<string, unknown>> = {
               "minimum": 0,
               "maximum": 4,
               "description": "Strength of the fresh-ink reddening around the strokes. 0 when the render is a plain multiply. Illustrative, never a clinical prediction of healing (PROD-INV-003)."
+            },
+            "placement": {
+              "description": "TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "centreX",
+                "centreY",
+                "width",
+                "height",
+                "angle"
+              ],
+              "properties": {
+                "centreX": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "centreY": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2
+                },
+                "angle": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                }
+              }
+            },
+            "stretch": {
+              "type": "number",
+              "minimum": 0.75,
+              "maximum": 1.25,
+              "description": "TASK-0107 (ADR-0036): how far the design's width-to-height ratio has been stretched from the drawing as generated, accumulated across versions. 1 = undeformed."
             }
           },
           "required": [
@@ -1237,6 +1321,45 @@ export const schemas: Record<string, Record<string, unknown>> = {
                 "artwork",
                 "placement"
               ]
+            },
+            "placement": {
+              "description": "TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "centreX",
+                "centreY",
+                "width",
+                "height",
+                "angle"
+              ],
+              "properties": {
+                "centreX": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "centreY": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2
+                },
+                "angle": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                }
+              }
             }
           }
         }

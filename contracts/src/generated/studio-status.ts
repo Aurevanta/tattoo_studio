@@ -86,6 +86,20 @@ export interface GeneratedTattooArtifact {
      * Strength of the fresh-ink reddening around the strokes. 0 when the render is a plain multiply. Illustrative, never a clinical prediction of healing (PROD-INV-003).
      */
     freshness?: number;
+    /**
+     * TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.
+     */
+    placement?: {
+      centreX: number;
+      centreY: number;
+      width: number;
+      height: number;
+      angle: number;
+    };
+    /**
+     * TASK-0107 (ADR-0036): how far the design's width-to-height ratio has been stretched from the drawing as generated, accumulated across versions. 1 = undeformed.
+     */
+    stretch?: number;
   };
   notice: string;
   /**
@@ -120,6 +134,16 @@ export interface GeneratedTattooArtifact {
     referenceIds?: [string] | [string, string] | [string, string, string];
     coverage?: 'larger' | 'smaller' | 'full';
     mode?: 'artwork' | 'placement';
+    /**
+     * TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.
+     */
+    placement?: {
+      centreX: number;
+      centreY: number;
+      width: number;
+      height: number;
+      angle: number;
+    };
   };
 }
 export interface StudioAsset {

@@ -180,6 +180,21 @@ class Mode1(Enum):
     placement = 'placement'
 
 
+class Placement2(BaseModel):
+    """
+    TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    centreX: Annotated[float, Field(ge=0.0, le=1.0)]
+    centreY: Annotated[float, Field(ge=0.0, le=1.0)]
+    width: Annotated[float, Field(gt=0.0, le=2.0)]
+    height: Annotated[float, Field(gt=0.0, le=2.0)]
+    angle: Annotated[float, Field(ge=-180.0, le=180.0)]
+
+
 class Edit(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -196,6 +211,12 @@ class Edit(BaseModel):
     ] = None
     coverage: Coverage | None = None
     mode: Mode1 | None = None
+    placement: Annotated[
+        Placement2 | None,
+        Field(
+            description="TASK-0107 (ADR-0036): a placement the client chose in the live editor. Centre as a fraction of the skin image; width and height of the design before rotation, as fractions of the image's width and height; angle in degrees, clockwise."
+        ),
+    ] = None
 
 
 class StyleName(Enum):

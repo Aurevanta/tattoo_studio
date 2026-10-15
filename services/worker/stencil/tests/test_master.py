@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from stencil.engine import Master, deserialize_master, export_svg, rescale, serialize_master
+from stencil.engine import (
+    Master,
+    deserialize_master,
+    export_svg,
+    rescale,
+    rescale_axes,
+    serialize_master,
+)
 
 
 def sample() -> Master:
@@ -48,6 +55,28 @@ def test_an_unknown_vector_document_is_refused() -> None:
 def test_rescale_rejects_a_non_positive_size() -> None:
     with pytest.raises(ValueError, match="positivas"):
         rescale(sample(), 0.0, 10.0)
+
+
+def test_rescale_axes_widens_without_changing_the_height() -> None:
+    """TASK-0107/AC-003: the stencil follows a widened mockup, exactly and per axis."""
+    master = sample()
+    wide = rescale_axes(master, 40.0, 40.0)
+    for original, result in zip(master.paths, wide.paths, strict=True):
+        for (x, y), (sx, sy) in zip(original, result, strict=True):
+            assert sx == pytest.approx(x * 2, abs=1e-9)
+            assert sy == pytest.approx(y, abs=1e-9)
+    assert wide.stroke_mm == pytest.approx(0.3 * 2**0.5)
+    assert b'width="40.0mm"' in export_svg(wide)
+
+
+def test_rescale_axes_at_equal_factors_is_the_uniform_rescale() -> None:
+    uniform, axes = rescale(sample(), 30.0, 60.0), rescale_axes(sample(), 30.0, 60.0)
+    for path, expected in zip(axes.paths, uniform.paths, strict=True):
+        for point, target in zip(path, expected, strict=True):
+            assert point == pytest.approx(target)
+    assert axes.stroke_mm == pytest.approx(uniform.stroke_mm)
+    with pytest.raises(ValueError, match="positivas"):
+        rescale_axes(sample(), 10.0, -1.0)
 
 
 def _large_drawing(colour: bool) -> bytes:

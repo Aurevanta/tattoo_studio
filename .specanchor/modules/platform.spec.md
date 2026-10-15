@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0107 (ADR-0036): an edit carrying `placement` is a re-placement (`reposition`). It derives the millimetres from the parent's placement (`manual_layout`) and never from the client. When they change, it rescales the vector per axis and re-exports SVG, PDF and the mirrors. When the proportions change, it resamples the raster master too. It records `transform.placement` and `stretch` (carried by later re-placements), runs the finish graph (ADR-0018), and writes a notice with the millimetres, the stretch and the angle («la plantilla se imprime recta»). A placement mixed with `coverage` or `referenceIds` is refused, and so is a stretch of a design without a vector (`NO_VECTOR_STRETCH`). Besides «Ocupar toda la zona», the editor's confirmed save is the second control that changes the print size (amends TASK-0073).
+
 TASK-0105 (ADR-0035), `app/studio.py` and `app/shares.py`: a sleeve's `stencil`, `stencilMirror`, `pdf` and `pdfMirror` are its unrolled skin, and its result adds `panels` and `panelsMirror`. The tattooer's link shares them when present (`SHARED_IF_PRESENT`).
 
 TASK-0104 (ADR-0034), `app/studio.py`: a sleeve is drawn, cleared of backdrop and has its seam repaired (stage `seam`): once, and again if `seamless` still reads a cut. It is then fitted to its proportions. `compose_sleeve` lays the design's middle half over the zone's plate. The result carries `sleeve_notice` («Manga completa…», and a line when the join may still show). The coverage controls refuse a sleeve with `SLEEVE_FIXED`.

@@ -17,9 +17,8 @@ import { SessionMenu } from '@/components/SessionMenu';
 import { TattooPreviewModal } from '@/components/TattooPreviewModal';
 import { GenerationProgress } from '@/components/GenerationProgress';
 import { InkWorking } from '@/components/InkWorking';
-import { BODY_ZONE_SPANS } from '@tattoo/contracts';
-import { isLimbZone, sleeveNote } from '@/lib/limb-wrap';
-import { isSleeve } from '@tattoo/contracts';
+import { sleeveNote } from '@/lib/limb-wrap';
+import { designZone, limbViewOf, zoneSpanOf } from '@/lib/design-zone';
 import { messageForError, messageForResponse } from '@/lib/client-errors';
 import type { InkTask } from '@/lib/ink-progress';
 import { StepFlow } from '@/components/StepFlow';
@@ -587,6 +586,14 @@ export default function ConsultationPage(): ReactNode {
   }
 
   const unsaved = JSON.stringify(form) !== JSON.stringify(savedForm);
+
+  // TASK-0108: where the shown design goes, from the design itself, whatever consultation is open.
+  const zone = artifact
+    ? designZone(
+        artifact,
+        session ? { sessionId: session.sessionId, placement: session.slots.placement } : undefined,
+      )
+    : undefined;
 
   // TASK-0026: the rail reads state the page already holds; it decides nothing (WEB-INV-001).
   const slots = session?.slots;
@@ -1296,23 +1303,10 @@ export default function ConsultationPage(): ReactNode {
           )}
           quotaNote={designsNote(quota)}
           limbView={
-            // TASK-0102, TASK-0103: like the zone span, the zone is known for the open
-            // consultation's designs.
-            artifact.briefId === session?.sessionId &&
-            isLimbZone(session?.slots.placement?.bodyPart)
-              ? {
-                  zone: session.slots.placement.bodyPart,
-                  side: session.slots.placement.side === 'right' ? 'right' : 'left',
-                  wraps: isSleeve(session.slots.placement, artifact.size),
-                }
-              : undefined
+            // TASK-0102, TASK-0103; TASK-0108: the zone comes with the design itself.
+            limbViewOf(zone, artifact.size)
           }
-          zoneSpan={
-            // TASK-0073: the zone is known only when this design belongs to the open consultation.
-            artifact.briefId === session?.sessionId && session?.slots.placement?.bodyPart
-              ? BODY_ZONE_SPANS[session.slots.placement.bodyPart]
-              : undefined
-          }
+          zoneSpan={zoneSpanOf(zone)}
         />
       )}
 

@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: jobs
 
+TASK-0108: `body_zone` reads the brief's zone (`bodyPart`, `orientation`, `side`) from a job's stored payload, and `JobQueue.public` adds it to every result it serves as `placement`, old ones included. A result already carrying one, or a payload without a zone, is served unchanged.
+
 TASK-0104 (ADR-0034): `design_cost` counts a sleeve as 2 designs, a design as 1 and a re-placement as 0. `billable` stores that weight, and the limits sum it. With one design left, a sleeve is refused with `SLEEVE_NEEDS_TWO`.
 
 TASK-0095: `JobQueue.designs_today` and `TurnLedger.used` expose the counts the limits apply; `designs_left` is the account's allowance within the studio's. `enqueue` uses the same query, so the counter and the refusal agree.

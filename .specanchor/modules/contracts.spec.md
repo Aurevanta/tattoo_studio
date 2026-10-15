@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: contracts
 
+TASK-0108: the artifact in `studio-status` gains an optional `placement`, `{bodyPart, orientation, side?}`, which is where the design goes and nothing else from the brief. The change is additive. Fixtures: `with-zone` and `zone-with-body-type`.
+
 TASK-0107 (ADR-0036): `studio-job.edit.placement` and the result's `edit.placement` are `{centreX, centreY, width, height, angle}`, with centres in [0, 1], sizes in (0, 2] and the angle in [-180, 180]. `studio-status.transform` gains `placement` (same shape) and `stretch` (0.75–1.25). All of it is additive (CONTRACTS-INV-004). Fixtures: `edit-manual-placement` and `edit-placement-angle` (studio-job), and `manual-placement` and `stretch-too-far` (studio-status).
 
 TASK-0105 (ADR-0035): each `wraps` region gains `circumferenceProfileMm` (every `profileStepMm`, 10 mm, down its band, measured on the reference models), `views` and `zoneAround`. `circumferenceAt` (TypeScript) and `WrapRegion.circumference_at`/`side` (Python) read them alike. `studio-status.artifact` and `shared-design` gain optional `panels` and `panelsMirror`; the `shared-design` fixture `sleeve-panels` is added.

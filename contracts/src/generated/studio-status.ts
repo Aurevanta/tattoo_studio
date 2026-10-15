@@ -145,6 +145,17 @@ export interface GeneratedTattooArtifact {
       angle: number;
     };
   };
+  /**
+   * TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.
+   */
+  placement?: {
+    /**
+     * A member of the brief's `bodyPart` enum.
+     */
+    bodyPart: string;
+    orientation: 'vertical' | 'horizontal' | 'diagonal' | 'wrapping';
+    side?: 'left' | 'right' | 'centre';
+  };
 }
 export interface StudioAsset {
   assetId: string;

@@ -282,6 +282,38 @@ class Edit(BaseModel):
     ] = None
 
 
+class Orientation(Enum):
+    vertical = 'vertical'
+    horizontal = 'horizontal'
+    diagonal = 'diagonal'
+    wrapping = 'wrapping'
+
+
+class Side(Enum):
+    left = 'left'
+    right = 'right'
+    centre = 'centre'
+
+
+class Placement2(BaseModel):
+    """
+    TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    bodyPart: Annotated[
+        str,
+        Field(
+            description="A member of the brief's `bodyPart` enum.",
+            pattern='^[a-z_]{2,40}$',
+        ),
+    ]
+    orientation: Orientation
+    side: Side | None = None
+
+
 class Artifact(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -317,6 +349,12 @@ class Artifact(BaseModel):
         ),
     ] = None
     edit: Edit | None = None
+    placement: Annotated[
+        Placement2 | None,
+        Field(
+            description='TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.'
+        ),
+    ] = None
 
 
 class StudioJobStatus(BaseModel):

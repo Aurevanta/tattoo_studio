@@ -174,6 +174,18 @@
       "file": "invalid/stretch-too-far.json",
       "valid": false,
       "why": "TASK-0107 (ADR-0036): the stretch stays within 25 per cent"
+    },
+    {
+      "name": "with-zone",
+      "file": "valid/with-zone.json",
+      "valid": true,
+      "why": "TASK-0108: a result says which zone it goes on"
+    },
+    {
+      "name": "zone-with-body-type",
+      "file": "invalid/zone-with-body-type.json",
+      "valid": false,
+      "why": "TASK-0108: the zone carries no more of the brief than where it goes"
     }
   ]
 }

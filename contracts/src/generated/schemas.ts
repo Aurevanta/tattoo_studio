@@ -1362,6 +1362,37 @@ export const schemas: Record<string, Record<string, unknown>> = {
               }
             }
           }
+        },
+        "placement": {
+          "description": "TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. Not the brief itself: no subject, no sizes beyond `size`.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bodyPart",
+            "orientation"
+          ],
+          "properties": {
+            "bodyPart": {
+              "description": "A member of the brief's `bodyPart` enum.",
+              "type": "string",
+              "pattern": "^[a-z_]{2,40}$"
+            },
+            "orientation": {
+              "enum": [
+                "vertical",
+                "horizontal",
+                "diagonal",
+                "wrapping"
+              ]
+            },
+            "side": {
+              "enum": [
+                "left",
+                "right",
+                "centre"
+              ]
+            }
+          }
         }
       },
       "required": [

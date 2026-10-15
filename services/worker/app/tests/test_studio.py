@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw
 from app.studio import Studio, router
 from generation.studio import ArtworkCheck, StudioProvider
 from jobs import client_messages
-from jobs.queue import JobQueue, billable_job
+from jobs.queue import JobQueue, billable_job, body_zone
 from jobs.quota import Limits, QuotaExceededError, TurnLedger
 from media.store import EncryptedFileStore, RetentionClass
 from mockup.anatomy import ZONE_SPAN_MM
@@ -2161,3 +2161,25 @@ def test_a_box_drawn_with_its_margins_starts_from_the_visible_artwork() -> None:
     # A box already trimmed is the visible artwork.
     trimmed = {**transform, "sourceCropPx": {"left": 0, "top": 0, "width": 1, "height": 1}}
     assert parent_placement(trimmed, (1000, 1000), (100, 0, 200, 100, 400, 100))["width"] == 0.4
+
+
+def test_every_result_says_which_zone_it_goes_on(tmp_path: Path) -> None:
+    """TASK-0108: a design opened from the history knows its zone, without its consultation."""
+    studio = Studio(tmp_path, b"x" * 32, FakeProvider())
+    owner = "11111111-1111-4111-8111-111111111111"
+    ref = studio.ingest(
+        owner, {"data": base64.b64encode(picture()).decode(), "adult": True, "consent": True}
+    )
+    original = payload()
+    original["referenceIds"] = [ref["assetId"]]
+    job = studio.jobs.enqueue(owner, original)["jobId"]
+    assert studio.jobs.tick()
+    expected = {
+        k: original["brief"]["placement"][k]
+        for k in ("bodyPart", "orientation", "side")
+        if k in original["brief"]["placement"]
+    }
+    assert studio.jobs.get(owner, job)["result"]["placement"] == expected
+    assert studio.jobs.history(owner)[0]["result"]["placement"] == expected
+    assert body_zone("not json") is None
+    assert body_zone('{"brief": {"placement": {"bodyPart": "calf"}}}') is None

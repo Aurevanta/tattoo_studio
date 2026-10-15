@@ -60,6 +60,23 @@ def design_cost(payload: dict[str, Any]) -> int:
 _running: ContextVar[str | None] = ContextVar("running_job", default=None)
 
 
+def body_zone(payload: str | None) -> dict[str, str] | None:
+    """Where the design goes, from the brief it was made from (TASK-0108).
+
+    Served with every result, old ones included, so a design opened from the history knows its
+    zone without the consultation that made it. Only where it goes, never the rest of the brief.
+    """
+    try:
+        placement = json.loads(payload or "{}").get("brief", {}).get("placement", {})
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(placement, dict) or not (
+        placement.get("bodyPart") and placement.get("orientation")
+    ):
+        return None
+    return {k: placement[k] for k in ("bodyPart", "orientation", "side") if k in placement}
+
+
 class JobQueue:
     def __init__(
         self,
@@ -220,6 +237,10 @@ class JobQueue:
             "result": json.loads(row["result"]) if row["result"] else None,
             "error": row["error"],
         }
+        if result["result"] is not None and "placement" not in result["result"]:
+            zone = body_zone(row["payload"])
+            if zone:
+                result["result"]["placement"] = zone
         if validate("studio-status", result):
             raise ValueError("Estado de trabajo inválido; no se entregará como resultado válido.")
         return result

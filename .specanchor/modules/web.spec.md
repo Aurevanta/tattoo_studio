@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0108: `lib/design-zone.ts` takes a design's zone from the result itself (`artifact.placement`). It falls back to the open consultation only for that consultation's own designs. The 3D view (`limbViewOf`) and the zone span (`zoneSpanOf`) use it, so a lower-leg or forearm design opened from the history opens in 3D.
+
 TASK-0107 (ADR-0036): «Ajustar sobre la piel» in the result (`MockupEditor`, `lib/mockup-editor.ts`) composes the master over the result's `background` in the browser, with drag, the arrow keys, and sliders for size, width, height and angle. It ports `_shape`'s cylinder and reuses `skin-blend`. It shows «≈ W × H mm» and the stretch, limited to ±25 % accumulated, and makes no request while adjusting (ADR-0019; source scan in `mockup-editor.test.ts`). Saving with new millimetres is confirmed, then sends `edit.placement`. It is absent for sleeves, camera versions and results without `background`. A calibrated photo offers position and angle only. «Más pequeño» and «Más grande» are removed, and so is the «Solo ampliar la vista» answer of «Ocupar toda la zona». `trimmedArtwork` (`lib/try-on.ts`) also returns the crop.
 
 TASK-0105 (ADR-0035): a sleeve's 3D view maps each row by its share of the turn (`LimbPlacement.wraps`, `uWrap` in the shader), so it shows what is printed, and its note says it goes the whole way round. The result and the tattooer's page offer «Manga en 4 paneles (PDF)» and its mirror. `LIMBS` sides equal the contract's `views`.

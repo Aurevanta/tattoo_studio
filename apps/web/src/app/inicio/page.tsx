@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { Brand } from '@/components/Brand';
+import { LandingLimbPreview } from '@/components/LandingLimbPreview';
 import { LEGAL_ENTITY } from '@/content/legal';
 import { SITE_DESCRIPTION } from '@/lib/site';
 
@@ -17,32 +18,35 @@ export const metadata: Metadata = {
  * from the idea to the stencil, how it works, and how to get in.
  *
  * The example is the studio's own output on a generated skin plate, never a client's photo
- * (ADR-0007). TASK-0101: the owner's own Valencia design replaced the smoke test; it shows the
- * Valencia CF crest, a third-party trademark the owner chose to publish.
+ * (ADR-0007). TASK-0106: the owner's Cronos design, from its tattooer link, replaced the Valencia
+ * design of TASK-0101; the same design is shown on the reference leg in 3D.
  */
 const EXAMPLE = [
   {
-    src: '/ejemplos/valencia-diseno.webp',
-    width: 640,
-    height: 1280,
+    src: '/ejemplos/cronos-diseno.webp',
+    width: 827,
+    height: 1554,
     title: 'El diseño',
     text: 'Dibujado a partir de tu idea y de referencias reales de lo que pides.',
   },
   {
-    src: '/ejemplos/valencia-piel.webp',
+    src: '/ejemplos/cronos-piel.webp',
     width: 720,
     height: 1080,
     title: 'Cómo queda en la piel',
     text: 'A su tamaño real sobre la zona, en piel de estudio o en una foto tuya.',
   },
   {
-    src: '/ejemplos/valencia-plantilla.webp',
+    src: '/ejemplos/cronos-plantilla.webp',
     width: 640,
-    height: 1280,
+    height: 1673,
     title: 'La plantilla 1:1',
     text: 'En SVG y PDF a tamaño real, también por piezas en hojas A4, lista para imprimir.',
   },
 ];
+
+/** The design's real size on the skin, from its tattooer link. */
+const EXAMPLE_SIZE = { widthMm: 140, heightMm: 365.9 };
 
 const STEPS = [
   ['Cuéntanos tu idea', 'Con tus palabras, sin saber de estilos ni dibujar.'],
@@ -97,8 +101,8 @@ export default function Landing(): ReactNode {
       <section className="landing-section" aria-labelledby="ejemplo">
         <h2 id="ejemplo">Un encargo real, de la idea a la plantilla</h2>
         <blockquote className="landing-idea">
-          «El escudo del Valencia CF, el estadio de Mestalla, la senyera y la Virgen de los
-          Desamparados, mezclando color y negro, en todo el gemelo derecho»
+          «Una estatua de mármol desgastado de Cronos sosteniendo un reloj de arena con la arena
+          fluyendo hacia arriba, con grietas, musgo y claroscuro, en realismo, en todo el gemelo»
         </blockquote>
         <ol className="landing-example">
           {EXAMPLE.map((item) => (
@@ -116,6 +120,7 @@ export default function Landing(): ReactNode {
             </li>
           ))}
         </ol>
+        <LandingLimbPreview designUrl="/ejemplos/cronos-diseno.webp" size={EXAMPLE_SIZE} />
       </section>
 
       <section className="landing-section" aria-labelledby="como">

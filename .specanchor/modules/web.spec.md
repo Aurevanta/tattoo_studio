@@ -15,6 +15,8 @@ TASK-0103, TASK-0104 (ADR-0033, ADR-0034): the 3D view serves the lower leg and 
 
 TASK-0102 (ADR-0033): a design for the open consultation in `calf`, `shin` or `ankle` offers «Ver en 3D alrededor de la pierna» in the result (`LegViewer3D`). It shows the design's master on the CC0 reference lower leg `public/models/lower-leg.glb`, built by `scripts/build-leg-model.py` from the MakeHuman base mesh. The view turns, has four views, moves the design round and along the leg, and offers left or right and three reference tones. `lib/leg-wrap.ts` places the design in true mm of skin (the shader's twin); `lib/leg-scene.ts` (three.js `0.186.1`) is imported only when the view opens. It reads no photograph, calls no provider and stores nothing; «Vista orientativa sobre una pierna de referencia, no la tuya…» goes with it, and without WebGL it says so. `/models/` is outside the page gate.
 
+TASK-0106: the landing example is the owner's Cronos design (`public/ejemplos/cronos-*`, from its tattooer link), replacing TASK-0101's Valencia files; its crest exception lapses with them. Below the three images, «Girarlo en 3D alrededor de la pierna» opens `LimbViewer3D` (`LandingLimbPreview`) with the same design at its real 140 × 365.9 mm on the calf; three.js and the model load only on that click.
+
 TASK-0101: the landing example is the owner's Valencia design (`public/ejemplos/valencia-*`). It shows the Valencia CF crest: an exception to TASK-0096/REQ-002 the owner decided; no other third-party trademark is allowed by it.
 
 TASK-0100: the Panel shows `alerts` as a red banner («OpenAI se ha quedado sin crédito desde…»). Reference downloads send `REFERENCE_USER_AGENT`.

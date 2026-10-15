@@ -9,6 +9,12 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0112: the 3D views have the mockup editor's controls (ADR-0036).
+
+- **Size:** `lib/design-resize.ts` and `DesignAdjust3D` give size, width and height within 5–600 mm and the accumulated ±25 % stretch.
+- **Turn:** the limb view turns the design (`LimbPlacement.angle`, in the shader and in `designCoordinate`); a sleeve does not.
+- **Save:** «Guardar esta colocación en el mockup» sends `edit.placement` built by `toMockupPlacement`, the inverse of `mockupOffset`. It is offered where the 2D editor is, on a generated plate, and saving new millimetres asks for confirmation.
+
 TASK-0111: the 3D views draw the artwork as the mockup does. `lib/design-art.ts::loadArtwork` trims the margin, and `lib/mockup-pose.ts::visibleSize` gives the visible artwork the brief's height; a sleeve or a calibrated photo keeps the whole canvas. On a generated plate, `mockupOffset` turns the mockup's placement (on the background's worker frame) into mm from the zone's centre and an angle, and the views start there. The scenes take the artwork as a canvas.
 
 TASK-0110 (ADR-0038): the 3D views show a masculine or a feminine body.

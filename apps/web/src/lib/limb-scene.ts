@@ -77,6 +77,7 @@ uniform float uHeight;
 uniform vec2 uSize;
 uniform float uMirror;
 uniform float uWrap;
+uniform float uAngle;
 varying vec2 vRing;
 varying float vPerim;
 varying float vHeight;
@@ -90,16 +91,33 @@ const FRAGMENT_INK = /* glsl */ `
   float across = turn * vPerim * uMirror;
   // TASK-0105: a sleeve's row goes once round the limb at its own height (uWrap = 1); any other
   // design keeps its millimetres across the skin.
-  float ux = mix(across / uSize.x, turn * uMirror, uWrap) + 0.5;
-  vec2 duv = vec2(ux, 0.5 - (vHeight - uHeight) / uSize.y);
+  // The coordinate jumps on the far side of the ring, so its screen derivatives are taken from
+  // the ring vector, which is continuous: mipmaps then work without drawing a seam.
+  float ds = (vRing.x * dFdx(vRing.y) - vRing.y * dFdx(vRing.x)) / (6.28318530718 * dot(vRing, vRing));
+  float dt = (vRing.x * dFdy(vRing.y) - vRing.y * dFdy(vRing.x)) / (6.28318530718 * dot(vRing, vRing));
+  vec2 duv;
+  vec2 gx;
+  vec2 gy;
+  if (uWrap > 0.5) {
+    duv = vec2(turn * uMirror + 0.5, 0.5 - (vHeight - uHeight) / uSize.y);
+    gx = vec2(ds * uMirror, -dFdx(vHeight) / uSize.y);
+    gy = vec2(dt * uMirror, -dFdy(vHeight) / uSize.y);
+  } else {
+    // TASK-0112: in mm across the skin and up the limb, turned clockwise as seen from outside,
+    // with the screen gradients turned alike.
+    float c = cos(uAngle);
+    float sn = sin(uAngle);
+    vec2 p = vec2(across, vHeight - uHeight);
+    vec2 px = vec2(ds * vPerim * uMirror, dFdx(vHeight));
+    vec2 py = vec2(dt * vPerim * uMirror, dFdy(vHeight));
+    p = vec2(p.x * c - p.y * sn, p.x * sn + p.y * c);
+    px = vec2(px.x * c - px.y * sn, px.x * sn + px.y * c);
+    py = vec2(py.x * c - py.y * sn, py.x * sn + py.y * c);
+    duv = vec2(p.x / uSize.x + 0.5, 0.5 - p.y / uSize.y);
+    gx = vec2(px.x / uSize.x, -px.y / uSize.y);
+    gy = vec2(py.x / uSize.x, -py.y / uSize.y);
+  }
   if (duv.x >= 0.0 && duv.x <= 1.0 && duv.y >= 0.0 && duv.y <= 1.0) {
-    // The coordinate jumps on the far side of the ring, so its screen derivatives are taken from
-    // the ring vector, which is continuous: mipmaps then work without drawing a seam.
-    float ds = (vRing.x * dFdx(vRing.y) - vRing.y * dFdx(vRing.x)) / (6.28318530718 * dot(vRing, vRing));
-    float dt = (vRing.x * dFdy(vRing.y) - vRing.y * dFdy(vRing.x)) / (6.28318530718 * dot(vRing, vRing));
-    float scale = mix(vPerim / uSize.x, 1.0, uWrap) * uMirror;
-    vec2 gx = vec2(ds * scale, -dFdx(vHeight) / uSize.y);
-    vec2 gy = vec2(dt * scale, -dFdy(vHeight) / uSize.y);
     vec4 art = textureGrad(uDesign, duv, gx, gy);
     // Paper reads as no ink; the multiply is the 2D mockup's, a touch under full strength because
     // ink sits beneath the skin's surface.
@@ -168,6 +186,7 @@ export async function createLimbScene(
     uSize: { value: [initial.placement.widthMm, initial.placement.lengthMm] },
     uMirror: { value: initial.side === 'left' ? 1 : -1 },
     uWrap: { value: initial.placement.wraps ? 1 : 0 },
+    uAngle: { value: ((initial.placement.angle ?? 0) * Math.PI) / 180 },
   };
   const skin = new MeshStandardMaterial({ roughness: 0.62, metalness: 0 });
   skin.onBeforeCompile = (shader) => {
@@ -254,6 +273,7 @@ export async function createLimbScene(
       uniforms.uHeight.value = placement.heightMm;
       uniforms.uSize.value = [placement.widthMm, placement.lengthMm];
       uniforms.uWrap.value = placement.wraps ? 1 : 0;
+      uniforms.uAngle.value = ((placement.angle ?? 0) * Math.PI) / 180;
     },
     setSide,
     setTone,

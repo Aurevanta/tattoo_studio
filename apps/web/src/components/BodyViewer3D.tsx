@@ -15,7 +15,11 @@ import { SKIN_TONES, type SkinTone } from '@/lib/limb-wrap';
 import type { BodyScene } from '@/lib/body-scene';
 import { BODY_LABEL, BODY_TYPES, type BodyType } from '@/lib/body-type';
 import { BODY_ZONE_SPANS } from '@tattoo/contracts';
-import { mockupOffset, visibleSize, type MockupPose } from '@/lib/mockup-pose';
+import { mockupOffset, toMockupPlacement, visibleSize, type MockupPose } from '@/lib/mockup-pose';
+import { UNCHANGED_FACTORS, type Factors } from '@/lib/design-resize';
+import type { EditorPlacement } from '@/lib/mockup-editor';
+import type { ArtworkBox } from '@/lib/try-on';
+import { DesignAdjust3D } from './DesignAdjust3D';
 
 /**
  * The rotatable 3D preview of a design on a reference body, on any zone the limb viewer does not
@@ -30,6 +34,10 @@ export function BodyViewer3D({
   body: initialBody,
   pose,
   wholeCanvas = false,
+  baseStretch,
+  onSave,
+  saveDisabled = false,
+  quotaNote,
 }: {
   designUrl: string;
   size: { widthMm: number; heightMm: number };
@@ -41,6 +49,12 @@ export function BodyViewer3D({
   pose?: MockupPose | undefined;
   /** A calibrated photograph draws the whole canvas, margins included. */
   wholeCanvas?: boolean;
+  /** TASK-0112: how far earlier versions already stretched the drawing. */
+  baseStretch?: number | undefined;
+  /** TASK-0112: saves the adjustment as the mockup's placement (a new version). */
+  onSave?: ((placement: EditorPlacement) => void) | undefined;
+  saveDisabled?: boolean;
+  quotaNote?: string | null | undefined;
 }): ReactNode {
   const stage = useRef<HTMLDivElement>(null);
   const scene = useRef<BodyScene | null>(null);
@@ -54,6 +68,10 @@ export function BodyViewer3D({
   // TASK-0111: the artwork's size as the mockup draws it, known once the master is read.
   const [drawn, setDrawn] = useState(size);
   const placed = useRef(false);
+  // TASK-0112: size against the opening size, where the view opened, and the artwork's box.
+  const [factors, setFactors] = useState<Factors>(UNCHANGED_FACTORS);
+  const opened = useRef<BodyPlacement | null>(null);
+  const artBox = useRef<ArtworkBox | undefined>(undefined);
   const noun = BODY_ZONE_NOUN[zone] ?? 'la zona';
 
   useEffect(() => {
@@ -68,6 +86,7 @@ export function BodyViewer3D({
         const { loadArtwork } = await import('@/lib/design-art');
         const art = await loadArtwork(designUrl, wholeCanvas);
         const artSize = visibleSize(size, art.box, wholeCanvas);
+        artBox.current = art.box;
         // The first view starts where the mockup shows the design; a later one (another body)
         // keeps where the client put it.
         let start = placement;
@@ -94,6 +113,7 @@ export function BodyViewer3D({
             yMm: Math.max(-range.y, Math.min(range.y, start.yMm)),
           };
         }
+        if (!placed.current) opened.current = start;
         placed.current = true;
         created.setPlacement(start);
         created.view(false);
@@ -122,6 +142,40 @@ export function BodyViewer3D({
   }
 
   const range = model ? moveRange(model, drawn) : null;
+
+  function resize(next: Factors) {
+    setFactors(next);
+    move({ ...placement, widthMm: drawn.widthMm * next[0], heightMm: drawn.heightMm * next[1] });
+  }
+
+  const start = opened.current;
+  const changed = Boolean(
+    start &&
+    (factors[0] !== 1 ||
+      factors[1] !== 1 ||
+      Math.abs(placement.xMm - start.xMm) > 1 ||
+      Math.abs(placement.yMm - start.yMm) > 1 ||
+      Math.abs(placement.angle - start.angle) > 0.5),
+  );
+  const span = BODY_ZONE_SPANS[zone];
+  const save =
+    onSave && pose && span
+      ? {
+          changed,
+          disabled: saveDisabled,
+          quotaNote,
+          onSave: () =>
+            onSave(
+              toMockupPlacement(
+                pose,
+                artBox.current,
+                span.heightMm,
+                { xMm: placement.xMm, yMm: placement.yMm, angle: placement.angle },
+                factors,
+              ),
+            ),
+        }
+      : undefined;
 
   return (
     <section className="leg-viewer" aria-label={`Vista 3D en ${noun}`}>
@@ -191,6 +245,14 @@ export function BodyViewer3D({
               onChange={(e) => move({ ...placement, angle: Number(e.target.value) })}
             />
           </label>
+          <DesignAdjust3D
+            print={size}
+            factors={factors}
+            onFactors={resize}
+            baseStretch={baseStretch}
+            calibrated={wholeCanvas}
+            save={save}
+          />
           <div className="leg-toggles">
             {model.paired && (
               <div role="group" aria-label="Lado">

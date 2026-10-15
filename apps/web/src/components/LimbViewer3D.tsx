@@ -19,7 +19,11 @@ import {
 import type { LimbScene } from '@/lib/limb-scene';
 import { BODY_LABEL, BODY_TYPES, type BodyType } from '@/lib/body-type';
 import { BODY_ZONE_SPANS } from '@tattoo/contracts';
-import { mockupOffset, visibleSize, type MockupPose } from '@/lib/mockup-pose';
+import { mockupOffset, toMockupPlacement, visibleSize, type MockupPose } from '@/lib/mockup-pose';
+import { UNCHANGED_FACTORS, type Factors } from '@/lib/design-resize';
+import type { EditorPlacement } from '@/lib/mockup-editor';
+import type { ArtworkBox } from '@/lib/try-on';
+import { DesignAdjust3D } from './DesignAdjust3D';
 
 /**
  * The rotatable 3D preview of a design on a reference lower leg or forearm (TASK-0102, TASK-0103,
@@ -35,6 +39,10 @@ export function LimbViewer3D({
   body: initialBody,
   pose,
   wholeCanvas = false,
+  baseStretch,
+  onSave,
+  saveDisabled = false,
+  quotaNote,
 }: {
   designUrl: string;
   size: { widthMm: number; heightMm: number };
@@ -48,6 +56,12 @@ export function LimbViewer3D({
   pose?: MockupPose | undefined;
   /** A calibrated photograph draws the whole canvas, margins included. */
   wholeCanvas?: boolean;
+  /** TASK-0112: how far earlier versions already stretched the drawing. */
+  baseStretch?: number | undefined;
+  /** TASK-0112: saves the adjustment as the mockup's placement (a new version). */
+  onSave?: ((placement: EditorPlacement) => void) | undefined;
+  saveDisabled?: boolean;
+  quotaNote?: string | null | undefined;
 }): ReactNode {
   const limb = limbOf(zone);
   const spec = LIMBS[limb];
@@ -59,6 +73,13 @@ export function LimbViewer3D({
   const [side, setSide] = useState<LimbSide>(initialSide);
   const [tone, setTone] = useState<SkinTone>('medium');
   const [body, setBody] = useState<BodyType | undefined>(initialBody);
+  // TASK-0112: size against the opening size, the artwork's drawn size and box, where the view
+  // opened, and the height the zone's centre maps to (the mockup's offsets are taken from it).
+  const [factors, setFactors] = useState<Factors>(UNCHANGED_FACTORS);
+  const [drawn, setDrawn] = useState(size);
+  const artBox = useRef<ArtworkBox | undefined>(undefined);
+  const opened = useRef<LimbPlacement | null>(null);
+  const zoneHeight = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +95,7 @@ export function LimbViewer3D({
         const whole = wholeCanvas || wraps;
         const art = await loadArtwork(designUrl, whole);
         const artSize = visibleSize(size, art.box, whole);
+        artBox.current = art.box;
         // The first placement needs the model's measurements; the scene starts with a neutral one
         // and is moved as soon as they are read.
         const neutral = {
@@ -97,6 +119,7 @@ export function LimbViewer3D({
         scene.current = created;
         // TASK-0110: switching the body keeps where the design was; the limb has the same length.
         let start = placement ?? defaultPlacement(zone, created.model, artSize, wraps);
+        if (!placement) zoneHeight.current = start.heightMm;
         // TASK-0111: the first view starts at the height the mockup shows the design at.
         const span = BODY_ZONE_SPANS[zone];
         const offset =
@@ -108,7 +131,12 @@ export function LimbViewer3D({
           start = {
             ...start,
             heightMm: Math.min(range.max, Math.max(range.min, start.heightMm + offset.yMm)),
+            angle: offset.angle,
           };
+        }
+        if (!placement) {
+          opened.current = start;
+          setDrawn(artSize);
         }
         created.setPlacement(start);
         created.view(start.around);
@@ -133,6 +161,50 @@ export function LimbViewer3D({
   }
 
   const range = model && placement ? heightRange(model, placement.lengthMm) : null;
+
+  function resize(next: Factors) {
+    setFactors(next);
+    if (placement)
+      move({
+        ...placement,
+        widthMm: drawn.widthMm * next[0],
+        lengthMm: drawn.heightMm * next[1],
+      });
+  }
+
+  const start = opened.current;
+  const changed = Boolean(
+    start &&
+    placement &&
+    (factors[0] !== 1 ||
+      factors[1] !== 1 ||
+      Math.abs(placement.heightMm - start.heightMm) > 1 ||
+      Math.abs((placement.angle ?? 0) - (start.angle ?? 0)) > 0.5),
+  );
+  const span = BODY_ZONE_SPANS[zone];
+  // Round a limb the plate shows one side: the height and the turn go back to the mockup, and the
+  // fraction round it stays the mockup's own.
+  const save =
+    onSave && pose && span && placement && !wraps
+      ? {
+          changed,
+          disabled: saveDisabled,
+          quotaNote,
+          onSave: () =>
+            onSave(
+              toMockupPlacement(
+                pose,
+                artBox.current,
+                span.heightMm,
+                {
+                  yMm: placement.heightMm - zoneHeight.current,
+                  angle: placement.angle ?? 0,
+                },
+                factors,
+              ),
+            ),
+        }
+      : undefined;
   const perimeter = model && placement ? perimeterAt(model, placement.heightMm) : null;
   const reach = perimeter && placement ? wrapFraction(placement.widthMm, perimeter) : 0;
 
@@ -184,6 +256,30 @@ export function LimbViewer3D({
               onChange={(e) => move({ ...placement, heightMm: Number(e.target.value) })}
             />
           </label>
+          {!placement.wraps && (
+            <>
+              <label>
+                Giro: {Math.round(placement.angle ?? 0)}°
+                <input
+                  type="range"
+                  aria-label="Giro, en grados"
+                  min={-180}
+                  max={180}
+                  step={1}
+                  value={Math.round(placement.angle ?? 0)}
+                  onChange={(e) => move({ ...placement, angle: Number(e.target.value) })}
+                />
+              </label>
+              <DesignAdjust3D
+                print={size}
+                factors={factors}
+                onFactors={resize}
+                baseStretch={baseStretch}
+                calibrated={wholeCanvas}
+                save={save}
+              />
+            </>
+          )}
           <div className="leg-toggles">
             <div role="group" aria-label="Lado">
               {(['left', 'right'] as const).map((s) => (

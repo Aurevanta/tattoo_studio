@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mockupOffset, SKIN_FRAME_FRACTION, visibleSize } from './mockup-pose';
+import { mockupOffset, SKIN_FRAME_FRACTION, toMockupPlacement, visibleSize } from './mockup-pose';
 
 const box = { left: 100, top: 50, width: 200, height: 400, canvasWidth: 500, canvasHeight: 600 };
 
@@ -62,5 +62,47 @@ describe('the 3D views read the mockup (TASK-0111)', () => {
       angle: -30,
     });
     expect(mockupOffset({ transform, frame: [0, 0] }, box, 300)).toBeUndefined();
+  });
+});
+
+describe('a 3D adjustment goes back to the mockup (TASK-0112)', () => {
+  const frame: [number, number] = [1000, 1500];
+  const transform = {
+    xPx: 450,
+    yPx: 300,
+    widthPx: 200,
+    heightPx: 400,
+    scaleCalibrated: false,
+    sourceCropPx: {},
+  };
+
+  it('is the inverse of where the 3D view opened', () => {
+    // The offsets are whole millimetres, so the way back is within a millimetre.
+    const at = mockupOffset({ transform, frame }, box, 400)!;
+    const back = toMockupPlacement({ transform, frame }, box, 400, at, [1, 1]);
+    expect(back.centreX).toBeCloseTo(0.55, 2);
+    expect(back.centreY).toBeCloseTo(1 / 3, 2);
+    expect(back.width).toBeCloseTo(0.2, 4);
+    expect(back.height).toBeCloseTo(0.2667, 4);
+    expect(back.angle).toBe(0);
+  });
+
+  it('carries the move, the turn and the size', () => {
+    const frameMm = 400 / SKIN_FRAME_FRACTION;
+    const moved = toMockupPlacement(
+      { transform, frame },
+      box,
+      400,
+      { xMm: 0, yMm: -0.1 * frameMm, angle: 15 },
+      [1.2, 1],
+    );
+    expect(moved.centreX).toBe(0.5);
+    expect(moved.centreY).toBeCloseTo(0.6, 3);
+    expect(moved.angle).toBe(15);
+    expect(moved.width).toBeCloseTo(0.24, 3);
+    // A limb view does not move across: the mockup's own centre is kept.
+    expect(
+      toMockupPlacement({ transform, frame }, box, 400, { yMm: 0, angle: 0 }, [1, 1]).centreX,
+    ).toBe(0.55);
   });
 });

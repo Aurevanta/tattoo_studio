@@ -9,7 +9,12 @@
  * the same reading, not a measurement of anyone's body.
  */
 import type { ArtworkBox } from './try-on';
-import { initialPlacement, type EditorTransform } from './mockup-editor';
+import {
+  forSaving,
+  initialPlacement,
+  type EditorPlacement,
+  type EditorTransform,
+} from './mockup-editor';
 
 /** As `SKIN_FRAME_FRACTION` in `mockup/placement.py`. */
 export const SKIN_FRAME_FRACTION = 0.82;
@@ -53,4 +58,29 @@ export function mockupOffset(
     yMm: Math.round((0.5 - at.centreY) * frameMm) + 0,
     angle: Math.round(at.angle) + 0,
   };
+}
+
+/**
+ * TASK-0112: a placement adjusted in 3D, back on the mockup's plate, as `edit.placement` carries
+ * it. The inverse of `mockupOffset`: the offset from the zone's centre becomes the design's centre
+ * on the plate, the factors scale the mockup's own width and height, and the turn is kept. An axis
+ * the view cannot move along (`xMm` undefined on a limb) keeps the mockup's centre.
+ */
+export function toMockupPlacement(
+  pose: MockupPose,
+  box: ArtworkBox | undefined,
+  zoneHeightMm: number,
+  now: { xMm?: number | undefined; yMm: number; angle: number },
+  [sx, sy]: readonly [number, number],
+): EditorPlacement {
+  const [width, height] = pose.frame;
+  const start = initialPlacement(pose.transform, pose.frame, box);
+  const frameMm = zoneHeightMm / SKIN_FRAME_FRACTION;
+  return forSaving({
+    centreX: now.xMm === undefined ? start.centreX : 0.5 + now.xMm / (frameMm * (width / height)),
+    centreY: 0.5 - now.yMm / frameMm,
+    width: start.width * sx,
+    height: start.height * sy,
+    angle: now.angle,
+  });
 }

@@ -310,3 +310,16 @@ describe.each(Object.entries(ADULT))('the reference %s model (TASK-0102/AC-001)'
     ).toBeLessThan(0.005);
   });
 });
+
+describe('a design turned on the limb (TASK-0112)', () => {
+  it('turns clockwise as seen from outside, as the shader does', () => {
+    const at = { around: 0.5, heightMm: 250, widthMm: 40, lengthMm: 120 };
+    // Upright, 50 mm up the limb is near the design's top.
+    expect(designCoordinate(0.5, 300, 344, at)!.v).toBeCloseTo(0.5 - 50 / 120);
+    // A quarter turn lays it on its side: 50 mm up is now beyond its 40 mm width.
+    expect(designCoordinate(0.5, 300, 344, { ...at, angle: 90 })).toBeNull();
+    // and its top now points along the skin, to the right.
+    const right = designCoordinate(0.5 + 50 / 344, 250, 344, { ...at, angle: 90 })!;
+    expect(right.v).toBeCloseTo(0.5 - 50 / 120);
+  });
+});

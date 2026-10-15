@@ -42,6 +42,8 @@ export interface LimbPlacement {
    * across the skin it takes the limb's circumference there rather than `widthMm`.
    */
   wraps?: boolean | undefined;
+  /** TASK-0112: degrees, clockwise as seen from outside; a sleeve does not turn. */
+  angle?: number | undefined;
 }
 
 interface View {
@@ -260,10 +262,19 @@ export function designCoordinate(
   // fraction-0 side and leftwards on the opposite one; arc length along the skin is what the
   // design keeps, or, for a sleeve, the share of the turn (TASK-0105).
   const sign = side === 'left' ? 1 : -1;
-  const u = placement.wraps
-    ? turn * sign + 0.5
-    : (turn * perimeterMm * sign) / placement.widthMm + 0.5;
-  const v = 0.5 - (heightMm - placement.heightMm) / placement.lengthMm;
+  let u: number;
+  let v: number;
+  if (placement.wraps) {
+    u = turn * sign + 0.5;
+    v = 0.5 - (heightMm - placement.heightMm) / placement.lengthMm;
+  } else {
+    // TASK-0112: turned clockwise as seen from outside, as the shader turns it.
+    const a = ((placement.angle ?? 0) * Math.PI) / 180;
+    const x = turn * perimeterMm * sign;
+    const y = heightMm - placement.heightMm;
+    u = (x * Math.cos(a) - y * Math.sin(a)) / placement.widthMm + 0.5;
+    v = 0.5 - (x * Math.sin(a) + y * Math.cos(a)) / placement.lengthMm;
+  }
   if (u < 0 || u > 1 || v < 0 || v > 1) return null;
   return { u, v };
 }

@@ -116,6 +116,22 @@ export function TattooPreviewModal({
   const adjustable = Boolean(
     onEdit && artifact.background && !artifact.capture && !limbView?.wraps && !skinGone,
   );
+  // TASK-0112: what is adjusted in 3D is saved as the mockup's placement, as the 2D editor saves.
+  const save3d = {
+    baseStretch: artifact.transform.stretch,
+    saveDisabled: editingDisabled,
+    quotaNote,
+    onSave:
+      adjustable && onEdit
+        ? (placement: EditorPlacement) =>
+            onEdit(
+              'Ajuste de tamaño, posición y giro en la vista 3D',
+              undefined,
+              undefined,
+              placement,
+            )
+        : undefined,
+  };
   const stencil = stencilNotes(artifact.stencilReview);
   const proposal = zoneProposal(artifact.size, zoneSpan);
   return (
@@ -305,6 +321,7 @@ export function TattooPreviewModal({
               body={body}
               pose={pose}
               wholeCanvas={wholeCanvas}
+              {...save3d}
             />
           )}
         </div>
@@ -326,6 +343,7 @@ export function TattooPreviewModal({
               body={body}
               pose={pose}
               wholeCanvas={wholeCanvas}
+              {...save3d}
             />
           )}
         </div>

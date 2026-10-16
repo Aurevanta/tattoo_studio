@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0127 (owner's audit item 5): the complete CSP is enforced (no Report-Only): `default-src 'self'`, `connect-src 'self'`, `frame-src 'none'`, Google Fonts, `img-src https:` for reference thumbnails, `upgrade-insecure-requests` in production, `'unsafe-eval'` only in development; `'unsafe-inline'` scripts remain for Next's bootstrap. Violations go to `/api/csp-report` (`report-uri` and `report-to`, `Reporting-Endpoints`), which records each distinct one an hour as a `client_error` / `csp` event attributed to nobody, keeping the directive, the blocked origin or keyword and the page path without tokens (`lib/csp-report.ts`). This supersedes the TASK-0074 Report-Only line below.
+
 TASK-0125: «real size» is the stencil's. `content/disclaimers.ts` holds `SKIN_SCALE_NOTE_ES` (the view on skin is approximate unless the photo is calibrated; the stencil and PDFs are exported at the stated millimetres) and `stencilSizeNote`, used by the landing, the consultation step, the result view, the 3D views and the camera page.
 
 TASK-0124: `lib/round-trip.test.ts`: a saved version's status reopens the mockup editor and the 3D view at its saved place, turn and millimetres, with nothing to save.

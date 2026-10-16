@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: contracts
 
+TASK-0127: `validateAgainst` compiles a schema on first use, not at import. Browser pages import this module for its reference anatomy; compiling at load ran Ajv's generated code (`new Function`) in the browser, which an enforced CSP without `'unsafe-eval'` refuses, and kept Ajv in the client bundle. Verdicts are unchanged; every schema still compiles in strict mode (`corpus.test.ts`).
+
 TASK-0120 (ADR-0042): the `studio-status` artifact gains an optional `skinFrame {widthMm, heightMm, centreX, centreY, calibrated}`. Additive. Fixtures: `skin-frame`, `skin-frame-centre-outside`.
 
 TASK-0116 (ADR-0041): `studio-status` gains an optional `design: {id, name}` — the design a version belongs to (32-hex job id of its first version) and its name (1–60 characters). Additive. Fixtures: `with-design`, `design-without-name`.

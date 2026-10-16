@@ -22,11 +22,32 @@ describe('security headers (TASK-0074, audit SEG-01)', () => {
     );
   });
 
-  it('reports the full policy before enforcing it, allowing what the studio loads', () => {
-    const report = byKey(securityHeaders(true))['Content-Security-Policy-Report-Only']!;
-    expect(report).toContain('https://fonts.googleapis.com');
-    expect(report).toContain('https://fonts.gstatic.com');
-    expect(report).toContain("img-src 'self' data: blob: https:");
+  it('enforces the complete policy, allowing what the studio loads (TASK-0127)', () => {
+    const headers = byKey(securityHeaders(true));
+    const policy = headers['Content-Security-Policy']!;
+    expect(headers['Content-Security-Policy-Report-Only']).toBeUndefined();
+    expect(policy).toContain("default-src 'self'");
+    expect(policy).toContain("connect-src 'self'");
+    expect(policy).toContain("frame-src 'none'");
+    expect(policy).toContain('https://fonts.googleapis.com');
+    expect(policy).toContain('https://fonts.gstatic.com');
+    expect(policy).toContain("img-src 'self' data: blob: https:");
+    expect(policy).toContain("worker-src 'self'");
+    expect(policy).toContain('upgrade-insecure-requests');
+    expect(policy).not.toContain('unsafe-eval');
+  });
+
+  it('reports violations to the studio, by both reporting mechanisms', () => {
+    const headers = byKey(securityHeaders(true));
+    expect(headers['Content-Security-Policy']).toContain('report-uri /api/csp-report');
+    expect(headers['Content-Security-Policy']).toContain('report-to csp');
+    expect(headers['Reporting-Endpoints']).toBe('csp="/api/csp-report"');
+  });
+
+  it('allows eval only in development, for React Refresh', () => {
+    const local = byKey(securityHeaders(false))['Content-Security-Policy']!;
+    expect(local).toContain("'unsafe-eval'");
+    expect(local).not.toContain('upgrade-insecure-requests');
   });
 
   it('does not pin a local http preview to HTTPS', () => {

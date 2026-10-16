@@ -38,25 +38,38 @@ export interface ValidationIssue {
 export type ValidationResult<T> =
   { valid: true; value: T } | { valid: false; issues: ValidationIssue[] };
 
-const ajv = new Ajv2020({
-  allErrors: true,
-  strict: true,
-  // `strictRequired` expects every property named in `required` to be declared in the
-  // same subschema. The colour rules legitimately put `required` inside an if/then
-  // branch while `palette` is declared on the parent, which trips it. This is an ajv
-  // authoring lint with no counterpart in Python's `jsonschema`, so relaxing it cannot
-  // make the two runtimes disagree — the corpus would catch it if it could. Every other
-  // strict-mode check stays on.
-  strictRequired: false,
-  // `format` is deliberately unused in the schemas: it is assertive only when a format
-  // checker is wired up, and the two runtimes wire it differently. Patterns are used
-  // instead so both reach identical verdicts.
-  validateFormats: false,
-});
+/**
+ * TASK-0127: schemas are compiled on first use, not when the module loads. Ajv compiles a schema
+ * into code with `new Function`, and browser pages import this module for its reference anatomy
+ * (`BODY_ZONE_SPANS`, `isSleeve`) without ever validating; compiling at load ran that code in the
+ * browser, which the enforced Content-Security-Policy (no 'unsafe-eval') refuses, and the 3D views
+ * failed to open. Validation itself, on the server, is unchanged.
+ */
+let ajv: Ajv2020 | undefined;
+const compiled = new Map<SchemaName, ValidateFunction>();
 
-const compiled = new Map<SchemaName, ValidateFunction>(
-  schemaNames.map((name) => [name, ajv.compile(schemas[name]!)] as const),
-);
+function validatorFor(name: SchemaName): ValidateFunction | undefined {
+  const known = compiled.get(name);
+  if (known || !schemaNames.includes(name)) return known;
+  ajv ??= new Ajv2020({
+    allErrors: true,
+    strict: true,
+    // `strictRequired` expects every property named in `required` to be declared in the
+    // same subschema. The colour rules legitimately put `required` inside an if/then
+    // branch while `palette` is declared on the parent, which trips it. This is an ajv
+    // authoring lint with no counterpart in Python's `jsonschema`, so relaxing it cannot
+    // make the two runtimes disagree — the corpus would catch it if it could. Every other
+    // strict-mode check stays on.
+    strictRequired: false,
+    // `format` is deliberately unused in the schemas: it is assertive only when a format
+    // checker is wired up, and the two runtimes wire it differently. Patterns are used
+    // instead so both reach identical verdicts.
+    validateFormats: false,
+  });
+  const validate = ajv.compile(schemas[name]!);
+  compiled.set(name, validate);
+  return validate;
+}
 
 function toIssue(error: ErrorObject): ValidationIssue {
   return {
@@ -68,7 +81,7 @@ function toIssue(error: ErrorObject): ValidationIssue {
 
 /** Validate an unknown payload against a named canonical schema. */
 export function validateAgainst<T>(name: SchemaName, payload: unknown): ValidationResult<T> {
-  const validate = compiled.get(name);
+  const validate = validatorFor(name);
   if (!validate) {
     throw new Error(`unknown schema '${name}'; known: ${schemaNames.join(', ')}`);
   }

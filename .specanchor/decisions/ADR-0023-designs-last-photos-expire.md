@@ -57,3 +57,6 @@ else access anyway.
 - A legal review of retention periods (ADR-0006 left it open) may set a limit on designs too.
 - If kept camera photos should outlive 24 hours, that is a decision about body photographs and
   needs its own ADR.
+
+- **Amended by ADR-0041 (TASK-0116):** besides «Delete my data», the client can delete one design
+  or one version of it; files another version still uses are kept.

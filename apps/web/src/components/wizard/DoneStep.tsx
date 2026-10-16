@@ -3,40 +3,22 @@
 import type { ReactNode } from 'react';
 
 import { Confirm } from '../Confirm';
+import { DesignLibrary, type DesignActions } from '../DesignLibrary';
 import { GenerationProgress } from '../GenerationProgress';
 import type { InkStep } from '@/lib/ink-progress';
 import type { StudioJobStatus } from '@/types/generation';
 
-/** The account's earlier designs, newest first, as the advanced panel lists them (TASK-0046). */
+/** The account's designs and their versions (TASK-0046; grouped and managed since TASK-0116). */
 export function VersionList({
   versions,
   onOpen,
+  actions,
 }: {
   versions: StudioJobStatus[];
   onOpen: (version: StudioJobStatus) => void;
+  actions?: DesignActions | undefined;
 }): ReactNode {
-  const kept = versions.filter((version) => version.result);
-  if (!kept.length) return null;
-  return (
-    <section className="wizard-versions" aria-label="Tus diseños">
-      <h3>Tus diseños</h3>
-      <div className="wizard-choices">
-        {kept.map((version, index) => (
-          <button
-            key={version.jobId}
-            type="button"
-            className="wizard-choice"
-            onClick={() => onOpen(version)}
-          >
-            Propuesta {kept.length - index} ·{' '}
-            {version.result!.capture
-              ? 'Foto con la cámara'
-              : (version.result!.edit?.instruction ?? 'Diseño inicial')}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
+  return <DesignLibrary versions={versions} onOpen={onOpen} actions={actions} />;
 }
 
 /** While the studio works (TASK-0065): nothing to answer, only progress. */
@@ -64,12 +46,14 @@ export function DoneStep({
   onNew,
   onOpen,
   onAdvanced,
+  actions,
 }: {
   versions: StudioJobStatus[];
   onView: () => void;
   onNew: () => void;
   onOpen: (version: StudioJobStatus) => void;
   onAdvanced: () => void;
+  actions?: DesignActions | undefined;
 }): ReactNode {
   return (
     <Confirm
@@ -87,7 +71,7 @@ export function DoneStep({
         Ábrelo para verlo sobre la piel, descargar la plantilla, pedir cambios o probarlo con la
         cámara.
       </p>
-      <VersionList versions={versions} onOpen={onOpen} />
+      <VersionList versions={versions} onOpen={onOpen} actions={actions} />
     </Confirm>
   );
 }

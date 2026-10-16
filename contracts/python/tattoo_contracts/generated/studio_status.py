@@ -36,6 +36,18 @@ class Stage(StrEnum):
     finishing = 'finishing'
 
 
+class Design(BaseModel):
+    """
+    TASK-0116 (ADR-0041): the design this version belongs to — `id` is its first version's job id — and the name the client sees: theirs, or else their idea shortened.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    id: Annotated[str, Field(pattern='^[a-f0-9]{32}$')]
+    name: Annotated[str, Field(max_length=60, min_length=1)]
+
+
 class MimeType(StrEnum):
     image_png = 'image/png'
     image_svg_xml = 'image/svg+xml'
@@ -382,5 +394,11 @@ class StudioJobStatus(BaseModel):
         Field(
             description="TASK-0076: for a queued job, how many jobs (including it) are ahead in the studio's queue.",
             ge=1,
+        ),
+    ] = None
+    design: Annotated[
+        Design | None,
+        Field(
+            description="TASK-0116 (ADR-0041): the design this version belongs to — `id` is its first version's job id — and the name the client sees: theirs, or else their idea shortened."
         ),
     ] = None

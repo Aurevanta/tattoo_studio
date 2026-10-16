@@ -900,6 +900,26 @@ export const schemas: Record<string, Record<string, unknown>> = {
       "description": "TASK-0076: for a queued job, how many jobs (including it) are ahead in the studio's queue.",
       "type": "integer",
       "minimum": 1
+    },
+    "design": {
+      "description": "TASK-0116 (ADR-0041): the design this version belongs to — `id` is its first version's job id — and the name the client sees: theirs, or else their idea shortened.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
     }
   },
   "required": [

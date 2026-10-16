@@ -40,6 +40,8 @@ import { DetailsStep } from '@/components/wizard/DetailsStep';
 import { ReferencesStep } from '@/components/wizard/ReferencesStep';
 import { SummaryStep } from '@/components/wizard/SummaryStep';
 import { DoneStep, WorkingStep } from '@/components/wizard/DoneStep';
+import { DesignLibrary, type DesignActions } from '@/components/DesignLibrary';
+import { deletes } from '@/lib/designs';
 
 import { buildSteps } from '@/lib/steps';
 import { generationBlockers, nextAction } from '@/lib/next-step';
@@ -748,6 +750,33 @@ export default function ConsultationPage(): ReactNode {
     setShowResult(true);
   }
 
+  // TASK-0116 (ADR-0041): what «Tus diseños» can do with a design. Each one throws its failure in
+  // plain words, which the list shows next to the design.
+  const designActions: DesignActions = {
+    rename: async (designId, name) => {
+      await call('/api/designs', { designId, name }, 'PATCH');
+      await refreshVersions();
+    },
+    remove: async (target) => {
+      const query = 'designId' in target ? `designId=${target.designId}` : `jobId=${target.jobId}`;
+      await call(`/api/designs?${query}`, undefined, 'DELETE');
+      if (deletes(target, versions, selectedJobId)) {
+        setShowResult(false);
+        setArtifact(null);
+        setSelectedJobId('');
+      }
+      await refreshVersions();
+    },
+    copy: async (jobId) => {
+      const made: StudioJobStatus = await call('/api/designs', {
+        fromJobId: jobId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      await refreshVersions();
+      if (made.result) openVersion(made);
+    },
+  };
+
   function stopFlow() {
     setFlowing(false);
     setDialog(null);
@@ -1259,29 +1288,11 @@ export default function ConsultationPage(): ReactNode {
           {artifact && <button onClick={() => setShowResult(true)}>Ver diseño y descargar</button>}
           {versions.length > 0 && (
             <section aria-label="Historial de propuestas">
-              <h2>Tus versiones</h2>
               <p className="small-note">
                 Se guardan en tu cuenta. Las fotos de tu cuerpo, y lo que se ve sobre ellas, se
                 borran a las 24 horas. Abre cualquiera para seguir cambiándola.
               </p>
-              {versions.map(
-                (version, index) =>
-                  version.result && (
-                    <button
-                      key={version.jobId}
-                      onClick={() => {
-                        setArtifact(version.result);
-                        setSelectedJobId(version.jobId);
-                        setShowResult(true);
-                      }}
-                    >
-                      Propuesta {versions.length - index} ·{' '}
-                      {version.result.capture
-                        ? 'Foto con la cámara'
-                        : (version.result.edit?.instruction ?? 'Diseño inicial')}
-                    </button>
-                  ),
-              )}
+              <DesignLibrary versions={versions} onOpen={openVersion} actions={designActions} />
             </section>
           )}
 
@@ -1369,6 +1380,7 @@ export default function ConsultationPage(): ReactNode {
               onAdvanced={() => setMode('advanced')}
               versions={versions}
               onOpen={openVersion}
+              actions={designActions}
             />
           ) : step === 'details' ? (
             <DetailsStep
@@ -1427,6 +1439,7 @@ export default function ConsultationPage(): ReactNode {
               onNew={() => void newDesign()}
               onOpen={openVersion}
               onAdvanced={() => setMode('advanced')}
+              actions={designActions}
             />
           )}
         </>

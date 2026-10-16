@@ -5,6 +5,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Confirm } from '../Confirm';
 import { InkWorking } from '../InkWorking';
 import type { InkTask } from '@/lib/ink-progress';
+import type { DesignActions } from '../DesignLibrary';
 import { VersionList } from './DoneStep';
 import type { StudioJobStatus } from '@/types/generation';
 
@@ -33,6 +34,7 @@ export function IdeaStep({
   onAdvanced,
   versions,
   onOpen,
+  actions,
 }: {
   /** The idea already sent, when the client comes back to change it. */
   initial: string;
@@ -50,6 +52,8 @@ export function IdeaStep({
   /** Earlier designs of the account, to open instead of starting one (TASK-0046). */
   versions: StudioJobStatus[];
   onOpen: (version: StudioJobStatus) => void;
+  /** Rename, delete and copy designs from the list (TASK-0116). */
+  actions?: DesignActions | undefined;
 }): ReactNode {
   const [idea, setIdea] = useState(initial);
   const picker = useRef<HTMLInputElement>(null);
@@ -152,7 +156,7 @@ export function IdeaStep({
         </div>
       )}
       {error && <p role="alert">{error}</p>}
-      {!working && <VersionList versions={versions} onOpen={onOpen} />}
+      {!working && <VersionList versions={versions} onOpen={onOpen} actions={actions} />}
     </Confirm>
   );
 }

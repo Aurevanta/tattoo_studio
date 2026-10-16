@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0116 (ADR-0041): `DELETE /studio/jobs/{id}` and `DELETE /studio/designs/{family}` erase a version or a design: rows emptied and cancelled (the day's count stays), links closed, and only files no remaining version uses — artwork, then uploads no remaining version or consultation uses, and vectors no remaining version shows (`Studio._erase_versions`). 409 while a version of the design is queued or running. `PATCH /studio/designs/{family}` renames; `POST /studio/designs` copies a version into a new design «<name> (copia)», free and idempotent, without a kept photo. «Elimina tus datos» also forgets the names.
+
 TASK-0114 (ADR-0040): the `CONTAINS_PERSON` refusal says «una persona que se puede reconocer», suggests cropping it out, and says small, distant people do not matter.
 
 TASK-0113 (ADR-0039), `app/studio.py`: `GET /studio/media/{id}?preview=1` answers an owned reference as a JPEG of at most `PREVIEW_EDGE_PX` (1568) on its longest side, for the prompt architect; anything else is 404. `DELETE /studio/media/{id}` (`Studio.discard`) deletes an owned reference with its cascade and its asset row and records `deletion/reference`; one any of the account's jobs names is refused with 409, and anything not an owned reference is 404. It frees a place in the account's ten-upload cap.

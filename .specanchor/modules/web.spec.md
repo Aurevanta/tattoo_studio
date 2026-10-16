@@ -9,6 +9,10 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0117: the 3D views' stage (`.leg-stage`) sticks to the top of the result dialog; from 900 px it sits left of its notices and controls, below that it stays on top, shorter. CSS only.
+
+TASK-0116 (ADR-0041): «Tus diseños» is `DesignLibrary` (step 1, the done step and the advanced panel): one card per design, named, expanding to its versions «Versión N · …» numbered within it; «Renombrar», «Eliminar diseño», «Eliminar versión» (designs with more than one) and «Diseño nuevo a partir de esta». Deleting asks in place, with «Cancelar» where the pointer was. `/api/designs` (`PATCH`, `DELETE ?designId|jobId`, `POST` with consent) relays to the worker; deleting the version on screen closes it, a copy opens.
+
 TASK-0114 (ADR-0040): step 1's hint says a photo in which a person can be recognised is not accepted (was: any person).
 
 TASK-0113 (ADR-0039): step 1 takes up to five images (`IdeaStep`, `MAX_IDEA_IMAGES`), numbered «Imagen N» in the order attached, each uploaded at once and one after another with `POST /api/media` `purpose: 'idea'` (screened and stored by the worker; it does not touch the consultation; the kind is always `reference`). «Quitar» sends `purpose: 'discard'`: the worker deletes an image no design used (a used one is kept with its design) and it leaves the consultation. Sending the idea passes `referenceIds` to `orchestrate`; the BFF refuses more than five, duplicates or malformed ids before any model is paid for, reads each image back as the worker's JPEG preview (proving ownership) and gives the orchestrator numbered `user_supplied` references and data-URL images for the architect.

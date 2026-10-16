@@ -2309,6 +2309,98 @@ body::after {
   margin: 18px 0 8px;
 }
 
+/* TASK-0116: «Tus diseños», one card per design, its versions inside. */
+.design-list,
+.design-versions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.design-card details {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-glass);
+  padding: 0 12px;
+}
+.design-card details[open] {
+  padding-bottom: 12px;
+}
+.design-card summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.design-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.design-count {
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.design-versions li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+.design-versions .wizard-choice {
+  text-align: left;
+}
+.design-version-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+}
+.design-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.design-rename label {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+.design-rename p.small-note {
+  margin: 6px 0 0;
+}
+.design-confirm {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  border-radius: var(--radius-md);
+  background: rgba(66, 30, 38, 0.6);
+}
+.design-confirm p {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+}
+.design-confirm p.design-confirm-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.btn-danger {
+  background: var(--accent-rose);
+  border-color: var(--accent-rose);
+  color: #fff;
+}
+.design-library-error {
+  color: #fda4af;
+  font-size: 0.85rem;
+}
+
 /* TASK-0066: the guided studio's dialogs sit under the header, which stays usable. */
 .confirm-backdrop {
   position: fixed;
@@ -2911,6 +3003,43 @@ body::after {
 .leg-controls button[aria-pressed='true'] {
   border-color: var(--accent-gold);
   color: var(--accent-gold);
+}
+
+/* TASK-0117: the 3D view stays in sight while its controls are used. The result dialog is what
+   scrolls, so the stage sticks to its top: beside the controls when there is room, above them
+   (and shorter) when there is not. */
+.leg-stage {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+/* In the result dialog the stage sticks over its padding, so what scrolls by does not show above
+   it. */
+.studio-dialog .leg-stage {
+  top: -28px;
+}
+@media (min-width: 900px) {
+  .leg-viewer {
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+    align-items: start;
+    column-gap: 20px;
+  }
+  .leg-viewer > .leg-stage {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    align-self: start;
+    height: min(78vh, 620px);
+  }
+  .leg-viewer > .leg-notice,
+  .leg-viewer > .leg-controls {
+    grid-column: 2;
+  }
+}
+@media (max-width: 899px) {
+  .leg-viewer > .leg-stage {
+    height: min(42vh, 400px);
+    box-shadow: 0 8px 16px -8px #000;
+  }
 }
 
 /* TASK-0107 (ADR-0036): the design adjusted over its skin, live. */

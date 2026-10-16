@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: contracts
 
+TASK-0116 (ADR-0041): `studio-status` gains an optional `design: {id, name}` — the design a version belongs to (32-hex job id of its first version) and its name (1–60 characters). Additive. Fixtures: `with-design`, `design-without-name`.
+
 TASK-0110 (ADR-0038): each wrap region in `body-zones.json` gains `bodies.{masculine,feminine}.circumferenceProfileMm`, measured on the masculine and feminine limbs (same band and step). `circumferenceAt(region, depth, bodyType?)` (TS) and `WrapRegion.circumference_at(depth, body_type)` / `for_body` (Python) read them and fall back to the neutral profile. `BodyType` is exported. The artifact's `placement` admits `bodyType`; the fixture `zone-with-body-type` becomes `zone-with-subject`. Additive.
 
 TASK-0108: the artifact in `studio-status` gains an optional `placement`, `{bodyPart, orientation, side?}`, which is where the design goes and nothing else from the brief. The change is additive. Fixtures: `with-zone` and `zone-with-body-type`.

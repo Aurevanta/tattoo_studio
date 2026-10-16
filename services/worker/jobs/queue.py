@@ -17,6 +17,7 @@ from tattoo_contracts.sleeve import is_sleeve
 from tattoo_contracts.validation import validate
 
 from jobs.client_messages import GENERIC, for_client
+from jobs.designs import default_name, parent_of
 from jobs.quota import (
     SLEEVE_NEEDS_TWO,
     STUDIO_FULL,
@@ -105,6 +106,14 @@ class JobQueue:
             columns = {row[1] for row in db.execute("PRAGMA table_info(jobs)")}
             if "billable" not in columns:
                 db.execute("ALTER TABLE jobs ADD COLUMN billable INTEGER NOT NULL DEFAULT 1")
+            # TASK-0116 (ADR-0041): the design a version belongs to, the id of its first version.
+            if "family" not in columns:
+                db.execute("ALTER TABLE jobs ADD COLUMN family TEXT")
+            self._backfill_families(db)
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS design_names (owner TEXT NOT NULL, family TEXT NOT "
+                "NULL, name TEXT NOT NULL, PRIMARY KEY (owner, family))"
+            )
             db.execute(
                 "UPDATE jobs SET state='failed',error='El estudio se reinició mientras creaba "
                 "tu diseño. Vuelve a generarlo.' WHERE state='running'"
@@ -115,6 +124,35 @@ class JobQueue:
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
         return db
+
+    @staticmethod
+    def _backfill_families(db: sqlite3.Connection) -> None:
+        """Give every version stored before TASK-0116 the design it belongs to.
+
+        Oldest first, so a parent has its design before its children ask for it. A version whose
+        parent is gone starts a design of its own.
+        """
+        rows = db.execute(
+            "SELECT id, owner, payload, result, family FROM jobs ORDER BY created"
+        ).fetchall()
+        known = {(row[1], row[0]): row[4] for row in rows if row[4]}
+        for job_id, owner, payload, result, family in rows:
+            if family:
+                continue
+            parent = parent_of(payload, result)
+            family = known.get((owner, parent), job_id) if parent else job_id
+            known[(owner, job_id)] = family
+            db.execute("UPDATE jobs SET family=? WHERE id=?", (family, job_id))
+
+    @staticmethod
+    def _family_of(db: sqlite3.Connection, owner: str, parent: str | None) -> str | None:
+        """The design of the version a new one is asked from, or None for a design of its own."""
+        if not parent:
+            return None
+        row = db.execute(
+            "SELECT family FROM jobs WHERE id=? AND owner=?", (parent, owner)
+        ).fetchone()
+        return str(row[0]) if row and row[0] else None
 
     @staticmethod
     def _designs_today(db: sqlite3.Connection, owner: str) -> tuple[int, int]:
@@ -168,9 +206,11 @@ class JobQueue:
                 if everyone + billable > self.limits.designs_total:
                     raise QuotaExceededError(STUDIO_FULL)
             job_id = uuid.uuid4().hex
+            # TASK-0116: a change joins the design of the version it was asked from.
+            family = self._family_of(db, owner, (payload.get("edit") or {}).get("parentJobId"))
             db.execute(
                 "INSERT INTO jobs (id, owner, idem, payload, state, result, error, created, "
-                "billable) VALUES (?,?,?,?,?,?,?,?,?)",
+                "billable, family) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     job_id,
                     owner,
@@ -181,6 +221,7 @@ class JobQueue:
                     None,
                     time.time(),
                     billable,
+                    family or job_id,
                 ),
             )
         return self.get(owner, job_id)
@@ -193,9 +234,20 @@ class JobQueue:
             ).fetchone()
         return self.public(row) if row else None
 
-    def record(self, owner: str, payload: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    def record(
+        self,
+        owner: str,
+        payload: dict[str, Any],
+        result: dict[str, Any],
+        parent: str | None = None,
+        name: str | None = None,
+    ) -> dict[str, Any]:
         """
         Store work finished outside the queue as a succeeded job (ADR-0022).
+
+        With `parent`, the version joins that version's design (a kept camera photo); without it,
+        it starts a design of its own, named `name` when given (TASK-0116: a new design made from
+        an earlier version).
 
         A kept camera photograph costs no generation, so it is never queued. It is recorded here so
         that it lives where every other version lives — the owner's history — under the same
@@ -213,10 +265,11 @@ class JobQueue:
             ).fetchone()
             if existing:
                 return self.public(existing)
+            family = self._family_of(db, owner, parent) or job_id
             # A kept camera photo calls no provider, so it is not billable (TASK-0078).
             db.execute(
                 "INSERT INTO jobs (id, owner, idem, payload, state, result, error, created, "
-                "billable) VALUES (?,?,?,?,?,?,?,?,0)",
+                "billable, family) VALUES (?,?,?,?,?,?,?,?,0,?)",
                 (
                     job_id,
                     owner,
@@ -226,13 +279,18 @@ class JobQueue:
                     json.dumps(result),
                     None,
                     time.time(),
+                    family,
                 ),
             )
+            if name and family == job_id:
+                db.execute(
+                    "INSERT OR REPLACE INTO design_names VALUES (?,?,?)", (owner, family, name)
+                )
         return self.get(owner, job_id)
 
     @staticmethod
-    def public(row: sqlite3.Row) -> dict[str, Any]:
-        result = {
+    def public(row: sqlite3.Row, name: str | None = None) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "jobId": row["id"],
             "state": row["state"],
             "result": json.loads(row["result"]) if row["result"] else None,
@@ -242,6 +300,9 @@ class JobQueue:
             zone = body_zone(row["payload"])
             if zone:
                 result["result"]["placement"] = zone
+        # TASK-0116 (ADR-0041): the design this version belongs to, and its name.
+        if name is not None and row["family"]:
+            result["design"] = {"id": row["family"], "name": name}
         if validate("studio-status", result):
             raise ValueError("Estado de trabajo inválido; no se entregará como resultado válido.")
         return result
@@ -253,7 +314,8 @@ class JobQueue:
             ).fetchone()
             if row is None:
                 raise KeyError("Trabajo no encontrado")
-            status = self.public(row)
+            names = self._names(db, owner, {row["family"]} if row["family"] else set())
+            status = self.public(row, names.get(row["family"]))
             # TASK-0076 (audit UX-03): what the client is shown comes from the queue and the
             # pipeline, never from a clock.
             if row["state"] == "running" and row["id"] in self.stages:
@@ -288,7 +350,70 @@ class JobQueue:
                 "ORDER BY created DESC LIMIT 50",
                 (owner,),
             ).fetchall()
-        return [self.public(row) for row in rows]
+            names = self._names(db, owner, {row["family"] for row in rows if row["family"]})
+        return [self.public(row, names.get(row["family"])) for row in rows]
+
+    @staticmethod
+    def _names(db: sqlite3.Connection, owner: str, families: set[str]) -> dict[str, str]:
+        """Each design's name: the client's, or else its earliest kept version's idea."""
+        if not families:
+            return {}
+        marks = ",".join("?" * len(families))
+        names: dict[str, str] = {}
+        for family, payload in db.execute(
+            "SELECT family, payload FROM jobs WHERE owner=? AND state='succeeded' "
+            f"AND family IN ({marks}) ORDER BY created",
+            (owner, *families),
+        ):
+            names.setdefault(family, default_name(json.loads(payload or "{}")))
+        for family, name in db.execute(
+            f"SELECT family, name FROM design_names WHERE owner=? AND family IN ({marks})",
+            (owner, *families),
+        ):
+            if family in names:
+                names[family] = name
+        return names
+
+    def name(self, owner: str, family: str) -> str:
+        """A design's name as the client sees it, or KeyError if they have no such design."""
+        with self.connect() as db:
+            names = self._names(db, owner, {family})
+        if family not in names:
+            raise KeyError("Diseño no encontrado")
+        return names[family]
+
+    def rename(self, owner: str, family: str, name: str) -> str:
+        """Name a design, or with an empty name give it back its default. Returns the name."""
+        with self.connect() as db:
+            if not self._names(db, owner, {family}):
+                raise KeyError("Diseño no encontrado")
+            if name:
+                db.execute(
+                    "INSERT OR REPLACE INTO design_names VALUES (?,?,?)", (owner, family, name)
+                )
+            else:
+                db.execute("DELETE FROM design_names WHERE owner=? AND family=?", (owner, family))
+        return self.name(owner, family)
+
+    def versions(self, owner: str, family: str) -> list[sqlite3.Row]:
+        """Every version of a design that is kept or still being made."""
+        with self.connect() as db:
+            return db.execute(
+                "SELECT * FROM jobs WHERE owner=? AND family=? "
+                "AND state IN ('queued','running','succeeded')",
+                (owner, family),
+            ).fetchall()
+
+    def family(self, owner: str, job_id: str) -> str:
+        """The design a version belongs to, or KeyError."""
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT family FROM jobs WHERE id=? AND owner=? AND state='succeeded'",
+                (job_id, owner),
+            ).fetchone()
+        if row is None or not row[0]:
+            raise KeyError("Trabajo no encontrado")
+        return str(row[0])
 
     def source_payload(self, owner: str, job_id: str) -> dict[str, Any]:
         with self.connect() as db:

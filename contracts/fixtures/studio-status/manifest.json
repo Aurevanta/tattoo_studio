@@ -186,6 +186,18 @@
       "file": "invalid/zone-with-subject.json",
       "valid": false,
       "why": "TASK-0108: the zone carries no more of the brief than where it goes and on which body"
+    },
+    {
+      "name": "with-design",
+      "file": "valid/with-design.json",
+      "valid": true,
+      "why": "TASK-0116: a version names its design"
+    },
+    {
+      "name": "design-without-name",
+      "file": "invalid/design-without-name.json",
+      "valid": false,
+      "why": "TASK-0116: a design always has a name"
     }
   ]
 }

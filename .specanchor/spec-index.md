@@ -60,6 +60,7 @@ exist and its field set is unproven against any consumer.
 | FINDING-0002 | The brief contract permits size combinations flash cannot render | open |
 | FINDING-0003 | `media` and `safety` declared a circular dependency | resolved (TASK-0012) |
 | FINDING-0004 | Live consultation route bypasses `ConsultationProvider`; Claude agents not yet active | resolved (TASK-0033) |
+| FINDING-0005 | `design_vector` is keyed by the design hash alone; a repeated store orphans a vector | open |
 
 ## Decisions
 
@@ -94,6 +95,7 @@ exist and its field set is unproven against any consumer.
 | ADR-0038 | The 3D views show a masculine or a feminine body, as the design was made for | accepted |
 | ADR-0039 | Images attached to the idea are numbered and read by the prompt architect | accepted |
 | ADR-0040 | A reference may show people who cannot be identified; an identifiable person is refused | accepted |
+| ADR-0041 | A client names, deletes and copies their designs one by one (amends ADR-0023) | accepted |
 | ADR-0024 | The studio records what it does, and never what a body looks like | accepted |
 | ADR-0023 | Designs last; photographs of a body expire (refines MEDIA-INV-006) | accepted |
 | ADR-0022 | One camera photograph may be kept, when the client takes it and chooses to (amends ADR-0019) | accepted |

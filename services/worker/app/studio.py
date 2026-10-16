@@ -25,6 +25,7 @@ from generation.plate_library import PlateLibrary, plate_body
 from generation.seam import fit_aspect, seamless
 from generation.studio import StudioProvider
 from jobs.client_messages import for_client
+from jobs.designs import MAX_NAME, asset_ids, clean_name, design_ids, inputs_of
 from jobs.queue import JobQueue, designs_left
 from jobs.quota import Limits, QuotaExceededError, TurnLedger, UploadLedger, day_start
 from media.sanitize import sanitize
@@ -274,6 +275,16 @@ CAPTURE_NOTICE = (
     "Foto hecha con la cámara en tu dispositivo: el tatuaje está superpuesto, no hecho. "
     "El diseño y la plantilla son los de la propuesta original. "
     "Visualización ilustrativa. Revisa los símbolos y el trazo con tu tatuador."
+)
+
+
+# TASK-0116: a design copied from a kept camera photo's version takes the version it was taken of,
+# without the photo, so its notice cannot say it is a photograph.
+COPIED_CAPTURE_NOTICE = (
+    "Diseño nuevo hecho a partir de otra propuesta: el dibujo, la plantilla y la vista en piel son "
+    "los de esa propuesta; la foto con la cámara se queda en el diseño original. "
+    "Visualización ilustrativa. Revisa los símbolos y el trazo con tu tatuador. "
+    "Imprime el PDF al 100 %, sin ajustar a página."
 )
 
 
@@ -1293,7 +1304,7 @@ class Studio:
         }
         result["notice"] = CAPTURE_NOTICE
         payload = {k: v for k, v in source.items() if k != "edit"}
-        return self.jobs.record(owner, {**payload, "idempotencyKey": key}, result)
+        return self.jobs.record(owner, {**payload, "idempotencyKey": key}, result, parent=parent_id)
 
     def shared(self, token: str) -> tuple[str, dict[str, Any]]:
         """The owner and what an open link shows (TASK-0097), or KeyError.
@@ -1317,6 +1328,162 @@ class Studio:
         if issues:
             raise KeyError(f"Enlace no disponible: {issues[0].path} {issues[0].message}")
         return owner, shared
+
+    def copy_design(self, owner: str, body: dict[str, Any]) -> dict[str, Any]:
+        """
+        A new design made from one version of another (TASK-0116, ADR-0041).
+
+        Nothing is drawn: the new design's first version is that version as it is — artwork,
+        stencils, skin view — and changes asked from it build a design of their own, under its own
+        name, while the original keeps its versions. It costs no design from the daily limit. A
+        kept camera photo is not carried over: it is a picture of the client's body, and stays
+        with the design it was taken for.
+        """
+        key = body.get("idempotencyKey")
+        source_id = body.get("fromJobId")
+        if not isinstance(key, str) or not re.fullmatch("[a-f0-9-]{36}", key):
+            raise ValueError("Identificador de solicitud inválido.")
+        if not isinstance(source_id, str) or not re.fullmatch("[a-f0-9]{32}", source_id):
+            raise ValueError("Propuesta original inválida.")
+        existing = self.jobs.find(owner, key)
+        if existing:
+            return existing
+        source = self.jobs.get(owner, source_id)
+        if source["state"] != "succeeded" or not source["result"]:
+            raise ValueError("La propuesta original no está disponible.")
+        payload = {
+            k: v for k, v in self.jobs.source_payload(owner, source_id).items() if k != "edit"
+        }
+        result = {k: v for k, v in source["result"].items() if k not in ("capture", "edit")}
+        if source["result"].get("capture"):
+            result["notice"] = COPIED_CAPTURE_NOTICE
+        original = (source.get("design") or {}).get("name")
+        name = clean_name(f"{original[: MAX_NAME - 9]} (copia)") if original else None
+        copied = self.jobs.record(owner, {**payload, "idempotencyKey": key}, result, name=name)
+        record("design", "copy", account=owner, job=copied["jobId"])
+        return copied
+
+    def rename_design(self, owner: str, family: str, name: Any) -> str:
+        """Name a design (TASK-0116). An empty name gives it back the client's idea."""
+        named = self.jobs.rename(owner, family, clean_name(name))
+        record("design", "rename", account=owner)
+        return named
+
+    def delete_design(self, owner: str, family: str) -> int:
+        """Delete a design and every version of it (TASK-0116, ADR-0041). Returns how many."""
+        return self._erase_versions(owner, family, None)
+
+    def delete_version(self, owner: str, job_id: str) -> int:
+        """Delete one version of a design; the design's other versions keep everything they use."""
+        return self._erase_versions(owner, self.jobs.family(owner, job_id), job_id)
+
+    def _erase_versions(self, owner: str, family: str, only: str | None) -> int:
+        """
+        Erase versions of one design, and every file no version left still uses.
+
+        Versions share files - a re-placement keeps its parent's artwork and stencils, a kept photo
+        and a copied design keep everything - so a file goes only when no remaining version of the
+        account points at it. Artwork goes before the uploads it descends from, and an upload goes
+        only when no remaining version and no consultation in progress uses it, so a cascade from
+        it can reach nothing that is kept (SEC-INV-004). The rows stay, emptied, so the day's
+        designs are still counted (TASK-0078), and every link to an erased version closes.
+        """
+        with self.lock:
+            versions = self.jobs.versions(owner, family)
+            if not versions:
+                raise KeyError("Diseño no encontrado")
+            if any(row["state"] != "succeeded" for row in versions):
+                raise ValueError(
+                    "Se está creando una versión de este diseño. Espera a que termine para "
+                    "eliminarlo."
+                )
+            erased = [row for row in versions if only is None or row["id"] == only]
+            if not erased:
+                raise KeyError("Trabajo no encontrado")
+            gone_ids = {row["id"] for row in erased}
+            files: set[str] = set()
+            uploads: set[str] = set()
+            designs: set[str] = set()
+            for row in erased:
+                result = json.loads(row["result"] or "{}")
+                files |= asset_ids(result)
+                uploads |= inputs_of(json.loads(row["payload"] or "{}"))
+                designs |= design_ids(result)
+            kept_files: set[str] = set()
+            kept_designs: set[str] = set()
+            with self.jobs.connect() as db:
+                remaining = db.execute(
+                    "SELECT id, payload, result FROM jobs WHERE owner=? AND state IN "
+                    "('queued','running','succeeded')",
+                    (owner,),
+                ).fetchall()
+                for job_id, payload, result_text in remaining:
+                    if job_id in gone_ids:
+                        continue
+                    result = json.loads(result_text or "{}")
+                    kept_files |= asset_ids(result) | inputs_of(json.loads(payload or "{}"))
+                    kept_designs |= design_ids(result)
+                db.executemany(
+                    "UPDATE jobs SET state='cancelled',payload='{}',result=NULL WHERE id=? "
+                    "AND owner=?",
+                    [(job_id, owner) for job_id in gone_ids],
+                )
+                if only is None or len(erased) == len(versions):
+                    db.execute(
+                        "DELETE FROM design_names WHERE owner=? AND family=?", (owner, family)
+                    )
+            for job_id in gone_ids:
+                self.shares.revoke(owner, job_id)
+            with self.db() as db:
+                vectors = {
+                    design_id: asset_id
+                    for design_id, asset_id in db.execute(
+                        "SELECT design_id, asset_id FROM design_vector WHERE owner=?", (owner,)
+                    )
+                    if design_id in designs - kept_designs
+                }
+                in_progress = [
+                    data
+                    for (data,) in db.execute(
+                        "SELECT data FROM consultations WHERE owner=?", (owner,)
+                    )
+                ]
+                db.executemany(
+                    "DELETE FROM design_vector WHERE design_id=? AND owner=?",
+                    [(design_id, owner) for design_id in vectors],
+                )
+            artwork = (files | set(vectors.values())) - kept_files
+            unused = {
+                asset_id
+                for asset_id in uploads - kept_files
+                if not any(asset_id in data for data in in_progress)
+            }
+            for asset_id in [*sorted(artwork), *sorted(unused - artwork)]:
+                self._erase_file(owner, asset_id)
+        record(
+            "deletion",
+            "design" if only is None else "version",
+            account=owner,
+            detail={"versions": len(erased)},
+        )
+        return len(erased)
+
+    def _erase_file(self, owner: str, asset_id: str) -> None:
+        """One owned file and what descends from it, with its ownership rows."""
+        with self.db() as db:
+            owned = db.execute(
+                "SELECT 1 FROM assets WHERE id=? AND owner=?", (asset_id, owner)
+            ).fetchone()
+        if not owned:
+            return
+        try:
+            removed = self.media.delete_cascade(asset_id).removed
+        except AssetNotFoundError:
+            removed = (asset_id,)
+        with self.db() as db:
+            db.executemany(
+                "DELETE FROM assets WHERE id=? AND owner=?", [(a, owner) for a in removed]
+            )
 
     def delete(self, owner: str) -> None:
         # Counted, then the account's events lose who it was and what it wrote (TASK-0054).
@@ -1342,6 +1509,7 @@ class Studio:
                     "UPDATE jobs SET state='cancelled',payload='{}',result=NULL WHERE owner=?",
                     (owner,),
                 )
+                db.execute("DELETE FROM design_names WHERE owner=?", (owner,))
             with self.db() as db:
                 db.execute("DELETE FROM assets WHERE owner=?", (owner,))
                 db.execute("DELETE FROM consent WHERE owner=?", (owner,))
@@ -1758,6 +1926,55 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
             return studio.jobs.get(owner(request), job_id)
         except KeyError as error:
             raise HTTPException(404, "Trabajo no encontrado") from error
+
+    # TASK-0116 (ADR-0041): the client manages their designs one by one.
+    @routes.delete("/jobs/{job_id}")
+    def delete_version(job_id: str, request: Request) -> dict[str, int]:
+        who = owner(request)
+        if not re.fullmatch("[a-f0-9]{32}", job_id):
+            raise HTTPException(422, "Versión inválida.")
+        try:
+            return {"deleted": studio.delete_version(who, job_id)}
+        except KeyError as error:
+            raise HTTPException(404, "Esta versión ya no existe.") from error
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @routes.delete("/designs/{family}")
+    def delete_design(family: str, request: Request) -> dict[str, int]:
+        who = owner(request)
+        if not re.fullmatch("[a-f0-9]{32}", family):
+            raise HTTPException(422, "Diseño inválido.")
+        try:
+            return {"deleted": studio.delete_design(who, family)}
+        except KeyError as error:
+            raise HTTPException(404, "Este diseño ya no existe.") from error
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @routes.patch("/designs/{family}")
+    async def rename_design(family: str, request: Request) -> dict[str, str]:
+        who = owner(request)
+        if not re.fullmatch("[a-f0-9]{32}", family):
+            raise HTTPException(422, "Diseño inválido.")
+        body = await bounded_json(request)
+        try:
+            return {"name": studio.rename_design(who, family, body.get("name"))}
+        except KeyError as error:
+            raise HTTPException(404, "Este diseño ya no existe.") from error
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+
+    @routes.post("/designs", status_code=201)
+    async def copy_design(request: Request) -> dict[str, Any]:
+        who = owner(request)
+        body = await bounded_json(request)
+        try:
+            return studio.copy_design(who, body)
+        except KeyError as error:
+            raise HTTPException(404, "La propuesta original no está disponible.") from error
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
 
     @routes.get("/consultations/{consultation_id}")
     def load_consultation(consultation_id: str, request: Request) -> dict[str, Any]:

@@ -20,6 +20,13 @@ export type StudioJobStatus = {
    * TASK-0076: for a queued job, how many jobs (including it) are ahead in the studio's queue.
    */
   queuePosition?: number;
+  /**
+   * TASK-0116 (ADR-0041): the design this version belongs to — `id` is its first version's job id — and the name the client sees: theirs, or else their idea shortened.
+   */
+  design?: {
+    id: string;
+    name: string;
+  };
 };
 
 export interface GeneratedTattooArtifact {

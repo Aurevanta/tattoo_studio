@@ -2186,3 +2186,53 @@ def test_every_result_says_which_zone_it_goes_on(tmp_path: Path) -> None:
     assert studio.jobs.history(owner)[0]["result"]["placement"] == expected
     assert body_zone("not json") is None
     assert body_zone('{"brief": {"placement": {"bodyPart": "calf"}}}') is None
+
+
+def test_an_idea_image_preview_is_a_bounded_jpeg(tmp_path: Path) -> None:
+    """TASK-0113/AC-004: the architect gets a JPEG no larger than the API's useful size."""
+    studio = Studio(tmp_path, b"x" * 32, FakeProvider())
+    big = Image.new("RGB", (4000, 2000), "white")
+    ImageDraw.Draw(big).ellipse((500, 200, 3500, 1800), outline="black", width=20)
+    out = io.BytesIO()
+    big.save(out, format="PNG")
+    reference = studio.ingest(
+        ACCOUNT, {**an_upload(), "data": base64.b64encode(out.getvalue()).decode()}
+    )
+    with Image.open(io.BytesIO(studio.preview(ACCOUNT, reference["assetId"]))) as preview:
+        assert preview.format == "JPEG"
+        assert max(preview.size) == 1568 and preview.size[0] > preview.size[1]
+    with pytest.raises(KeyError):
+        studio.preview(ACCOUNT, a_body_photo(studio))
+    with pytest.raises(KeyError):
+        studio.preview("22222222-2222-4222-8222-222222222222", reference["assetId"])
+
+
+def test_an_unused_idea_image_can_be_deleted(tmp_path: Path) -> None:
+    """TASK-0113/AC-004: removing an image nobody used deletes it; a design's is kept."""
+    studio = Studio(tmp_path, b"x" * 32, FakeProvider())
+    app = FastAPI()
+    app.include_router(router(studio, "test-only-token"))
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer test-only-token", "X-Owner-Id": ACCOUNT}
+    unused = studio.ingest(ACCOUNT, an_upload())["assetId"]
+
+    assert (
+        client.get(f"/studio/media/{unused}?preview=1", headers=headers)
+        .headers["content-type"]
+        .startswith("image/jpeg")
+    )
+    assert client.delete(f"/studio/media/{unused}", headers=headers).status_code == 204
+    assert client.get(f"/studio/media/{unused}", headers=headers).status_code == 404
+    assert client.delete(f"/studio/media/{unused}", headers=headers).status_code == 404
+
+    used = studio.ingest(ACCOUNT, an_upload())["assetId"]
+    studio.jobs.enqueue(ACCOUNT, {**payload(), "referenceIds": [used]})
+    assert client.delete(f"/studio/media/{used}", headers=headers).status_code == 409
+    assert client.get(f"/studio/media/{used}", headers=headers).status_code == 200
+
+    photo = a_body_photo(studio)
+    assert client.delete(f"/studio/media/{photo}", headers=headers).status_code == 404
+    other = {**headers, "X-Owner-Id": "22222222-2222-4222-8222-222222222222"}
+    kept = studio.ingest(ACCOUNT, an_upload())["assetId"]
+    assert client.delete(f"/studio/media/{kept}", headers=other).status_code == 404
+    assert client.get(f"/studio/media/{kept}", headers=headers).status_code == 200

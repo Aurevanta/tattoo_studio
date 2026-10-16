@@ -5,8 +5,10 @@
  * a `ConsultationProvider` — Claude Opus 5.5 in production — to propose the rest. This module owns
  * the three things that make that safe:
  *
- * - **Turns:** only conversation *text* is sent, in the alternating shape the providers require.
- *   Reference images are not forwarded; the live route sends no user image to any language model.
+ * - **Turns:** conversation text is sent, in the alternating shape the providers require. The one
+ *   exception is the images a client attaches to the idea (TASK-0113, ADR-0039): screened by the
+ *   input gate, they ride on that message alone, each labelled «Imagen N». No other reference
+ *   image, and no body photograph, reaches a language model.
  * - **Sanitizing:** every proposed value is checked against the contract vocabulary and bounds;
  *   anything else is dropped rather than passed through (CONSULT-INV-003).
  * - **Merging:** explicit statements and earlier decisions win. The architect fills gaps, and may
@@ -18,7 +20,7 @@
 import type { BodyPart, StyleName } from '@tattoo/contracts';
 
 import type { ConsultationProvider } from '../providers/types';
-import type { ConsultationSlots, ConsultationTurn } from '../types';
+import type { ConsultationSlots, ConsultationTurn, ReferenceImage } from '../types';
 import type { MultiAgentMessage } from './types';
 import { BODY_OPTIONS, DEFAULT_LINEWORK_NOTE, STYLE_OPTIONS } from './researcher';
 
@@ -292,9 +294,13 @@ export async function consultArchitect(
   messages: MultiAgentMessage[],
   input: string,
   current: ConsultationSlots,
+  images: ReferenceImage[] = [],
 ): Promise<ArchitectProposal | undefined> {
   try {
-    const output = await architect.processTurn(conversationTurns(messages, input), current);
+    const turns = conversationTurns(messages, input);
+    const last = turns[turns.length - 1];
+    if (images.length && last) last.referenceImages = images;
+    const output = await architect.processTurn(turns, current);
     const artistName = text(output.mimicryDetected?.artistName, 120);
     const explanation = text(output.mimicryDetected?.explanation, 600);
     const size = sanitizeArchitectSize(output.extractedSlots);

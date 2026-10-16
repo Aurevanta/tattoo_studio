@@ -2276,6 +2276,30 @@ body::after {
   margin-top: 8px;
   border-radius: var(--radius-sm);
 }
+/* TASK-0113: images attached to the idea, numbered so the text can point at them. */
+.idea-images {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 10px;
+}
+.idea-images-grid {
+  width: 100%;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+}
+.idea-images-grid img {
+  height: 88px;
+  object-fit: cover;
+}
+.idea-images-grid figcaption {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.confirm-dialog p.idea-images-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
 .wizard-references figure img {
   max-height: 160px;
   object-fit: cover;

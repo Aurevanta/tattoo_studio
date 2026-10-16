@@ -244,11 +244,16 @@ export class ClaudeConsultationProvider implements ConsultationProvider {
   private formatTurn(turn: ConsultationTurn): Anthropic.MessageParam {
     if (turn.role === 'assistant') return { role: 'assistant', content: turn.content };
     if (turn.referenceImages && turn.referenceImages.length > 0) {
+      // TASK-0113 (ADR-0039): each image follows its label, so «la imagen 2» in the text names
+      // one picture; the text comes last, after what it refers to.
       return {
         role: 'user',
         content: [
+          ...turn.referenceImages.flatMap((image): Anthropic.ContentBlockParam[] => [
+            ...(image.label ? [{ type: 'text' as const, text: `${image.label}:` }] : []),
+            imageBlock(image),
+          ]),
           { type: 'text', text: turn.content },
-          ...turn.referenceImages.map((image) => imageBlock(image)),
         ],
       };
     }

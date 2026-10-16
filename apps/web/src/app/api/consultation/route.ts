@@ -6,6 +6,7 @@ import {
   findOffer,
   offerAsPick,
   type ConsultationSlots,
+  type ReferenceImage,
 } from '@tattoo/consultation';
 
 import { validateTattooBrief } from '@tattoo/contracts';
@@ -25,8 +26,12 @@ import {
   session,
   replyKept,
   restoreConsultation,
+  worker,
 } from '../../../lib/studio-server';
 import { attribute, report } from '../../../lib/telemetry';
+
+/** TASK-0113 (owner's decision): as many as a design's references. */
+const MAX_IDEA_IMAGES = 5;
 
 export async function GET(request: Request): Promise<NextResponse> {
   // TASK-0045: an unauthenticated read is refused, not answered with an empty studio. Only a
@@ -236,6 +241,18 @@ export async function POST(request: Request): Promise<NextResponse> {
         (r) => r.source !== body['removeReference'],
       );
 
+    // TASK-0113 (ADR-0039): images attached to the idea, already screened and stored by
+    // `POST /api/media` with `purpose: 'idea'`. Checked before anything is paid for.
+    const imageIds = body['referenceIds'] ?? [];
+    if (
+      !Array.isArray(imageIds) ||
+      imageIds.length > MAX_IDEA_IMAGES ||
+      new Set(imageIds).size !== imageIds.length ||
+      imageIds.some((id) => typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)) ||
+      (imageIds.length && body['action'] !== 'orchestrate')
+    )
+      throw new RequestError(`Adjunta como máximo ${MAX_IDEA_IMAGES} imágenes válidas.`);
+
     // TASK-0078 (audit SEG-02): the daily limit is checked before the models are called.
     const paid = text.trim()
       ? 'message'
@@ -244,13 +261,32 @@ export async function POST(request: Request): Promise<NextResponse> {
         : undefined;
     if (paid) await reserveTurn(caller.account.id, paid);
 
+    // Each image is numbered by its position. The session keeps where it is; the architect gets
+    // a bounded preview, read back from the worker, which also proves the account owns it.
+    const references: ReferenceImage[] = [];
+    const images: ReferenceImage[] = [];
+    for (const [index, assetId] of (imageIds as string[]).entries()) {
+      const preview = await worker(caller.account.id, `/media/${assetId}?preview=1`);
+      const data = Buffer.from(await preview.arrayBuffer()).toString('base64');
+      const reference: ReferenceImage = {
+        assetId,
+        source: `/api/media?id=${assetId}`,
+        mimeType: 'image/jpeg',
+        label: `Imagen ${index + 1}`,
+        verification: 'user_supplied',
+      };
+      references.push(reference);
+      images.push({ ...reference, source: `data:image/jpeg;base64,${data}` });
+    }
+
     const heard = current.state.messages.length;
     current.state = await orchestrator.handleUserInteraction(
       current.state,
       text,
-      [],
+      references,
       preferences,
       body['action'] === 'retry_references',
+      images,
     );
 
     // TASK-0054: the turn, as the client wrote it and as the studio answered.

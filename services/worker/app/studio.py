@@ -112,6 +112,10 @@ ARTWORK_MISREAD = (
     "motivo principal). Vuelve a generarlo; si se repite, describe el motivo con más claridad."
 )
 
+#: TASK-0113 (ADR-0039): the longest side of a reference shown to the prompt architect. Larger
+#: images are downscaled by the API anyway and cost more tokens for nothing.
+PREVIEW_EDGE_PX = 1568
+
 #: TASK-0079: a consultation in progress lives a day after its last change, as the web cookie does.
 CONSULTATION_TTL_S = 86400
 CONSULTATION_ID = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
@@ -716,6 +720,40 @@ class Studio:
         if asset in self.media.expired():
             raise ValueError("El archivo ha caducado. Adjunta la imagen de nuevo.")
         return self.media.read(asset_id)
+
+    def preview(self, owner: str, asset_id: str) -> bytes:
+        """An owned reference as a bounded JPEG, for the prompt architect (TASK-0113, ADR-0039).
+
+        The stored PNG passed the input gate; this only shrinks it to what the language model's
+        image input can take, so the architect never receives a full-size upload.
+        """
+        data = self.owned(owner, asset_id, "reference")
+        with Image.open(io.BytesIO(data)) as stored:
+            image = stored.convert("RGB")
+        image.thumbnail((PREVIEW_EDGE_PX, PREVIEW_EDGE_PX))
+        output = io.BytesIO()
+        image.save(output, format="JPEG", quality=85)
+        return output.getvalue()
+
+    def discard(self, owner: str, asset_id: str) -> None:
+        """Delete a reference the client removed before it was used (TASK-0113, ADR-0039).
+
+        One a job already used belongs to that design and goes with the account's data, so it is
+        refused here rather than leaving a design without its references.
+        """
+        self.owned(owner, asset_id, "reference")
+        with self.lock:
+            with self.jobs.connect() as db:
+                used = db.execute(
+                    "SELECT 1 FROM jobs WHERE owner=? AND payload LIKE ?",
+                    (owner, f"%{asset_id}%"),
+                ).fetchone()
+            if used:
+                raise ValueError("Esa imagen ya forma parte de un diseño.")
+            self.media.delete_cascade(asset_id)
+            with self.db() as db:
+                db.execute("DELETE FROM assets WHERE id=? AND owner=?", (asset_id, owner))
+        record("deletion", "reference", account=owner)
 
     def register(self, owner: str, asset_id: str, kind: str) -> str:
         with self.db() as db:
@@ -1464,16 +1502,32 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
         )
 
     @routes.get("/media/{asset_id}")
-    def media(asset_id: str, request: Request) -> Response:
+    def media(asset_id: str, request: Request, preview: bool = False) -> Response:
         try:
-            data = studio.owned(owner(request), asset_id)
+            # TASK-0113: `preview` is a bounded JPEG of a reference, for the prompt architect.
+            if preview:
+                data, media_type = studio.preview(owner(request), asset_id), "image/jpeg"
+            else:
+                data = studio.owned(owner(request), asset_id)
+                media_type = studio.media.metadata(asset_id).media_type
             return Response(
                 data,
-                media_type=studio.media.metadata(asset_id).media_type,
+                media_type=media_type,
                 headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
             )
         except (KeyError, ValueError) as error:
             raise HTTPException(404, "Archivo no disponible") from error
+
+    @routes.delete("/media/{asset_id}", status_code=204)
+    def discard_media(asset_id: str, request: Request) -> Response:
+        # TASK-0113 (ADR-0039): a reference the client removed before any design used it.
+        try:
+            studio.discard(owner(request), asset_id)
+        except KeyError as error:
+            raise HTTPException(404, "Archivo no disponible") from error
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+        return Response(status_code=204)
 
     @routes.post("/jobs", status_code=202)
     async def submit(request: Request) -> dict[str, Any]:

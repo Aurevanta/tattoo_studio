@@ -121,6 +121,47 @@ describe('ClaudeConsultationProvider (TASK-0032/REQ-004, TASK-0033)', () => {
     expect(blocks.some((b) => b.type === 'image' && b.source?.type === 'url')).toBe(true);
   });
 
+  it('TASK-0113/AC-003: numbered images come each after its label, and the text last', async () => {
+    const claude = fakeClaude(
+      reply({
+        assistantReply: 'ok',
+        readyForGeneration: false,
+        mimicryDetected: null,
+        extractedSlots: {},
+      }),
+    );
+    const provider = new ClaudeConsultationProvider({ apiKey: 'k' }, claude.fetch);
+    const image = (n: number): ReferenceImage => ({
+      source: `data:image/jpeg;base64,${btoa(`img${n}`)}`,
+      mimeType: 'image/jpeg',
+      verification: 'user_supplied',
+      label: `Imagen ${n}`,
+    });
+
+    await provider.processTurn(
+      [turn('como la imagen 1 con las rosas de la imagen 2', [image(1), image(2)])],
+      {},
+    );
+
+    const messages = claude.lastBody()['messages'] as Array<{ content: unknown }>;
+    const blocks = messages[0]?.content as Array<{
+      type: string;
+      text?: string;
+      source?: { type: string; data?: string };
+    }>;
+    expect(blocks.map((b) => (b.type === 'text' ? b.text : `${b.type}:${b.source?.type}`))).toEqual(
+      [
+        'Imagen 1:',
+        'image:base64',
+        'Imagen 2:',
+        'image:base64',
+        'como la imagen 1 con las rosas de la imagen 2',
+      ],
+    );
+    expect(blocks[3]?.source?.data).toBe(btoa('img2'));
+    expect(CONSULTATION_SYSTEM_PROMPT).toContain('Numbered images (TASK-0113)');
+  });
+
   it('surfaces an API error as a typed error without echoing the response body', async () => {
     const claude = fakeClaude(
       { type: 'error', error: { type: 'invalid_request_error', message: 'secret-ish detail' } },

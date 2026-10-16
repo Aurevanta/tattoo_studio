@@ -14,6 +14,8 @@ import {
   restoreConsultation,
 } from '../../../lib/studio-server';
 
+const ASSET_ID = /^[a-f0-9]{32}$/;
+
 export async function POST(request: Request): Promise<NextResponse> {
   let current: ReturnType<typeof session> | undefined;
   let locked = false;
@@ -29,9 +31,26 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (current.busy) throw new RequestError('Espera a que termine la operación anterior.', 409);
     current.busy = true;
     locked = true;
-    if (body['purpose'] === 'edit') {
+    if (body['purpose'] === 'discard') {
+      // TASK-0113 (ADR-0039): an image removed from the idea. The worker deletes it unless a
+      // design already used it (409), in which case it stays with that design; either way it
+      // leaves this consultation.
+      const assetId = body['assetId'];
+      if (typeof assetId !== 'string' || !ASSET_ID.test(assetId))
+        throw new RequestError('Archivo inválido.');
+      try {
+        await worker(caller.account.id, `/media/${assetId}`, 'DELETE');
+      } catch (error) {
+        if (!(error instanceof RequestError && error.status === 409)) throw error;
+      }
+      current.state.references = current.state.references.filter((r) => r.assetId !== assetId);
+      return await replyKept({ discarded: assetId, session: current.state }, current);
+    }
+    if (body['purpose'] === 'edit' || body['purpose'] === 'idea') {
       // TASK-0036: a photo for a change request on an existing design. It is screened and
       // stored like any reference, but does not reopen the consultation or its accepted brief.
+      // TASK-0113: an image attached to the idea is uploaded the same way, as it is attached;
+      // it joins the consultation when the idea is sent (`referenceIds` on `orchestrate`).
       const data = await (
         await worker(caller.account.id, '/media', 'POST', {
           data: body['data'],
@@ -73,7 +92,7 @@ export async function GET(request: Request): Promise<Response> {
     // consultation in progress.
     const caller = await requireAccount(request);
     const id = new URL(request.url).searchParams.get('id');
-    if (!id || !/^[a-f0-9]{32}$/.test(id)) throw new RequestError('Archivo inválido.');
+    if (!id || !ASSET_ID.test(id)) throw new RequestError('Archivo inválido.');
     const response = await worker(caller.account.id, `/media/${id}`);
     return new Response(response.body, {
       headers: {

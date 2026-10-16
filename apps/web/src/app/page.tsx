@@ -35,7 +35,7 @@ import {
   resumeStep,
   type WizardStep,
 } from '@/lib/wizard';
-import { IdeaStep } from '@/components/wizard/IdeaStep';
+import { IdeaStep, MAX_IDEA_IMAGES } from '@/components/wizard/IdeaStep';
 import { DetailsStep } from '@/components/wizard/DetailsStep';
 import { ReferencesStep } from '@/components/wizard/ReferencesStep';
 import { SummaryStep } from '@/components/wizard/SummaryStep';
@@ -98,6 +98,17 @@ const empty: Form = {
 type Mode = 'guided' | 'advanced';
 type GuidedStep = WizardStep | 'done';
 
+/** An image file as base64, refused above the worker's 8 MB before it is sent. */
+async function readImage(file: File): Promise<string> {
+  if (file.size > 8000000) throw new Error('La imagen supera 8 MB.');
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]!);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ConsultationPage(): ReactNode {
   const [session, setSession] = useState<OrchestrationSession | null>(null);
 
@@ -129,6 +140,19 @@ export default function ConsultationPage(): ReactNode {
   const [dialog, setDialog] = useState<GenerationDialog | null>(null);
 
   const [bodyPhotoId, setBodyPhotoId] = useState('');
+  // TASK-0113 (ADR-0039): the images attached to the idea, screened and stored as they are added.
+  const [ideaImages, setIdeaImages] = useState<string[]>([]);
+  const sessionId = session?.sessionId;
+  useEffect(() => {
+    // Coming back to the idea shows the client's own images of that consultation, in order.
+    setIdeaImages(
+      (session?.references ?? [])
+        .filter((r) => r.verification === 'user_supplied' && r.assetId)
+        .map((r) => r.assetId!)
+        .slice(0, MAX_IDEA_IMAGES),
+    );
+    // Only a different consultation resets them; images attached before sending are kept.
+  }, [sessionId]);
 
   const [placement, setPlacement] = useState({ x: 0.32, y: 0.22, width: 0.36, photoWidthMm: '' });
   const [manualPlacement, setManualPlacement] = useState(false);
@@ -477,19 +501,7 @@ export default function ConsultationPage(): ReactNode {
     if (!file) return;
 
     await run(async () => {
-      if (file.size > 8000000) throw new Error('La imagen supera 8 MB.');
-
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => resolve(String(reader.result).split(',')[1]!);
-
-        reader.onerror = reject;
-
-        reader.readAsDataURL(file);
-      });
-
-      const data = await call('/api/media', { data: base64, kind });
+      const data = await call('/api/media', { data: await readImage(file), kind });
 
       accept(data.session);
 
@@ -658,10 +670,33 @@ export default function ConsultationPage(): ReactNode {
     await run(async () => {
       // An idea sent again (after «Atrás») starts a clean consultation, not a refinement.
       if (session) await call('/api/consultation', {}, 'DELETE');
-      const data = await call('/api/consultation', { action: 'orchestrate', userMessage: idea });
+      const data = await call('/api/consultation', {
+        action: 'orchestrate',
+        userMessage: idea,
+        ...(ideaImages.length ? { referenceIds: ideaImages } : {}),
+      });
       accept(data.session);
       setStep(afterIdea());
     }, 'idea');
+  }
+
+  // TASK-0113: one at a time, since the studio handles one upload per consultation at once. Each
+  // is screened before it is kept; a refused one stops here with its reason.
+  async function attachIdeaImages(files: File[]) {
+    await run(async () => {
+      for (const file of files) {
+        const data = await call('/api/media', { data: await readImage(file), purpose: 'idea' });
+        setIdeaImages((current) => [...current, String(data.assetId)].slice(0, MAX_IDEA_IMAGES));
+      }
+    }, 'image');
+  }
+
+  async function removeIdeaImage(assetId: string) {
+    await run(async () => {
+      const data = await call('/api/media', { purpose: 'discard', assetId });
+      setIdeaImages((current) => current.filter((id) => id !== assetId));
+      if (session && data.session) accept(data.session);
+    });
   }
 
   // Step 2 offers every detail, with what the idea already decided chosen (TASK-0099).
@@ -1324,6 +1359,9 @@ export default function ConsultationPage(): ReactNode {
           ) : step === 'idea' ? (
             <IdeaStep
               initial={session?.slots.subject?.description ?? ''}
+              images={ideaImages}
+              onAttach={(files) => void attachIdeaImages(files)}
+              onRemoveImage={(assetId) => void removeIdeaImage(assetId)}
               busy={busy}
               working={busy ? task : null}
               error={error}

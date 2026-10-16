@@ -77,6 +77,11 @@ export class OrchestratorAgent {
     references: ReferenceImage[] = [],
     preferences?: ConsultationSlots,
     retryReferences = false,
+    /**
+     * TASK-0113 (ADR-0039): the client's screened images for this message, as data URLs labelled
+     * «Imagen N». Only the architect sees them; the session keeps `references`, not these bytes.
+     */
+    images: ReferenceImage[] = [],
   ): Promise<OrchestrationSession> {
     // TASK-0070 (ADR-0031): an explicit idea is refused before any model or search is paid for,
     // and the session is left as it was, so the refused message is not kept.
@@ -116,7 +121,7 @@ export class OrchestratorAgent {
     // TASK-0034: architect and scout run concurrently; neither waits for the other.
     const [proposal, scouted] = await Promise.all([
       this.architect && input.trim()
-        ? consultArchitect(this.architect, next.messages, input, slots)
+        ? consultArchitect(this.architect, next.messages, input, slots, images)
         : Promise.resolve(undefined),
       search
         ? this.scout

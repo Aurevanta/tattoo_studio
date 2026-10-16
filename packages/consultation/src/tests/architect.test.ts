@@ -11,7 +11,7 @@ import {
   type MultiAgentMessage,
   type ProviderExtractionOutput,
 } from '../index';
-import type { ConsultationTurn } from '../types';
+import type { ConsultationTurn, ReferenceImage } from '../types';
 
 const reference = {
   source: 'https://upload.wikimedia.org/example.png',
@@ -256,6 +256,43 @@ describe('Prompt architect on the live route (TASK-0033)', () => {
     expect(turns.at(-1)?.content.endsWith('En el antebrazo izquierdo')).toBe(true);
     for (let i = 1; i < turns.length; i++) expect(turns[i]?.role).not.toBe(turns[i - 1]?.role);
     expect(turns.every((t) => !t.referenceImages)).toBe(true);
+  });
+});
+
+describe('images attached to the idea (TASK-0113, ADR-0039)', () => {
+  it('AC-003: ride on the client message only, and become numbered references', async () => {
+    const { architect, processTurn } = fakeArchitect({});
+    const o = new OrchestratorAgent(offlineScout(), architect);
+    const own = (n: number, source: string): ReferenceImage => ({
+      assetId: `${n}`.repeat(32),
+      source,
+      mimeType: 'image/jpeg',
+      verification: 'user_supplied',
+      label: `Imagen ${n}`,
+    });
+    const kept = [own(1, '/api/media?id=1'), own(2, '/api/media?id=2')];
+    const seen = [own(1, 'data:image/jpeg;base64,AA=='), own(2, 'data:image/jpeg;base64,AQ==')];
+
+    const first = await o.handleUserInteraction(
+      o.createSession(),
+      'Como la imagen 1 pero con las rosas de la imagen 2',
+      kept,
+      undefined,
+      false,
+      seen,
+    );
+    const turns = processTurn.mock.calls.at(-1)?.[0] ?? [];
+    expect(turns.at(-1)?.referenceImages).toEqual(seen);
+    expect(turns.slice(0, -1).every((t) => !t.referenceImages)).toBe(true);
+    expect(first.references.map((r) => [r.label, r.source])).toEqual([
+      ['Imagen 1', '/api/media?id=1'],
+      ['Imagen 2', '/api/media?id=2'],
+    ]);
+    // The session keeps where the image is, never its bytes.
+    expect(JSON.stringify(first)).not.toContain('base64');
+
+    await o.handleUserInteraction(first, 'En el antebrazo');
+    expect((processTurn.mock.calls.at(-1)?.[0] ?? []).every((t) => !t.referenceImages)).toBe(true);
   });
 });
 

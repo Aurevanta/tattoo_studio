@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: consultation
 
+TASK-0113 (ADR-0039, amends TASK-0033's text-only turns): `handleUserInteraction` takes, as its last argument, the screened images attached to the idea (data URLs labelled «Imagen N»). `consultArchitect` puts them on the client's last turn only; the scout, the content screen and later turns never get them, and the session keeps their references (`/api/media?id=…`), never their bytes. The Claude and Astra providers send each image after a text block with its label and the turn's text last. System-prompt rule 12 tells the architect to resolve «la imagen N» into words in `subject.refined`/`elements`, describe only what is visible, and never identify, name or imitate an image's author (PROD-INV-004). No body photograph reaches a language model.
+
 TASK-0104 (ADR-0034): `sleeveLimb` reads a sleeve from the client's words («manga», «de la rodilla al tobillo», «todo el antebrazo», «que rodee…»). `extractPreferences` then sets `orientation: wrapping`, the zone on that limb (the calf or the outer forearm by default) and `wrapSize`. «Estilo manga», «anime» and the upper arm are never sleeves. A later «grande» or the size proposal does not replace a sleeve's size.
 
 TASK-0100: `REFERENCE_USER_AGENT` (`InkCraft/0.1 (https://inkcraft.aurevanta.es; reference research)`) is how the scout and the web identify themselves to image sources.
@@ -213,7 +215,9 @@ surfaces a clarifying question rather than guessing.
 
 Reference images (motifs, existing artwork references, sketches) are accepted for style and motif
 analysis. In accordance with SEC-INV-007, personal body photographs for mockup placement are
-handled by the safety module and do not enter the consultation prompt directly.
+handled by the safety module and do not enter the consultation prompt directly. Since TASK-0113
+(ADR-0039) the architect also sees the images a client attaches to the idea, only after the input
+gate passed them and only on that message.
 
 ## Observability
 

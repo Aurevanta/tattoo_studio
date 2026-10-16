@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0113 (ADR-0039): step 1 takes up to five images (`IdeaStep`, `MAX_IDEA_IMAGES`), numbered «Imagen N» in the order attached, each uploaded at once and one after another with `POST /api/media` `purpose: 'idea'` (screened and stored by the worker; it does not touch the consultation; the kind is always `reference`). «Quitar» sends `purpose: 'discard'`: the worker deletes an image no design used (a used one is kept with its design) and it leaves the consultation. Sending the idea passes `referenceIds` to `orchestrate`; the BFF refuses more than five, duplicates or malformed ids before any model is paid for, reads each image back as the worker's JPEG preview (proving ownership) and gives the orchestrator numbered `user_supplied` references and data-URL images for the architect.
+
 TASK-0112: the 3D views have the mockup editor's controls (ADR-0036).
 
 - **Size:** `lib/design-resize.ts` and `DesignAdjust3D` give size, width and height within 5–600 mm and the accumulated ±25 % stretch.
@@ -352,7 +354,9 @@ Session and auth state only. No domain persistence.
 ## External integrations
 
 None directly. When opted in (TASK-0033), the server process runs `consultation`'s reasoning
-calls (Anthropic or OpenAI) with the client's chat text; no image leaves through that path.
+calls (Anthropic or OpenAI) with the client's chat text. Since TASK-0113 (ADR-0039) the images
+attached to the idea go with it as bounded previews, after the worker's input gate passed them;
+no other image leaves through that path.
 
 ## Error semantics
 

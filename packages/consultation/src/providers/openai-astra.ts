@@ -114,14 +114,17 @@ export class OpenAIAstraProvider implements ConsultationProvider {
     if (turn.referenceImages && turn.referenceImages.length > 0) {
       const contentParts: Array<
         { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
-      > = [{ type: 'text', text: turn.content }];
+      > = [];
 
+      // TASK-0113 (ADR-0039): labelled images first, then the text that refers to them.
       for (const img of turn.referenceImages) {
+        if (img.label) contentParts.push({ type: 'text', text: `${img.label}:` });
         contentParts.push({
           type: 'image_url',
           image_url: { url: img.source },
         });
       }
+      contentParts.push({ type: 'text', text: turn.content });
 
       return { role: 'user', content: contentParts };
     }

@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0113 (ADR-0039), `app/studio.py`: `GET /studio/media/{id}?preview=1` answers an owned reference as a JPEG of at most `PREVIEW_EDGE_PX` (1568) on its longest side, for the prompt architect; anything else is 404. `DELETE /studio/media/{id}` (`Studio.discard`) deletes an owned reference with its cascade and its asset row and records `deletion/reference`; one any of the account's jobs names is refused with 409, and anything not an owned reference is 404. It frees a place in the account's ten-upload cap.
+
 TASK-0110 (ADR-0038): `design_body` and `design_zone` name a design's body: the plate's body (`plate_body`), or none on the client's own photo. A new result carries `placement` with it. A sleeve's stencil and panels are unrolled on `wrap_region(...).for_body(...)`, which is the neutral profile on an own photo.
 
 TASK-0108: the studio serves every result with its zone (`jobs.queue.body_zone`); `app/tests/test_studio.py` checks it through `get` and `history`.

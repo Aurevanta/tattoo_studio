@@ -155,3 +155,79 @@ describe('going on without an essential reference (TASK-0067)', () => {
     expect((await waived.json()).session.waivedReferences).toBe(true);
   });
 });
+
+describe('images attached to the idea (TASK-0113, ADR-0039)', () => {
+  const one = 'a'.repeat(32);
+  const two = 'b'.repeat(32);
+
+  it('AC-002: reads each preview and passes numbered references and images', async () => {
+    vi.stubEnv('TATTOO_WORKER_TOKEN', 'test-only-token');
+    const previews: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL | Request) => {
+        const target = String(url);
+        const authenticated = answerAuth(target);
+        if (authenticated) return authenticated;
+        const preview = /\/studio\/media\/([a-f0-9]{32})\?preview=1$/.exec(target);
+        if (preview) {
+          previews.push(preview[1]!);
+          return new Response(new Uint8Array([preview[1] === one ? 1 : 2]), {
+            headers: { 'content-type': 'image/jpeg' },
+          });
+        }
+        if (target.includes('/studio/consultations/')) return new Response(null, { status: 204 });
+        throw new Error(`Unexpected request ${target}`);
+      }),
+    );
+    const { orchestrator } = await import('../../../lib/studio-server');
+    const spy = vi.spyOn(orchestrator, 'handleUserInteraction');
+    try {
+      const response = await POST(
+        req({
+          action: 'orchestrate',
+          userMessage: 'Como la imagen 1 pero con las rosas de la imagen 2',
+          referenceIds: [one, two],
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect(previews).toEqual([one, two]);
+      const [, , references, , , images] = spy.mock.calls.at(-1)!;
+      expect(references?.map((r) => [r.label, r.source, r.verification])).toEqual([
+        ['Imagen 1', `/api/media?id=${one}`, 'user_supplied'],
+        ['Imagen 2', `/api/media?id=${two}`, 'user_supplied'],
+      ]);
+      expect(images?.map((r) => r.source)).toEqual([
+        `data:image/jpeg;base64,${Buffer.from([1]).toString('base64')}`,
+        `data:image/jpeg;base64,${Buffer.from([2]).toString('base64')}`,
+      ]);
+      const session = (await response.json()).session;
+      expect(session.references.map((r: { assetId: string }) => r.assetId)).toEqual([one, two]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each([
+    [['a', 'b', 'c', 'd', 'e', 'f'].map((c) => c.repeat(32))],
+    [['a'.repeat(32), 'a'.repeat(32)]],
+    [['../secret']],
+    ['a'.repeat(32)],
+  ])('AC-002: refuses %j before any model or worker is called', async (referenceIds) => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL | Request) => {
+        const authenticated = answerAuth(String(url));
+        if (authenticated) return authenticated;
+        calls.push(String(url));
+        throw new Error('no call expected');
+      }),
+    );
+    const response = await POST(
+      req({ action: 'orchestrate', userMessage: 'Un lobo', referenceIds }),
+    );
+    expect(response.status).toBe(400);
+    expect(calls).toEqual([]);
+  });
+});

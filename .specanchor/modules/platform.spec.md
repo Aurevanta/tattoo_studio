@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0124: `app/tests/test_round_trip.py` follows one design through generate, editor save, nudge, a tattooer link, a studio restart and a fresh read over HTTP, and checks its version, placement, millimetres, SVG and both PDFs (page size, label, ink inside the design, A4 pieces).
+
 TASK-0123 (ADR-0043): one size. `Studio.reposition` resizes the print on `coverage: larger|smaller`: `nudged_size` of the parent's millimetres, exact vector `rescale`, SVG/PDF and mirrors re-exported, a new `designId`; on a plate with a frame laid at the new millimetres where the parent was (`frame_placement` at `parent_placement`'s centre and turn), elsewhere the projection scaled by the same step. No vector → `NO_VECTOR_NUDGE`; calibrated photo → `CALIBRATED_NUDGE`. `POST /studio/jobs` refuses a written nudge without the control (`SIZE_NEEDS_CONTROL`) and a size control mixed with attached photos. A size phrase inside a redraw keeps the millimetres and the redraw is laid at them (`PHRASED_SIZE_NOTICE`). The TASK-0024 line «for both zone and nudge requests» now means the nudge changes the millimetres too.
 
 TASK-0122: `pnpm lint` checks this project only. ESLint and Prettier ignore `.claude/worktrees/` (another checkout of the repository) and the local `.uploads/` and `.artifacts/` output.

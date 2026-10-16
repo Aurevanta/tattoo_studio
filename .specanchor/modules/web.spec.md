@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0124: `lib/round-trip.test.ts`: a saved version's status reopens the mockup editor and the 3D view at its saved place, turn and millimetres, with nothing to save.
+
 TASK-0123 (ADR-0043): a change request that is only «más grande» / «más pequeño» (`lib/size-step.ts`: `sizeNudge`, the worker's `_NUDGE`; `nudgedSize`, its step and rounding) opens «¿Cambiar las medidas de impresión?» with the current and new millimetres, and is sent as `coverage` once confirmed. A sleeve, a calibrated photo or a size outside 5–600 mm is answered in place. No buttons return (ADR-0036).
 
 TASK-0121: the 3D views mount once the skin's size is read (or cannot be), so the view opened with the result starts where the mockup has the design.

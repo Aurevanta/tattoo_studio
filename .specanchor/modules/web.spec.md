@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0118: the mockup editor's skin (`.mockup-editor-stage`) sticks like the 3D stage, left of its controls from 900 px; its sliders are gold. The 3D view opens with the result (`show3d` starts true).
+
 TASK-0117: the 3D views' stage (`.leg-stage`) sticks to the top of the result dialog; from 900 px it sits left of its notices and controls, below that it stays on top, shorter. CSS only.
 
 TASK-0116 (ADR-0041): «Tus diseños» is `DesignLibrary` (step 1, the done step and the advanced panel): one card per design, named, expanding to its versions «Versión N · …» numbered within it; «Renombrar», «Eliminar diseño», «Eliminar versión» (designs with more than one) and «Diseño nuevo a partir de esta». Deleting asks in place, with «Cancelar» where the pointer was. `/api/designs` (`PATCH`, `DELETE ?designId|jobId`, `POST` with consent) relays to the worker; deleting the version on screen closes it, a copy opens.

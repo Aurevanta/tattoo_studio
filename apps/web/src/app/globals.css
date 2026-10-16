@@ -3076,6 +3076,8 @@ body::after {
 }
 .mockup-editor-controls input[type='range'] {
   width: 100%;
+  /* TASK-0118: the same gold as the 3D view's sliders. */
+  accent-color: var(--accent-gold);
 }
 .mockup-editor-size {
   margin: 0;
@@ -3085,4 +3087,40 @@ body::after {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* TASK-0118: as the 3D view (TASK-0117), the skin stays in sight while it is adjusted: beside the
+   controls when there is room, above them and shorter when there is not. */
+.mockup-editor-stage {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.studio-dialog .mockup-editor-stage {
+  top: -28px;
+}
+@media (min-width: 900px) {
+  .mockup-editor {
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+    align-items: start;
+    column-gap: 20px;
+  }
+  .mockup-editor > * {
+    grid-column: 2;
+  }
+  .mockup-editor > .mockup-editor-stage {
+    grid-column: 1;
+    grid-row: 1 / span 8;
+    align-self: start;
+    max-height: min(78vh, 620px);
+  }
+  .mockup-editor .mockup-editor-controls {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 899px) {
+  .mockup-editor > .mockup-editor-stage {
+    max-height: 42vh;
+    box-shadow: 0 8px 16px -8px #000;
+  }
 }

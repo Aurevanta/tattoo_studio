@@ -84,7 +84,8 @@ export function TattooPreviewModal({
   // TASK-0073 (audit UX-01): a new print size is shown and confirmed before it is applied.
   const [confirmZone, setConfirmZone] = useState(false);
   const [overlay, setOverlay] = useState(false);
-  const [show3d, setShow3d] = useState(false);
+  // TASK-0118: the 3D view opens with the result; the client can still hide it.
+  const [show3d, setShow3d] = useState(true);
   // TASK-0110 (ADR-0038): the body the design was made for, or the one its plate would show.
   const namedBody = limbView?.body ?? bodyView?.body;
   const [fallbackBody, setFallbackBody] = useState<BodyType>('feminine');

@@ -24,7 +24,7 @@ from itertools import pairwise
 from reportlab.pdfgen import canvas
 from tattoo_contracts.sleeve import WrapRegion
 
-from stencil.engine import Master, _a4_tiles
+from stencil.engine import Master, _a4_tiles, approximate_note
 
 #: Panels round a sleeve, each a quarter turn.
 PANELS = 4
@@ -230,6 +230,7 @@ def export_panels_pdf(sleeve_panels: list[Panel], mirrored: bool = False) -> byt
         )
         pdf.line(10 * mm, 10 * mm, 60 * mm, 10 * mm)
         pdf.drawString(10 * mm, 5 * mm, "Calibration: 50 mm | Tattooer review required")
+        approximate_note(pdf, master, 10, page_h - 0.8, page_w - 20)
         pdf.showPage()
         _a4_tiles(pdf, master, mirrored)
     pdf.save()

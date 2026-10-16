@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0129 (ADR-0044): CLAUDE.md's stencil hard constraint names both regimes: native line art for line-art designs; approximate contours of the flat artwork, labelled, for colour or shaded ones.
+
 TASK-0126 (FINDING-0005): `design_vector` is keyed by `(owner, design_id)` and migrated on start (`migrate_design_vector`). `store_vector` reuses the account's vector for that design, stores a new one only when none opens, and erases the dead row it replaces, so a repeated or cross-account design leaves no unreferenced vector and no account overwrites another's. Erasing versions first re-homes a vector that a remaining version still shows from under an upload about to be erased (`_rehome_vectors`), so the cascade cannot take it.
 
 TASK-0124: `app/tests/test_round_trip.py` follows one design through generate, editor save, nudge, a tattooer link, a studio restart and a fresh read over HTTP, and checks its version, placement, millimetres, SVG and both PDFs (page size, label, ink inside the design, A4 pieces).

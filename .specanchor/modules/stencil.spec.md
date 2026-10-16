@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: stencil
 
+TASK-0129 (ADR-0044): two regimes, named. `lineart` — `trace_native_lineart` over a dedicated native line-art pass (ADR-0003). `colour_contours` — `trace_colour_artwork`: approximate contours by RGB Canny edge detection over the flat colour or shaded artwork, never over skin; `Master.approximate` (its `source_hash` is set, and every rescale and unroll keeps it). An approximate stencil prints `APPROXIMATE_NOTE` on every PDF page (first page, A4 pieces, sleeve panels) and in the SVG `<desc>`; a line-art one does not. STENCIL-INV-001 below is split accordingly.
+
 TASK-0110 (ADR-0038): `unroll` and `panels` are unchanged. They receive the region already on its body (`WrapRegion.for_body`), and `tests/test_sleeve.py` checks a sleeve unrolled to the named body's circumference.
 
 TASK-0107 (ADR-0036): `rescale_axes` scales a vector master exactly per axis, with the stroke scaled by the geometric mean of the factors. At equal factors it equals `rescale`. It is used when the live editor widens or lengthens a design, so the stencil follows the mockup (PROD-INV-001). Never a retrace (ADR-0003).
@@ -46,9 +48,17 @@ at true physical size for thermal transfer paper.
 
 ## Public interfaces
 
-- `render_linework(brief, design) -> LineArt` — a dedicated line-art generation pass
-- `trace_to_vector(line_art) -> VectorStencil` — centerline tracing
-- `export_stencil(vector, size_mm, mirrored, dpi) -> PrintAsset`
+As implemented (TASK-0129; the bootstrap names `render_linework` / `trace_to_vector` /
+`export_stencil` were never built). The line-art image itself comes from `generation`
+(`provider.lineart`); colour artwork from `provider.colour_artwork`.
+
+- `trace_native_lineart(data, width_mm, height_mm, stroke_mm) -> Master` — regime `lineart`
+- `trace_colour_artwork(data, width_mm, height_mm, stroke_mm) -> (Master, preview)` — regime
+  `colour_contours`, approximate
+- `Master.approximate`, `Master.design_hash`, `serialize_master` / `deserialize_master`
+- `rescale`, `rescale_axes` — exact vector scaling, never a retrace
+- `export_svg(master, mirrored)`, `export_pdf(master, mirrored)`, `rasterize(master)`
+- `sleeve.unroll`, `sleeve.panels`, `sleeve.export_panels_pdf`
 
 ## Inputs and outputs
 
@@ -57,9 +67,12 @@ true physical dimensions.
 
 ## Domain invariants
 
-- STENCIL-INV-001: Line art is produced by its own generation pass. It is NOT derived by edge
-  detection or thresholding of the shaded flash render — that yields doubled contours and broken
-  paths (ADR-0003).
+- STENCIL-INV-001a (`lineart`): a line-art stencil is traced from its own generation pass. It is
+  NOT derived by edge detection or thresholding of the shaded render (ADR-0003).
+- STENCIL-INV-001b (`colour_contours`, ADR-0044): a colour or shaded design's stencil is approximate
+  contours derived by edge detection from the flat artwork, never from skin, a plate or a photo. It
+  is labelled approximate in the result (`stencilReview.method`), the result view, the tattooer's
+  link and on every page of its PDF and in its SVG. It is never presented as native line art.
 - STENCIL-INV-002: Exports carry true physical dimensions and print at 1:1 with no scaling
   (PROD-INV-002).
 - STENCIL-INV-003: Export resolution is at least 300 DPI at the stated physical size.
@@ -127,7 +140,8 @@ minimums and professional print acceptance remain NOT_VERIFIED.
 ## Statement evidence
 | Statement | Evidence status | Source / revision | Verification result |
 |---|---|---|---|
-| Native line-art pass, not edge detection | INTENT | ADR-0003 | NOT_RUN |
+| Native line-art pass, not edge detection, for `lineart` | OBSERVED | `trace_native_lineart` | tests pass |
+| Colour designs: approximate edge-detected contours, labelled | OBSERVED | ADR-0044, `trace_colour_artwork`, `APPROXIMATE_NOTE` | `test_approximate.py` VERIFIED 2026-10-16 |
 | 1:1 physical export at >=300 DPI | INTENT | Planning session 2026-09-19 | NOT_RUN |
 | Tracing library suitability | UNKNOWN | Untested | NOT_RUN |
 

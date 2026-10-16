@@ -61,7 +61,9 @@ These come from the global specs and are not negotiable without an ADR:
   the geometric composite, on generated skin plates only, delivered only when the geometry check
   accepts it against that composite (ADR-0016, ADR-0018); otherwise the composite ships. It is
   never a redraw, and own photos are not sent to it until GEN-INV-002 is verified.
-- Stencils are produced by a native line-art pass, never by edge-detecting the shaded render.
+- A line-art stencil is produced by a native line-art pass, never by edge-detecting the shaded
+  render. A colour or shaded design's stencil is approximate contours of its flat artwork (never of
+  skin), labelled approximate everywhere it appears, its PDF included (ADR-0044).
 - No user photograph is persisted or sent to a generation provider before passing the safety
   input gate. Sanitized bytes necessarily reach the moderation provider to run that gate.
   Own-body uploads require adult consent; they never go to the image generator (ADR-0007).

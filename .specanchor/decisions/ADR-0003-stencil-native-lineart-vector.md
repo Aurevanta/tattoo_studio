@@ -7,6 +7,10 @@ created: 2026-09-19
 
 # ADR-0003: Stencil from a native line-art pass and centerline vector tracing
 
+> **Amended by ADR-0044 (2026-10-16, TASK-0129).** This decision governs the `lineart` regime. A
+> colour or shaded design has, since TASK-0019, a second regime: approximate contours by edge
+> detection of its flat artwork, labelled as such everywhere, including the printed sheet.
+
 ## Context
 
 The original proposal derived the stencil from the finished artwork with OpenCV edge detection and

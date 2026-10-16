@@ -28,9 +28,41 @@ class Master:
     simplification: int = 0
 
     @property
+    def approximate(self) -> bool:
+        """TASK-0129 (ADR-0044): traced from colour artwork, not from a native line-art pass.
+
+        `trace_colour_artwork` records the artwork's digest in `source_hash` (TASK-0019/REQ-011)
+        and `trace_native_lineart` never does; every rescale and unroll carries it.
+        """
+        return self.source_hash is not None
+
+    @property
     def design_hash(self) -> str:
         identity = {k: v for k, v in self.__dict__.items() if k != "simplification"}
         return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+#: TASK-0129 (ADR-0044): printed on every page of a stencil traced from colour artwork, so the
+#: sheet itself says what the result view and the tattooer's link say. Two short lines, so they stay
+#: legible on the narrowest page (80 mm).
+APPROXIMATE_NOTE = (
+    "APPROXIMATE CONTOURS of a colour design",
+    "Not line art: redraw the details before transfer",
+)
+
+
+def approximate_note(
+    pdf: canvas.Canvas, master: Master, x_mm: float, top_mm: float, width_mm: float
+) -> None:
+    """Write `APPROXIMATE_NOTE` below `top_mm` for an approximate master, fitted to the width."""
+    if not master.approximate:
+        return
+    mm = 72 / 25.4
+    widest = max(pdf.stringWidth(line, "Helvetica-Bold", 1) for line in APPROXIMATE_NOTE)
+    size = min(6.5, width_mm * mm / widest)
+    pdf.setFont("Helvetica-Bold", size)
+    for index, line in enumerate(APPROXIMATE_NOTE):
+        pdf.drawString(x_mm * mm, top_mm * mm - (index + 1) * size * 1.15, line)
 
 
 #: A skeleton with more points than this is not traced: too slow and too dense to transfer.
@@ -193,7 +225,8 @@ def export_svg(master: Master, mirrored: bool = False) -> bytes:
         f'width="{master.width_mm}mm" height="{master.height_mm}mm" '
         f'viewBox="0 0 {master.width_mm} {master.height_mm}">'
         f"<title>Stencil {master.design_hash}</title>"
-        '<rect width="100%" height="100%" fill="#FFFFFF"/>'
+        + (f"<desc>{'. '.join(APPROXIMATE_NOTE)}.</desc>" if master.approximate else "")
+        + '<rect width="100%" height="100%" fill="#FFFFFF"/>'
         f'<g transform="{transform}" fill="none" stroke="#000000" '
         f'stroke-width="{master.stroke_mm}" stroke-linecap="round" '
         f'stroke-linejoin="round">{paths}</g></svg>'
@@ -223,6 +256,7 @@ def export_pdf(master: Master, mirrored: bool = False) -> bytes:
     )
     pdf.line(10 * mm, 10 * mm, 60 * mm, 10 * mm)
     pdf.drawString(10 * mm, 5 * mm, "Calibration: 50 mm | Tattooer review required")
+    approximate_note(pdf, master, 10, page_h - 1.5, page_w - 20)
     pdf.showPage()
     _a4_tiles(pdf, master, mirrored)
     pdf.save()
@@ -297,6 +331,7 @@ def _a4_tiles(pdf: canvas.Canvas, master: Master, mirrored: bool) -> None:
             )
             pdf.line(left * mm, 10 * mm, (left + 50) * mm, 10 * mm)
             pdf.drawString(left * mm, 5 * mm, "Calibration: 50 mm")
+            approximate_note(pdf, master, left + 6, A4_MM[1] - 1.5, TILE_AREA_MM[0] - 12)
             pdf.showPage()
 
 

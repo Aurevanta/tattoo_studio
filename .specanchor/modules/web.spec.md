@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0121: the 3D views mount once the skin's size is read (or cannot be), so the view opened with the result starts where the mockup has the design.
+
 TASK-0120 (ADR-0042): the mockup editor and the 3D views place a design by the result's `skinFrame` (the convention without one): `initialPlacement(…, {size, skin})`, `mockupStart`, `offsetOf`, `toMockupPlacement(…, keep)`. The result view shares one placement between the editor and the 3D view while both are open; each follows the other live (a limb view shares height, turn and size).
 
 TASK-0119: the mockup editor opens with the result (`adjusting` starts true), as the 3D view does.

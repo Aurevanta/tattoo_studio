@@ -96,13 +96,21 @@ export function TattooPreviewModal({
   // TASK-0111: the 3D views start where the mockup shows the design, read from the mockup's own
   // picture. Only on a generated plate: an own photograph frames no reference zone.
   const [mockupFrame, setMockupFrame] = useState<[number, number] | null>(null);
+  // TASK-0121: whether the skin's size has been read, or cannot be. The 3D views read where the
+  // mockup has the design once, when they open; since TASK-0118 they open with the result, so
+  // they wait for this rather than opening centred before the skin has arrived.
+  const [frameSettled, setFrameSettled] = useState(false);
   const backgroundId = artifact.background?.assetId;
   useEffect(() => {
-    if (!backgroundId) return;
+    if (!backgroundId) return setFrameSettled(true);
     // The transform is in the pixels of the skin as the worker composed on it: the background,
     // thumbnailed to 2048 (`workerFrame`), whatever size the finished mockup came back at.
     const image = new Image();
-    image.onload = () => setMockupFrame(workerFrame(image.naturalWidth, image.naturalHeight));
+    image.onload = () => {
+      setMockupFrame(workerFrame(image.naturalWidth, image.naturalHeight));
+      setFrameSettled(true);
+    };
+    image.onerror = () => setFrameSettled(true);
     image.src = url(backgroundId);
   }, [backgroundId]);
   const pose: MockupPose | undefined =
@@ -328,7 +336,8 @@ export function TattooPreviewModal({
               ? 'Ocultar la vista 3D'
               : `Ver en 3D sobre ${BODY_ZONE_NOUN[bodyView.zone] ?? 'el cuerpo'}`}
           </button>
-          {show3d && (
+          {show3d && !frameSettled && <p className="small-note">Cargando la vista 3D…</p>}
+          {show3d && frameSettled && (
             <BodyViewer3D
               designUrl={url(artifact.master.assetId)}
               size={artifact.size}
@@ -349,7 +358,8 @@ export function TattooPreviewModal({
               ? 'Ocultar la vista 3D'
               : `Ver en 3D alrededor de ${LIMBS[limbOf(limbView.zone)].noun}`}
           </button>
-          {show3d && (
+          {show3d && !frameSettled && <p className="small-note">Cargando la vista 3D…</p>}
+          {show3d && frameSettled && (
             <LimbViewer3D
               designUrl={url(artifact.master.assetId)}
               size={artifact.size}

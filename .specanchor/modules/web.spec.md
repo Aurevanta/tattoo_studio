@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0125: «real size» is the stencil's. `content/disclaimers.ts` holds `SKIN_SCALE_NOTE_ES` (the view on skin is approximate unless the photo is calibrated; the stencil and PDFs are exported at the stated millimetres) and `stencilSizeNote`, used by the landing, the consultation step, the result view, the 3D views and the camera page.
+
 TASK-0124: `lib/round-trip.test.ts`: a saved version's status reopens the mockup editor and the 3D view at its saved place, turn and millimetres, with nothing to save.
 
 TASK-0123 (ADR-0043): a change request that is only «más grande» / «más pequeño» (`lib/size-step.ts`: `sizeNudge`, the worker's `_NUDGE`; `nudgedSize`, its step and rounding) opens «¿Cambiar las medidas de impresión?» with the current and new millimetres, and is sent as `coverage` once confirmed. A sleeve, a calibrated photo or a size outside 5–600 mm is answered in place. No buttons return (ADR-0036).

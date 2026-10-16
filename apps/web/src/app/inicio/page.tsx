@@ -34,7 +34,8 @@ const EXAMPLE = [
     width: 720,
     height: 1080,
     title: 'Cómo queda en la piel',
-    text: 'A su tamaño real sobre la zona, en piel de estudio o en una foto tuya.',
+    // TASK-0125: the skin view is approximate; the stencil is what prints at its millimetres.
+    text: 'A sus medidas sobre la zona, como vista orientativa, en piel de estudio o en una foto tuya.',
   },
   {
     src: '/ejemplos/cronos-plantilla.webp',
@@ -61,7 +62,7 @@ const STEPS = [
 const REASONS = [
   [
     'Pensado para tu tatuador',
-    'Medidas reales, plantilla imprimible y un enlace para compartir el diseño con quien te va a tatuar.',
+    'Plantilla imprimible a las medidas que eliges y un enlace para compartir el diseño con quien te va a tatuar.',
   ],
   [
     'Lo que pides, no otra cosa',

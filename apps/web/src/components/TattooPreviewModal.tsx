@@ -5,6 +5,7 @@ import { ImageDetail } from './ImageDetail';
 import { messageForError } from '@/lib/client-errors';
 import { zoneProposal } from '@/lib/zone-size';
 import { nudgedSize, sizeNudge, type Nudge } from '@/lib/size-step';
+import { stencilSizeNote } from '@/content/disclaimers';
 import { stencilNotes } from '@/lib/stencil-review';
 import { needsA4Pieces } from '@/lib/print-pieces';
 import { IMAGE_FAILURE_TEXT, imageFailure, probe, type ImageFailure } from '@/lib/image-failure';
@@ -389,9 +390,10 @@ export function TattooPreviewModal({
               : 'Piel generada, no es tu cuerpo'}
         </li>
         <li>
+          {/* TASK-0125: the skin view is approximate unless calibrated; the stencil is not. */}
           {artifact.transform.scaleCalibrated
             ? 'Escala según tu calibración'
-            : 'Tamaño sobre la piel orientativo'}
+            : stencilSizeNote(artifact.size)}
         </li>
         <li>Un tatuador debe revisar el diseño y la plantilla</li>
       </ul>

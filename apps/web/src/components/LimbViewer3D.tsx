@@ -399,7 +399,9 @@ export function LimbViewer3D({
                 <>
                   {placement.widthMm} × {placement.lengthMm} mm · {spec.noun} de referencia mide{' '}
                   {Math.round(perimeter / 10)} cm de contorno a esa altura: el diseño rodea{' '}
-                  {reach >= 1 ? spec.whole : spec.part(Math.round(reach * 100))}.
+                  {reach >= 1 ? spec.whole : spec.part(Math.round(reach * 100))}. {/* TASK-0125 */}
+                  Vista orientativa sobre un miembro de referencia; la plantilla sí se imprime a esa
+                  medida.
                 </>
               )}
             </p>

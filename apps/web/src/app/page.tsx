@@ -51,6 +51,7 @@ import { asQuota, canDesign, designsNote, type Quota } from '@/lib/quota';
 
 import type { StudioJobStatus, GeneratedTattooArtifact } from '@/types/generation';
 import type { EditorPlacement } from '@/lib/mockup-editor';
+import { SKIN_SCALE_NOTE_ES } from '@/content/disclaimers';
 
 interface Form {
   style: string;
@@ -1194,8 +1195,7 @@ export default function ConsultationPage(): ReactNode {
             <summary>Posición y escala sobre piel</summary>
 
             <p className="small-note">
-              Sin foto propia se genera una anatomía ilustrativa. La escala sobre piel solo es
-              orientativa si no calibras.
+              Sin foto propia se genera una anatomía ilustrativa. {SKIN_SCALE_NOTE_ES}
               {!manualPlacement &&
                 !bodyPhotoId &&
                 ' Colocación automática según las medidas. Mover un control activa la colocación manual.'}

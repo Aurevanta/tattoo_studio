@@ -19,6 +19,8 @@ TASK-0095: `JobQueue.designs_today` and `TurnLedger.used` expose the counts the 
 
 TASK-0085 (audit REN-01): each job event records `detail.waitMs`, the time between creation and start.
 
+TASK-0115: `Limits.uploads_per_account` and `UploadLedger` (table `uploads`: owner and time only, rows older than the previous UTC day pruned on each reservation) count uploaded images per account per UTC day. Erasing an account's data does not reset the day's count, as with turns.
+
 TASK-0078 (audit SEG-02): `jobs/quota.py` — `Limits`, `TurnLedger`, `QuotaExceededError`. `enqueue` checks the per-account and studio daily design limits before inserting; `billable` marks jobs that call a paid provider (not coverage re-placements nor kept photos).
 
 TASK-0076: `JobQueue.stage` records the step of the job running in this thread (a context variable set by `tick`); `get` adds `stage` to a running job and `queuePosition` to a queued one. Steps live in memory only.

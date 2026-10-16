@@ -31,6 +31,8 @@ services:
       TATTOO_DAILY_DESIGNS: ${TATTOO_DAILY_DESIGNS:-20}
       TATTOO_DAILY_DESIGNS_TOTAL: ${TATTOO_DAILY_DESIGNS_TOTAL:-300}
       TATTOO_DAILY_TURNS: ${TATTOO_DAILY_TURNS:-100}
+      # TASK-0115: uploaded images per account per day; empty keeps the default (30).
+      TATTOO_DAILY_UPLOADS: ${TATTOO_DAILY_UPLOADS:-30}
       # TASK-0052: which BFL cluster draws the skin plates. EU by default; set it in Coolify to
       # https://api.bfl.ai to route round an EU incident. Only a text prompt goes to BFL, never a
       # photograph, so this moves no client image out of Europe.

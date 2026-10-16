@@ -24,7 +24,7 @@ from generation.plate_library import plate_body
 from generation.studio import ArtworkCheck, StudioProvider
 from jobs import client_messages
 from jobs.queue import JobQueue, billable_job, body_zone
-from jobs.quota import Limits, QuotaExceededError, TurnLedger
+from jobs.quota import Limits, QuotaExceededError, TurnLedger, UploadLedger
 from media.store import EncryptedFileStore, RetentionClass
 from mockup.anatomy import ZONE_SPAN_MM
 from mockup.engine import composite, visible_size
@@ -1807,6 +1807,40 @@ def test_consultation_turns_have_a_daily_limit_and_count_once(tmp_path: Path) ->
         ledger.reserve("owner", "t3", "message")
     # A new UTC day starts again.
     ledger.reserve("owner", "t4", "message", now=time.time() + 86400)
+
+
+def test_uploads_have_a_daily_limit_not_a_lifetime_one(tmp_path: Path) -> None:
+    """TASK-0115: more than the old ten images go up in a day, and the limit is per day."""
+    studio = Studio(tmp_path, b"x" * 32, FakeProvider(), limits=Limits(uploads_per_account=12))
+    owner = "11111111-1111-4111-8111-111111111111"
+    upload = {
+        "data": base64.b64encode(picture()).decode(),
+        "kind": "reference",
+        "adult": True,
+        "consent": True,
+    }
+    for _ in range(12):
+        studio.ingest(owner, upload)
+    with pytest.raises(QuotaExceededError, match="límite de 12 imágenes subidas por día"):
+        studio.ingest(owner, upload)
+    # Another account is not affected.
+    studio.ingest("22222222-2222-4222-8222-222222222222", upload)
+    # Erasing the data does not lift today's limit.
+    studio.delete(owner)
+    with pytest.raises(QuotaExceededError):
+        studio.ingest(owner, upload)
+
+
+def test_the_upload_ledger_starts_again_each_day_and_forgets_old_days(tmp_path: Path) -> None:
+    ledger = UploadLedger(tmp_path / "jobs.db", Limits(uploads_per_account=1))
+    ledger.reserve("owner", now=1_000_000_000)
+    with pytest.raises(QuotaExceededError):
+        ledger.reserve("owner", now=1_000_000_000)
+    ledger.reserve("owner", now=1_000_000_000 + 86400)
+    assert ledger.used("owner", now=1_000_000_000 + 86400) == 1
+    ledger.reserve("owner", now=1_000_000_000 + 3 * 86400)
+    with ledger.connect() as db:
+        assert db.execute("SELECT count(*) FROM uploads").fetchone()[0] == 1
 
 
 def test_the_counter_says_what_is_left_by_the_rule_the_limit_applies(tmp_path: Path) -> None:

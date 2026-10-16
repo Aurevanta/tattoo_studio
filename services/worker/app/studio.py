@@ -26,7 +26,7 @@ from generation.seam import fit_aspect, seamless
 from generation.studio import StudioProvider
 from jobs.client_messages import for_client
 from jobs.queue import JobQueue, designs_left
-from jobs.quota import Limits, QuotaExceededError, TurnLedger, day_start
+from jobs.quota import Limits, QuotaExceededError, TurnLedger, UploadLedger, day_start
 from media.sanitize import sanitize
 from media.store import AssetNotFoundError, EncryptedFileStore, RetentionClass
 from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, wrap_region, zone_size
@@ -567,6 +567,8 @@ class Studio:
         )
         # TASK-0078 (audit SEG-02): paid consultation turns, reserved by the web before it spends.
         self.turns = TurnLedger(root / "jobs.sqlite", self.limits)
+        # TASK-0115: uploaded images per day, in place of ten per account for life.
+        self.uploads = UploadLedger(root / "jobs.sqlite", self.limits)
         # TASK-0097 (ADR-0032): links a client gives their tattooer.
         self.shares = ShareLedger(root / "jobs.sqlite")
 
@@ -790,6 +792,8 @@ class Studio:
                 raise ValueError("Imagen inválida") from error
         if not data or len(data) > 8_000_000:
             raise ValueError("La imagen debe ocupar entre 1 byte y 8 MB.")
+        # TASK-0115: counted before the moderation call it would spend.
+        self.uploads.reserve(owner)
         clean = sanitize(data)
         # Moderate sanitized PNG; no EXIF or unapproved bytes reach durable storage.
         with Image.open(io.BytesIO(clean.data)) as image:
@@ -807,16 +811,6 @@ class Studio:
         with self.lock:
             self.still_mine(owner, mark)
             with self.db() as db:
-                if (
-                    db.execute(
-                        "SELECT count(*) FROM assets WHERE owner=? AND kind!='artifact'", (owner,)
-                    ).fetchone()[0]
-                    >= 10
-                ):
-                    raise ValueError(
-                        "Límite de diez imágenes por cuenta. Elimina tus datos para empezar "
-                        "de nuevo."
-                    )
                 db.execute(
                     "INSERT INTO consent(owner,version) VALUES (?,?)",
                     (owner, "studio-own-photo-v1" if kind == "body" else "studio-reference-v1"),
@@ -1441,6 +1435,8 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
             from starlette.concurrency import run_in_threadpool
 
             return await run_in_threadpool(studio.ingest, who, body)
+        except QuotaExceededError as limit:
+            raise HTTPException(429, str(limit)) from limit
         except ValueError as error:
             raise HTTPException(422, for_client(str(error))) from error
 
@@ -1814,6 +1810,7 @@ def build_studio(settings: Settings) -> Studio | None:
             designs_per_account=settings.daily_designs,
             designs_total=settings.daily_designs_total,
             turns_per_account=settings.daily_turns,
+            uploads_per_account=settings.daily_uploads,
         ),
     )
 

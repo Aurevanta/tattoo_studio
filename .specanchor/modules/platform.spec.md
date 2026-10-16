@@ -63,6 +63,8 @@ TASK-0080 (audit ARQ-04): `infra/README.md` describes authentication, daily limi
 
 TASK-0079 (audit ARQ-01): `consultations` table and `GET/PUT/DELETE /studio/consultations/{id}`, per owner, 24 h after the last change, removed on erasure. Prettier uses `endOfLine: auto` and ignores the local `.claude/settings.local.json` (ARQ-04).
 
+TASK-0115: setting `TATTOO_DAILY_UPLOADS` (default 30), passed by the compose file. `Studio.ingest` reserves one upload in `UploadLedger` before the moderation call; `POST /studio/media` answers 429 with `uploads_reached` when the day's limit is reached. The limit of ten non-artifact assets per account for life is removed.
+
 TASK-0078: settings `TATTOO_DAILY_DESIGNS`, `TATTOO_DAILY_DESIGNS_TOTAL`, `TATTOO_DAILY_TURNS`; `POST /studio/quota/turns`; a reached limit answers 429. The compose file passes the three settings to the worker.
 
 TASK-0076: `Studio.generate` reports `references`, then each graph node through `NODE_STAGES`; a re-placement reports `placing`.

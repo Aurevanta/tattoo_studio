@@ -80,3 +80,5 @@ they consent to it being stored.**
   been through it.
 - **This decision is wrong if** kept photos start being used as inputs to anything — a finish, an
   edit, a model. That would need its own ADR against ADR-0007, not a quiet extension of this one.
+- **Amended by TASK-0115:** the account's ten images for life became a daily upload limit
+  (`TATTOO_DAILY_UPLOADS`, 30 by default). A kept photo counts as one upload that day.

@@ -7,7 +7,11 @@ retried request is counted once: a design by its idempotency key (the queue alre
 stored job for a repeated key), a consultation turn by the id the web gives it.
 
 A day is the UTC calendar day. Re-placing a design and keeping a camera photo cost no generation,
-so they are not counted.
+so they are not counted as designs.
+
+TASK-0115: uploaded images (references, own-body photos, kept camera photos) have their own daily
+limit. It replaced a limit of ten per account for life, which attaching images to the idea
+(TASK-0113) exhausted in two ideas.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ class Limits:
     designs_per_account: int = 20
     designs_total: int = 300
     turns_per_account: int = 100
+    uploads_per_account: int = 30
 
 
 class QuotaExceededError(ValueError):
@@ -50,6 +55,13 @@ def turns_reached(limit: int) -> str:
     return (
         f"Has llegado al límite de {limit} mensajes por día con el asistente. Podrás seguir "
         "mañana; tu propuesta se conserva."
+    )
+
+
+def uploads_reached(limit: int) -> str:
+    return (
+        f"Has llegado al límite de {limit} imágenes subidas por día. Podrás subir más mañana; "
+        "tus imágenes y diseños anteriores siguen disponibles."
     )
 
 
@@ -104,12 +116,55 @@ class TurnLedger:
             db.execute("DELETE FROM turns WHERE owner=?", (owner,))
 
 
+class UploadLedger:
+    """Images an account uploaded, counted per UTC day (TASK-0115).
+
+    Only the owner and the time are kept, and only for two days. Erasing the account's data does
+    not reset the day's count, as with consultation turns: otherwise erasing would lift the limit.
+    """
+
+    def __init__(self, path: Path, limits: Limits) -> None:
+        self.path = path
+        self.limits = limits
+        with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS uploads (owner TEXT, created REAL)")
+
+    def connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.path, timeout=10)
+
+    def reserve(self, owner: str, now: float | None = None) -> None:
+        """Count one upload, or raise `QuotaExceededError`."""
+        moment = time.time() if now is None else now
+        today = day_start(moment)
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("DELETE FROM uploads WHERE created<?", (today - 86400,))
+            used = db.execute(
+                "SELECT count(*) FROM uploads WHERE owner=? AND created>=?", (owner, today)
+            ).fetchone()[0]
+            if used >= self.limits.uploads_per_account:
+                raise QuotaExceededError(uploads_reached(self.limits.uploads_per_account))
+            db.execute("INSERT INTO uploads VALUES (?,?)", (owner, moment))
+
+    def used(self, owner: str, now: float | None = None) -> int:
+        """Images this account has uploaded today."""
+        with self.connect() as db:
+            return int(
+                db.execute(
+                    "SELECT count(*) FROM uploads WHERE owner=? AND created>=?",
+                    (owner, day_start(now)),
+                ).fetchone()[0]
+            )
+
+
 __all__ = [
     "STUDIO_FULL",
     "Limits",
     "QuotaExceededError",
     "TurnLedger",
+    "UploadLedger",
     "day_start",
     "designs_reached",
     "turns_reached",
+    "uploads_reached",
 ]

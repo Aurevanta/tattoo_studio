@@ -104,6 +104,10 @@ class Settings(BaseSettings):
     """Paid consultation turns (messages, reference searches) per account per UTC day
     (TATTOO_DAILY_TURNS)."""
 
+    daily_uploads: int = Field(default=30, ge=1)
+    """TASK-0115: images uploaded per account per UTC day: references, own-body photos and kept
+    camera photos (TATTOO_DAILY_UPLOADS)."""
+
     bfl_background_model: str = "flux-2-pro"
     """TASK-0025: FLUX.2 renders the blank skin plate only. Artwork and edits stay on
     OpenAI, which is the vendor that will actually return flat art on white (ADR-0009)."""

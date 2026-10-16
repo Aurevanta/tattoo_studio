@@ -110,7 +110,8 @@ export function TattooPreviewModal({
       ? { transform: artifact.transform, frame: mockupFrame }
       : undefined;
   const wholeCanvas = artifact.transform.scaleCalibrated;
-  const [adjusting, setAdjusting] = useState(false);
+  // TASK-0119: the mockup editor opens with the result, as the 3D view does (TASK-0118).
+  const [adjusting, setAdjusting] = useState(true);
   // TASK-0107 (ADR-0036): the design is adjusted over the skin it was composed on. Not for a
   // sleeve (already a full turn), a camera version (the photograph is the composite) or a result
   // stored without its skin.
@@ -551,7 +552,7 @@ export function TattooPreviewModal({
               <p>
                 {/* TASK-0107: the live editor replaced «Más pequeño» and «Más grande». */}
                 {adjustable
-                  ? 'Para agrandarlo, ensancharlo, alargarlo, moverlo o girarlo, usa «Ajustar sobre la piel», arriba. '
+                  ? 'Para agrandarlo, ensancharlo, alargarlo, moverlo o girarlo, usa el ajuste sobre la piel, arriba. '
                   : ''}
                 «Ocupar toda la zona» ajusta las medidas de impresión a la zona del cuerpo, con
                 anatomía de referencia adulta que debes confirmar con tu tatuador. No vuelve a

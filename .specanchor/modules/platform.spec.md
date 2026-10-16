@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0130: `app.build_acceptance_kit` builds the tattooer acceptance kit — protocol, six stencils from the product's own exporters (calibration sheets at the three stroke widths, a real fine-line piece, the owner's colour design as approximate contours, sleeve panels), a form and a hash manifest. The human run is TASK-0130's open half.
+
 TASK-0129 (ADR-0044): CLAUDE.md's stencil hard constraint names both regimes: native line art for line-art designs; approximate contours of the flat artwork, labelled, for colour or shaded ones.
 
 TASK-0126 (FINDING-0005): `design_vector` is keyed by `(owner, design_id)` and migrated on start (`migrate_design_vector`). `store_vector` reuses the account's vector for that design, stores a new one only when none opens, and erases the dead row it replaces, so a repeated or cross-account design leaves no unreferenced vector and no account overwrites another's. Erasing versions first re-homes a vector that a remaining version still shows from under an upload about to be erased (`_rehome_vectors`), so the cascade cannot take it.

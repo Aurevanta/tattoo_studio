@@ -115,8 +115,9 @@ Tracing is CPU-bound and local; it must not require a GPU.
 ## Tests / verification
 
 Golden-file tests over tracing with fixed inputs. Dimensional tests asserting that an exported PDF
-measures exactly the requested millimetres. A physical print test is part of acceptance for
-TASK-0005 and is human-run.
+measures exactly the requested millimetres. The physical print test is TASK-0130: a kit built
+from these exporters, with criteria for scale, cleanliness, detail, transfer, the minimum stroke
+and the colour regime; human-run, NOT_RUN as of 2026-10-16.
 
 ## Known uncertainties and debt
 

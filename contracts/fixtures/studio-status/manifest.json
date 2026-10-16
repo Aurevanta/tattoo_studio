@@ -198,6 +198,18 @@
       "file": "invalid/design-without-name.json",
       "valid": false,
       "why": "TASK-0116: a design always has a name"
+    },
+    {
+      "name": "skin-frame",
+      "file": "valid/skin-frame.json",
+      "valid": true,
+      "why": "TASK-0120: a generated skin's frame in millimetres"
+    },
+    {
+      "name": "skin-frame-centre-outside",
+      "file": "invalid/skin-frame-centre-outside.json",
+      "valid": false,
+      "why": "TASK-0120: the zone's centre is inside the picture"
     }
   ]
 }

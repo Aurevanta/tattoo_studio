@@ -86,8 +86,12 @@ class JobQueue:
         execute: Callable[[str, dict[str, Any]], dict[str, Any]],
         maintenance: Callable[[], None] | None = None,
         limits: Limits | None = None,
+        describe: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
     ) -> None:
         self.path = path
+        # TASK-0120: what a result is served with besides itself (its skin's frame), from the
+        # stored request and result. Never stored: read from the current calibration each time.
+        self.describe = describe
         self.execute = execute
         self.maintenance = maintenance
         self.limits = limits or Limits()
@@ -288,8 +292,7 @@ class JobQueue:
                 )
         return self.get(owner, job_id)
 
-    @staticmethod
-    def public(row: sqlite3.Row, name: str | None = None) -> dict[str, Any]:
+    def public(self, row: sqlite3.Row, name: str | None = None) -> dict[str, Any]:
         result: dict[str, Any] = {
             "jobId": row["id"],
             "state": row["state"],
@@ -300,6 +303,11 @@ class JobQueue:
             zone = body_zone(row["payload"])
             if zone:
                 result["result"]["placement"] = zone
+        if result["result"] is not None and self.describe is not None:
+            # A copy of a served result may have stored what was served with it; it is redone.
+            result["result"].pop("skinFrame", None)
+            payload = json.loads(row["payload"] or "{}")
+            result["result"].update(self.describe(payload, result["result"]))
         # TASK-0116 (ADR-0041): the design this version belongs to, and its name.
         if name is not None and row["family"]:
             result["design"] = {"id": row["family"], "name": name}

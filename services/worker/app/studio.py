@@ -36,9 +36,12 @@ from mockup.geometry import BLEND_TOLERANCE, GeometryCheck
 from mockup.placement import (
     Coverage,
     ManualLayout,
+    convention_frame,
     coverage_request,
     fit_coverage,
+    frame_placement,
     manual_layout,
+    parent_placement,
 )
 from orchestration import PipelineState, build_finish_graph, build_generation_graph
 from safety.gate import InputGate, ReasonCode
@@ -460,9 +463,33 @@ class _StudioGenerationDeps:
             and not payload.get("bodyPhotoId")
             and (body_part == "calf" or (self.zone and body_part in ZONE_SPAN_MM))
         )
-        fit_visible = bool(self.coverage) or auto_placed
+        # TASK-0120 (ADR-0042): on a plate whose frame is known in millimetres the design is laid
+        # at its millimetres, on the zone's centre - or, for a change, where its parent was - so
+        # the mockup and the 3D view show the same placement. Not on an own photo, nor where the
+        # client placed it by hand on the advanced panel.
+        skin = (
+            self.studio.skin_frame(brief)
+            if not payload.get("placement") and not payload.get("bodyPhotoId") and not self.coverage
+            else None
+        )
+        fit_visible = bool(self.coverage) or auto_placed or skin is not None
         projection_size = visible_size(raster, brief["size"]) if fit_visible else brief["size"]
-        if self.coverage:
+        if skin is not None:
+            centre, angle = None, 0.0
+            if self.parent:
+                with Image.open(io.BytesIO(background)) as photo:
+                    photo.thumbnail((2048, 2048))
+                    frame = photo.size
+                start = parent_placement(
+                    self.parent["transform"],
+                    frame,
+                    self.studio.visible_box(self.owner, self.parent),
+                    size=self.parent["size"],
+                    skin=skin,
+                )
+                centre, angle = (start["centreX"], start["centreY"]), start["angle"]
+            payload["placement"] = frame_placement(skin, projection_size, centre, angle)
+        elif self.coverage:
             previous = dict(payload.get("placement") or {})
             if self.parent:
                 with Image.open(io.BytesIO(background)) as photo:
@@ -501,6 +528,8 @@ class _StudioGenerationDeps:
             surface=DEFAULT_SURFACE,
             # TASK-0039: centred on, tapered with and kept on the body actually photographed.
             fit_body=True,
+            # TASK-0120: a placement in millimetres is drawn as chosen, clipped to the body only.
+            manual=skin is not None,
         )
 
     def compose_sleeve(
@@ -574,7 +603,11 @@ class Studio:
             )
         self.limits = limits or Limits()
         self.jobs = JobQueue(
-            root / "jobs.sqlite", self.generate, self.purge_expired, limits=self.limits
+            root / "jobs.sqlite",
+            self.generate,
+            self.purge_expired,
+            limits=self.limits,
+            describe=self.describe,
         )
         # TASK-0078 (audit SEG-02): paid consultation turns, reserved by the web before it spends.
         self.turns = TurnLedger(root / "jobs.sqlite", self.limits)
@@ -587,6 +620,33 @@ class Studio:
         """A skin plate from the reviewed library, or generated when it has none (TASK-0060)."""
         stored = self.plates.plate(brief) if self.plates else None
         return stored if stored is not None else self.provider.background(brief)
+
+    def skin_frame(self, brief: dict[str, Any]) -> dict[str, Any] | None:
+        """The library plate's frame in millimetres for this brief (TASK-0120, ADR-0042).
+
+        Its calibration when the plate was calibrated, the framing convention otherwise; None
+        without a library plate (a generated one, or a sleeve, keeps the projection it had).
+        """
+        if self.plates is None or is_sleeve(brief):
+            return None
+        found = self.plates.frame(brief)
+        if found is None:
+            return None
+        if not found["calibrated"]:
+            return convention_frame(brief["placement"]["bodyPart"], float(found["aspect"]))
+        return found
+
+    def describe(self, payload: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+        """What a stored result is served with besides itself: its skin's frame (TASK-0120).
+
+        Read from the current calibration every time, so a version made before plates were
+        calibrated opens in its printed millimetres in the mockup editor and the 3D view alike.
+        Only for a generated skin: an own photograph or a camera capture frames no reference zone.
+        """
+        if result.get("backgroundKind") != "generated_anatomy" or result.get("capture"):
+            return {}
+        skin = self.skin_frame(payload.get("brief") or {})
+        return {"skinFrame": skin} if skin else {}
 
     def purge_expired(self, now: datetime | None = None) -> None:
         """
@@ -1077,12 +1137,20 @@ class Studio:
             previous["width"] = parent["transform"]["widthPx"] / image.width
         # TASK-0107 (ADR-0036): a placement chosen in the live editor. Its millimetres follow the
         # view on each axis, derived here from the parent's placement, never from the client.
+        # TASK-0120 (ADR-0042): on a plate whose frame is known, the start is the printed size.
+        skin = (
+            None
+            if previous.get("photoWidthMm") or parent.get("backgroundKind") != "generated_anatomy"
+            else self.skin_frame(brief)
+        )
         layout = (
             manual_layout(
                 parent["transform"],
                 frame,
                 payload["edit"]["placement"],
                 None if previous.get("photoWidthMm") else self.visible_box(owner, parent),
+                size=parent["size"],
+                skin=skin,
             )
             if coverage.kind == "manual"
             else None
@@ -1125,13 +1193,18 @@ class Studio:
                 if resize:
                     _, bounds = visible_artwork(source)
                     brief["size"] = zone_size(body_part, bounds["height"] / bounds["width"])
-                placement = fit_coverage(
-                    background,
-                    visible_size(source, brief["size"]),
-                    coverage.kind,
-                    previous,
-                    body_part=body_part,
-                )
+                if skin is not None and coverage.kind == "full":
+                    # The whole zone, in millimetres, on the zone's centre (TASK-0120).
+                    placement = frame_placement(skin, visible_size(source, brief["size"]))
+                else:
+                    placement = fit_coverage(
+                        background,
+                        visible_size(source, brief["size"]),
+                        coverage.kind,
+                        previous,
+                        body_part=body_part,
+                    )
+            manual = layout is not None or (skin is not None and coverage.kind == "full")
             mockup, transform = composite(
                 source.convert("RGB"),
                 background,
@@ -1143,7 +1216,7 @@ class Studio:
                 taper=parent["transform"].get("taper", 0.25 if body_part == "calf" else 0),
                 surface=parent["transform"].get("surface", DEFAULT_SURFACE),
                 fit_body=True,
-                manual=layout is not None,
+                manual=manual,
             )
         stretch = layout.stretch if layout is not None else parent["transform"].get("stretch")
         if stretch is not None and abs(stretch - 1) > 1e-4:

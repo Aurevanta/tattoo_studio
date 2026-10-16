@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: jobs
 
+TASK-0120: `JobQueue(describe=…)` adds what it returns to every served result (the skin's frame), recomputed on each read; a stored `skinFrame` is dropped first. `public` is an instance method.
+
 TASK-0116 (ADR-0041): each version belongs to a design, `jobs.family` (its first version's id), set by `enqueue` from `edit.parentJobId` and by `record(parent=…)`; older rows are backfilled at start-up. `design_names` holds the client's name; `_names` falls back to the idea's first sentence shortened (`jobs/designs.py::default_name`). `get`, `history` and `record` serve `design: {id, name}`. `rename`, `versions` and `family` serve the studio's per-design deletion and copies.
 
 TASK-0110: `body_zone` also passes a stored brief's `bodyType`.

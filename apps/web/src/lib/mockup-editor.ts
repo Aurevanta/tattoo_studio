@@ -77,6 +77,42 @@ export function initialPlacement(
   transform: EditorTransform & { sourceCropPx?: unknown },
   frame: [number, number],
   visible?: ArtworkBox,
+  physical?: Physical,
+): EditorPlacement {
+  const start = pixelPlacement(transform, frame, visible);
+  // TASK-0120 (ADR-0042): on a skin whose frame is known in millimetres, the size is the printed
+  // one, as the worker reads it (`mockup/placement.py::parent_placement`); the centre and the
+  // turn are the result's. So a design composed before plates were calibrated opens at its
+  // printed size, where the 3D view shows it.
+  if (!physical?.skin || !visible || visible.height <= 0 || transform.scaleCalibrated) return start;
+  const { size, skin } = physical;
+  const widthMm = (size.heightMm * visible.width) / visible.height;
+  return {
+    ...start,
+    width: widthMm / skin.widthMm,
+    height: size.heightMm / skin.heightMm,
+  };
+}
+
+/** A generated skin's picture in millimetres, and the zone's centre in it (TASK-0120). */
+export interface SkinFrame {
+  widthMm: number;
+  heightMm: number;
+  centreX: number;
+  centreY: number;
+  calibrated: boolean;
+}
+
+/** What `initialPlacement` needs to start from the printed millimetres. */
+export interface Physical {
+  size: Millimetres;
+  skin?: SkinFrame | undefined;
+}
+
+function pixelPlacement(
+  transform: EditorTransform & { sourceCropPx?: unknown },
+  frame: [number, number],
+  visible?: ArtworkBox,
 ): EditorPlacement {
   if (transform.placement) return { ...transform.placement };
   const [width, height] = frame;

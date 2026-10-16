@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: generation
 
+TASK-0120 (ADR-0042): `generation/plates/calibration.json` holds each reviewed plate's frame in millimetres (picture width and height, the zone's centre); `PlateLibrary.frame(brief)` reads it, mirrored for a left side, and answers `{calibrated: false, aspect}` for a plate the review left on the framing convention. Reading it makes no call.
+
 TASK-0114 (ADR-0040): references may show incidental, unidentifiable people. The reference analysis ignores them and never describes a real person. A referenced artwork prompt says they are not part of the design and are left out.
 
 TASK-0110 (ADR-0038): `plate_library.plate_body(brief)` is the plate's body rule: the brief's `bodyType`, or one of the two from the brief's hash. The 3D views and a sleeve's stencil use the same rule, so skin, limb and stencil agree.

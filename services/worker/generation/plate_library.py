@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -77,6 +78,7 @@ class PlateLibrary:
 
     def __init__(self, directory: Path = PLATES) -> None:
         self.directory = directory
+        self._calibration: dict[str, dict[str, Any]] | None = None
 
     def plate(self, brief: dict[str, Any]) -> bytes | None:
         placement = brief.get("placement") or {}
@@ -94,6 +96,45 @@ class PlateLibrary:
         output = io.BytesIO()
         image.save(output, format="PNG")
         return output.getvalue()
+
+    def frame(self, brief: dict[str, Any]) -> dict[str, Any] | None:
+        """Where the zone is on the plate this brief gets, in millimetres (TASK-0120, ADR-0042).
+
+        The picture's size in millimetres and the zone's centre as fractions of it, as
+        ``calibration.json`` records them for a reviewed plate, mirrored with the plate for a
+        left-side design. ``{"calibrated": False, "aspect": ...}`` for a plate the review left on
+        the framing convention (the caller applies `mockup.placement.convention_frame`); None when
+        the library has no plate for the brief.
+        """
+        placement = brief.get("placement") or {}
+        zone = placement.get("bodyPart")
+        if zone not in ZONE_VIEWS:
+            return None
+        path = self.directory / Plate(zone, plate_body(brief)).filename
+        if not path.is_file():
+            return None
+        measured = self.calibration().get(path.stem)
+        if not measured:
+            with Image.open(path) as source:
+                return {"calibrated": False, "aspect": source.width / source.height}
+        frame: dict[str, Any] = {
+            k: float(measured[k]) for k in ("widthMm", "heightMm", "centreX", "centreY")
+        }
+        frame["calibrated"] = True
+        if placement.get("side") == "left" and zone not in CENTRED:
+            frame["centreX"] = round(1 - frame["centreX"], 4)
+        return frame
+
+    def calibration(self) -> dict[str, dict[str, Any]]:
+        """The reviewed calibration of the plates, read once (`app.build_plate_calibration`)."""
+        if self._calibration is None:
+            path = self.directory / "calibration.json"
+            self._calibration = (
+                json.loads(path.read_text(encoding="utf-8")).get("plates", {})
+                if path.is_file()
+                else {}
+            )
+        return self._calibration
 
 
 def encode(data: bytes) -> bytes:

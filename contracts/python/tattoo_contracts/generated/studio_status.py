@@ -332,6 +332,21 @@ class Placement2(BaseModel):
     bodyType: BodyType | None = None
 
 
+class SkinFrame(BaseModel):
+    """
+    TASK-0120 (ADR-0042): the generated skin's picture in millimetres of the reference body, and where the zone's centre is in it (fractions of the picture), served with the result from the plate library's current calibration. The mockup editor and the 3D views both place the design by it, so they agree. `calibrated: false` is the framing convention of an uncalibrated plate. Absent on an own photograph, a camera capture, a sleeve or a skin not from the library.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    widthMm: Annotated[float, Field(gt=0.0, le=5000.0)]
+    heightMm: Annotated[float, Field(gt=0.0, le=5000.0)]
+    centreX: Annotated[float, Field(ge=0.0, le=1.0)]
+    centreY: Annotated[float, Field(ge=0.0, le=1.0)]
+    calibrated: bool
+
+
 class Artifact(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -371,6 +386,12 @@ class Artifact(BaseModel):
         Placement2 | None,
         Field(
             description='TASK-0108: where on the body this design goes, copied from its brief when the status is served, so a design opened from the history knows its zone. TASK-0110: and which reference body (bodyType) it was drawn for. Not the brief itself: no subject, no sizes beyond `size`.'
+        ),
+    ] = None
+    skinFrame: Annotated[
+        SkinFrame | None,
+        Field(
+            description="TASK-0120 (ADR-0042): the generated skin's picture in millimetres of the reference body, and where the zone's centre is in it (fractions of the picture), served with the result from the plate library's current calibration. The mockup editor and the 3D views both place the design by it, so they agree. `calibrated: false` is the framing convention of an uncalibrated plate. Absent on an own photograph, a camera capture, a sleeve or a skin not from the library."
         ),
     ] = None
 

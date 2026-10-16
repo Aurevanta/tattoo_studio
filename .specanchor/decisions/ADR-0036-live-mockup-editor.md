@@ -107,3 +107,6 @@ The owner decided (INTENT, 2026-10-15):
   confuses clients.
 - **This decision is wrong if** clients read the editor's millimetres as measured on their body.
   The label is mandatory.
+
+- **Amended by ADR-0042 (TASK-0120):** on a library plate the editor starts from the printed
+  millimetres and the plate's measured frame, and shares its placement live with the 3D view.

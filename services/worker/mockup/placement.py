@@ -204,7 +204,69 @@ class ManualLayout:
         return size
 
 
+def convention_frame(body_part: str | None, aspect: float) -> dict[str, Any]:
+    """The framing a plate without a calibration is assumed to have (TASK-0120, ADR-0042).
+
+    The zone's reference height is `SKIN_FRAME_FRACTION` of the picture, centred: what every plate
+    was assumed to show before plates were calibrated, and still right for a plate framed tightly
+    on a small zone. ``aspect`` is the picture's width over its height.
+    """
+    height_mm = _span_height_mm(body_part) / SKIN_FRAME_FRACTION
+    return {
+        "widthMm": round(height_mm * aspect, 1),
+        "heightMm": round(height_mm, 1),
+        "centreX": 0.5,
+        "centreY": 0.5,
+        "calibrated": False,
+    }
+
+
+def frame_placement(
+    skin: dict[str, Any],
+    visible_mm: dict[str, float],
+    centre: tuple[float, float] | None = None,
+    angle: float = 0.0,
+) -> dict[str, float]:
+    """A design's visible artwork at its millimetres on a plate, as a live-editor placement.
+
+    ``skin`` is the plate's frame in millimetres (`PlateLibrary.frame` or `convention_frame`).
+    Centred on the zone unless ``centre`` (fractions of the picture) is given. The 3D views read
+    the same millimetres on the reference body, so the two agree by construction (ADR-0042).
+    """
+    x, y = centre if centre is not None else (skin["centreX"], skin["centreY"])
+    return {
+        "centreX": round(float(x), 4),
+        "centreY": round(float(y), 4),
+        "width": round(visible_mm["widthMm"] / skin["widthMm"], 4),
+        "height": round(visible_mm["heightMm"] / skin["heightMm"], 4),
+        "angle": round(float(angle), 4),
+    }
+
+
 def parent_placement(
+    transform: dict[str, Any],
+    frame: tuple[int, int],
+    visible: tuple[int, int, int, int, int, int] | None = None,
+    *,
+    size: dict[str, float] | None = None,
+    skin: dict[str, Any] | None = None,
+) -> dict[str, float]:
+    """The placement of a result's visible artwork, as the live editor starts from it.
+
+    TASK-0120 (ADR-0042): on a plate with a known frame (``skin``) the size comes from the
+    result's millimetres, not from its pixel box, so a design composed before plates were
+    calibrated starts at its printed size, where the 3D view shows it; its centre and turn are
+    read from the result as before. The browser starts from the same (`lib/mockup-editor.ts`).
+    """
+    start = _pixel_placement(transform, frame, visible)
+    if skin is None or size is None or visible is None or transform.get("scaleCalibrated"):
+        return start
+    _, _, width, height, _, _ = visible
+    visible_mm = {"widthMm": size["heightMm"] * width / height, "heightMm": size["heightMm"]}
+    return frame_placement(skin, visible_mm, (start["centreX"], start["centreY"]), start["angle"])
+
+
+def _pixel_placement(
     transform: dict[str, Any],
     frame: tuple[int, int],
     visible: tuple[int, int, int, int, int, int] | None = None,
@@ -239,13 +301,17 @@ def manual_layout(
     frame: tuple[int, int],
     chosen: dict[str, float],
     visible: tuple[int, int, int, int, int, int] | None = None,
+    *,
+    size: dict[str, float] | None = None,
+    skin: dict[str, Any] | None = None,
 ) -> ManualLayout:
     """Scale factors and the accumulated stretch of a chosen placement (ADR-0036).
 
     The millimetres follow the view proportionally on each axis, derived here and never taken
     from the client. A calibrated photo keeps its scale: only position and angle may change.
+    On a plate with a known frame the start is the printed size (TASK-0120).
     """
-    before = parent_placement(transform, frame, visible)
+    before = parent_placement(transform, frame, visible, size=size, skin=skin)
     sx, sy = chosen["width"] / before["width"], chosen["height"] / before["height"]
     if transform.get("scaleCalibrated") and max(abs(sx - 1), abs(sy - 1)) > UNCHANGED:
         raise ValueError(CALIBRATED_SIZE)

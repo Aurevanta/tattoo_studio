@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { mockupOffset, SKIN_FRAME_FRACTION, toMockupPlacement, visibleSize } from './mockup-pose';
+import {
+  mockupOffset,
+  mockupStart,
+  offsetOf,
+  SKIN_FRAME_FRACTION,
+  toMockupPlacement,
+  visibleSize,
+} from './mockup-pose';
 
 const box = { left: 100, top: 50, width: 200, height: 400, canvasWidth: 500, canvasHeight: 600 };
 
@@ -104,5 +111,75 @@ describe('a 3D adjustment goes back to the mockup (TASK-0112)', () => {
     expect(
       toMockupPlacement({ transform, frame }, box, 400, { yMm: 0, angle: 0 }, [1, 1]).centreX,
     ).toBe(0.55);
+  });
+});
+
+describe('the mockup and the 3D views share one placement in millimetres (TASK-0120)', () => {
+  // The masculine upper back plate, as calibrated: 650 mm tall, the zone a little above centre.
+  const skin = { widthMm: 432.9, heightMm: 649.4, centreX: 0.5, centreY: 0.43, calibrated: true };
+  const frame: [number, number] = [1024, 1536];
+  const size = { widthMm: 180, heightMm: 280 };
+  const trimmed = { left: 0, top: 0, width: 180, height: 280, canvasWidth: 180, canvasHeight: 280 };
+  // A design composed with the old rule: drawn larger than its millimetres and off to the right.
+  const legacy = {
+    transform: {
+      xPx: 600,
+      yPx: 300,
+      widthPx: 300,
+      heightPx: 600,
+      scaleCalibrated: false,
+      sourceCropPx: {},
+    },
+    frame,
+    skin,
+    size,
+  };
+
+  it('starts at the printed size, wherever the old mockup drew it', () => {
+    const start = mockupStart(legacy, trimmed);
+    expect(start.height * skin.heightMm).toBeCloseTo(280, 5);
+    expect(start.width * skin.widthMm).toBeCloseTo(180, 5);
+    // The centre and the turn are the result's.
+    expect(start.centreX).toBeCloseTo(750 / 1024, 5);
+    expect(start.centreY).toBeCloseTo(600 / 1536, 5);
+  });
+
+  it('measures the offset from the calibrated zone centre, not the picture centre', () => {
+    const at = offsetOf(
+      legacy,
+      { centreX: 0.6, centreY: 0.33, width: 0.2, height: 0.2, angle: 12 },
+      300,
+    );
+    expect(at).toEqual({ xMm: Math.round(0.1 * 432.9), yMm: Math.round(0.1 * 649.4), angle: 12 });
+  });
+
+  it('round-trips a 3D adjustment into the editor and back', () => {
+    const moved = toMockupPlacement(
+      legacy,
+      trimmed,
+      300,
+      { xMm: 50, yMm: -40, angle: 15 },
+      [0.5, 0.5],
+    );
+    expect(moved.height * skin.heightMm).toBeCloseTo(140, 1);
+    const back = offsetOf(legacy, moved, 300);
+    expect(back).toEqual({ xMm: 50, yMm: -40, angle: 15 });
+  });
+
+  it("keeps the editor's place across a limb, which the limb view cannot set", () => {
+    const keep = { centreX: 0.62, centreY: 0.5, width: 0.3, height: 0.3, angle: 0 };
+    expect(
+      toMockupPlacement(legacy, trimmed, 300, { yMm: 0, angle: 0 }, [1, 1], keep).centreX,
+    ).toBe(0.62);
+  });
+
+  it('falls back to the framing convention on a skin without a frame', () => {
+    const plain = { ...legacy, skin: undefined, size: undefined };
+    const at = offsetOf(
+      plain,
+      { centreX: 0.5, centreY: 0.4, width: 0.2, height: 0.2, angle: 0 },
+      300,
+    );
+    expect(at.yMm).toBe(Math.round(0.1 * (300 / SKIN_FRAME_FRACTION)));
   });
 });

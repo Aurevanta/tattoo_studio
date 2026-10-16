@@ -49,17 +49,24 @@ export function MockupEditor({
   artifact,
   disabled,
   onSave,
+  placement: shared,
+  onPlacement,
 }: {
   artifact: GeneratedTattooArtifact;
   disabled: boolean;
   onSave: (placement: EditorPlacement) => void;
+  /** TASK-0120: the placement shared with the 3D view; null is the result's own. */
+  placement?: EditorPlacement | null | undefined;
+  onPlacement?: ((placement: EditorPlacement | null) => void) | undefined;
 }): ReactNode {
   const background = artifact.background;
   const canvas = useRef<HTMLCanvasElement>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
-  const [placement, setPlacement] = useState<EditorPlacement | null>(null);
+  const [own, setOwn] = useState<EditorPlacement | null>(null);
+  const placement = onPlacement ? (shared ?? null) : own;
+  const setPlacement = onPlacement ?? setOwn;
   const [confirm, setConfirm] = useState(false);
   const drag = useRef<{ x: number; y: number; start: EditorPlacement } | null>(null);
   const calibrated = artifact.transform.scaleCalibrated;
@@ -90,8 +97,14 @@ export function MockupEditor({
   }, [background, artifact.master.assetId, calibrated]);
 
   const start = useMemo(
-    () => (loaded ? initialPlacement(artifact.transform, loaded.frame, loaded.box) : null),
-    [loaded, artifact.transform],
+    () =>
+      loaded
+        ? initialPlacement(artifact.transform, loaded.frame, loaded.box, {
+            size: artifact.size,
+            skin: artifact.skinFrame,
+          })
+        : null,
+    [loaded, artifact.transform, artifact.size, artifact.skinFrame],
   );
   const now = placement ?? start;
 

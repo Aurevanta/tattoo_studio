@@ -46,3 +46,6 @@ tenerlas guardadas sin necesidad de tener que crearlas cada vez?", and chose to 
 
 - **Revisit if** clients ask to see their own skin tone without uploading a photo, which would mean
   several tones per zone and a way to choose one.
+
+- **Amended by ADR-0042 (TASK-0120):** each plate also carries a reviewed frame in millimetres
+  (`calibration.json`); a new or regenerated plate needs it re-measured and reviewed.

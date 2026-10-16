@@ -107,8 +107,18 @@ export function TattooPreviewModal({
   }, [backgroundId]);
   const pose: MockupPose | undefined =
     mockupFrame && !artifact.capture && artifact.backgroundKind === 'generated_anatomy'
-      ? { transform: artifact.transform, frame: mockupFrame }
+      ? {
+          transform: artifact.transform,
+          frame: mockupFrame,
+          // TASK-0120 (ADR-0042): the skin's millimetres, so the 3D view places the design as
+          // the mockup does.
+          skin: artifact.skinFrame,
+          size: artifact.size,
+        }
       : undefined;
+  // TASK-0120: one placement, in the mockup's fractions, for the mockup editor and the 3D view
+  // while both are open; moving either moves the other. Null is where the result has it.
+  const [shared, setShared] = useState<EditorPlacement | null>(null);
   const wholeCanvas = artifact.transform.scaleCalibrated;
   // TASK-0119: the mockup editor opens with the result, as the 3D view does (TASK-0118).
   const [adjusting, setAdjusting] = useState(true);
@@ -120,6 +130,8 @@ export function TattooPreviewModal({
   );
   // TASK-0112: what is adjusted in 3D is saved as the mockup's placement, as the 2D editor saves.
   const save3d = {
+    shared: adjustable && pose ? shared : undefined,
+    onShared: adjustable && pose ? setShared : undefined,
     baseStretch: artifact.transform.stretch,
     saveDisabled: editingDisabled,
     quotaNote,
@@ -294,6 +306,8 @@ export function TattooPreviewModal({
             <MockupEditor
               artifact={artifact}
               disabled={editingDisabled}
+              placement={pose ? shared : undefined}
+              onPlacement={pose ? setShared : undefined}
               onSave={(placement) =>
                 onEdit(
                   'Ajuste manual de tamaño, posición y giro sobre la piel',

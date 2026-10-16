@@ -15,7 +15,14 @@ import { SKIN_TONES, type SkinTone } from '@/lib/limb-wrap';
 import type { BodyScene } from '@/lib/body-scene';
 import { BODY_LABEL, BODY_TYPES, type BodyType } from '@/lib/body-type';
 import { BODY_ZONE_SPANS } from '@tattoo/contracts';
-import { mockupOffset, toMockupPlacement, visibleSize, type MockupPose } from '@/lib/mockup-pose';
+import {
+  mockupOffset,
+  mockupStart,
+  offsetOf,
+  toMockupPlacement,
+  visibleSize,
+  type MockupPose,
+} from '@/lib/mockup-pose';
 import { UNCHANGED_FACTORS, type Factors } from '@/lib/design-resize';
 import type { EditorPlacement } from '@/lib/mockup-editor';
 import type { ArtworkBox } from '@/lib/try-on';
@@ -38,6 +45,8 @@ export function BodyViewer3D({
   onSave,
   saveDisabled = false,
   quotaNote,
+  shared,
+  onShared,
 }: {
   designUrl: string;
   size: { widthMm: number; heightMm: number };
@@ -55,6 +64,9 @@ export function BodyViewer3D({
   onSave?: ((placement: EditorPlacement) => void) | undefined;
   saveDisabled?: boolean;
   quotaNote?: string | null | undefined;
+  /** TASK-0120: the placement shared with the mockup editor (its fractions); null: the result's. */
+  shared?: EditorPlacement | null | undefined;
+  onShared?: ((placement: EditorPlacement) => void) | undefined;
 }): ReactNode {
   const stage = useRef<HTMLDivElement>(null);
   const scene = useRef<BodyScene | null>(null);
@@ -136,17 +148,58 @@ export function BodyViewer3D({
     // The scene is built once per design and body; later changes go through its setters.
   }, [designUrl, zone, body]);
 
-  function move(next: BodyPlacement) {
+  const span = BODY_ZONE_SPANS[zone];
+  // TASK-0120: what this view last told the mockup editor, so it does not move itself back.
+  const sent = useRef('');
+
+  function move(next: BodyPlacement, nextFactors: Factors = factors) {
     setPlacement(next);
     scene.current?.setPlacement(next);
+    if (onShared && pose && span) {
+      const shown = toMockupPlacement(
+        pose,
+        artBox.current,
+        span.heightMm,
+        { xMm: next.xMm, yMm: next.yMm, angle: next.angle },
+        nextFactors,
+      );
+      sent.current = JSON.stringify(shown);
+      onShared(shown);
+    }
   }
 
   const range = model ? moveRange(model, drawn) : null;
 
   function resize(next: Factors) {
     setFactors(next);
-    move({ ...placement, widthMm: drawn.widthMm * next[0], heightMm: drawn.heightMm * next[1] });
+    move(
+      { ...placement, widthMm: drawn.widthMm * next[0], heightMm: drawn.heightMm * next[1] },
+      next,
+    );
   }
+
+  // TASK-0120: the mockup editor moved the design; this view follows, in the same millimetres.
+  useEffect(() => {
+    if (shared === undefined || !pose || !span || state !== 'ready' || !opened.current) return;
+    if (shared && JSON.stringify(shared) === sent.current) return;
+    let next: BodyPlacement = opened.current;
+    let nextFactors: Factors = UNCHANGED_FACTORS;
+    if (shared) {
+      const start = mockupStart(pose, artBox.current);
+      const at = offsetOf(pose, shared, span.heightMm);
+      nextFactors = [shared.width / start.width, shared.height / start.height];
+      next = {
+        ...placement,
+        ...at,
+        widthMm: drawn.widthMm * nextFactors[0],
+        heightMm: drawn.heightMm * nextFactors[1],
+      };
+    }
+    setFactors(nextFactors);
+    setPlacement(next);
+    scene.current?.setPlacement(next);
+    // Only a change of what is shared moves this view; its own moves were sent from `move`.
+  }, [shared, state]);
 
   const start = opened.current;
   const changed = Boolean(
@@ -157,7 +210,6 @@ export function BodyViewer3D({
       Math.abs(placement.yMm - start.yMm) > 1 ||
       Math.abs(placement.angle - start.angle) > 0.5),
   );
-  const span = BODY_ZONE_SPANS[zone];
   const save =
     onSave && pose && span
       ? {

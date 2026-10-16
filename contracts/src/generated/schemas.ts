@@ -1419,6 +1419,43 @@ export const schemas: Record<string, Record<string, unknown>> = {
               ]
             }
           }
+        },
+        "skinFrame": {
+          "description": "TASK-0120 (ADR-0042): the generated skin's picture in millimetres of the reference body, and where the zone's centre is in it (fractions of the picture), served with the result from the plate library's current calibration. The mockup editor and the 3D views both place the design by it, so they agree. `calibrated: false` is the framing convention of an uncalibrated plate. Absent on an own photograph, a camera capture, a sleeve or a skin not from the library.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "widthMm",
+            "heightMm",
+            "centreX",
+            "centreY",
+            "calibrated"
+          ],
+          "properties": {
+            "widthMm": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 5000
+            },
+            "heightMm": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 5000
+            },
+            "centreX": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "centreY": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "calibrated": {
+              "type": "boolean"
+            }
+          }
         }
       },
       "required": [

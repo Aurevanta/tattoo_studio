@@ -19,7 +19,14 @@ import {
 import type { LimbScene } from '@/lib/limb-scene';
 import { BODY_LABEL, BODY_TYPES, type BodyType } from '@/lib/body-type';
 import { BODY_ZONE_SPANS } from '@tattoo/contracts';
-import { mockupOffset, toMockupPlacement, visibleSize, type MockupPose } from '@/lib/mockup-pose';
+import {
+  mockupOffset,
+  mockupStart,
+  offsetOf,
+  toMockupPlacement,
+  visibleSize,
+  type MockupPose,
+} from '@/lib/mockup-pose';
 import { UNCHANGED_FACTORS, type Factors } from '@/lib/design-resize';
 import type { EditorPlacement } from '@/lib/mockup-editor';
 import type { ArtworkBox } from '@/lib/try-on';
@@ -43,6 +50,8 @@ export function LimbViewer3D({
   onSave,
   saveDisabled = false,
   quotaNote,
+  shared,
+  onShared,
 }: {
   designUrl: string;
   size: { widthMm: number; heightMm: number };
@@ -62,6 +71,9 @@ export function LimbViewer3D({
   onSave?: ((placement: EditorPlacement) => void) | undefined;
   saveDisabled?: boolean;
   quotaNote?: string | null | undefined;
+  /** TASK-0120: the placement shared with the mockup editor (its fractions); null: the result's. */
+  shared?: EditorPlacement | null | undefined;
+  onShared?: ((placement: EditorPlacement) => void) | undefined;
 }): ReactNode {
   const limb = limbOf(zone);
   const spec = LIMBS[limb];
@@ -155,9 +167,26 @@ export function LimbViewer3D({
     // The scene is built once per design and body; later changes go through its setters.
   }, [designUrl, limb, body]);
 
-  function move(next: LimbPlacement) {
+  const span = BODY_ZONE_SPANS[zone];
+  // TASK-0120: what this view last told the mockup editor, so it does not move itself back.
+  const sent = useRef('');
+
+  function move(next: LimbPlacement, nextFactors: Factors = factors) {
     setPlacement(next);
     scene.current?.setPlacement(next);
+    if (onShared && pose && span && !wraps) {
+      // Round the limb is this view's own: the mockup keeps where it has the design across.
+      const shown = toMockupPlacement(
+        pose,
+        artBox.current,
+        span.heightMm,
+        { yMm: next.heightMm - zoneHeight.current, angle: next.angle ?? 0 },
+        nextFactors,
+        shared,
+      );
+      sent.current = JSON.stringify(shown);
+      onShared(shown);
+    }
   }
 
   const range = model && placement ? heightRange(model, placement.lengthMm) : null;
@@ -165,12 +194,40 @@ export function LimbViewer3D({
   function resize(next: Factors) {
     setFactors(next);
     if (placement)
-      move({
-        ...placement,
-        widthMm: drawn.widthMm * next[0],
-        lengthMm: drawn.heightMm * next[1],
-      });
+      move(
+        {
+          ...placement,
+          widthMm: drawn.widthMm * next[0],
+          lengthMm: drawn.heightMm * next[1],
+        },
+        next,
+      );
   }
+
+  // TASK-0120: the mockup editor moved the design; this view follows its height, turn and size.
+  useEffect(() => {
+    if (shared === undefined || wraps || !pose || !span || state !== 'ready') return;
+    if (!opened.current || !placement) return;
+    if (shared && JSON.stringify(shared) === sent.current) return;
+    let next: LimbPlacement = { ...opened.current, around: placement.around };
+    let nextFactors: Factors = UNCHANGED_FACTORS;
+    if (shared) {
+      const start = mockupStart(pose, artBox.current);
+      const at = offsetOf(pose, shared, span.heightMm);
+      nextFactors = [shared.width / start.width, shared.height / start.height];
+      next = {
+        ...placement,
+        heightMm: zoneHeight.current + at.yMm,
+        angle: at.angle,
+        widthMm: drawn.widthMm * nextFactors[0],
+        lengthMm: drawn.heightMm * nextFactors[1],
+      };
+    }
+    setFactors(nextFactors);
+    setPlacement(next);
+    scene.current?.setPlacement(next);
+    // Only a change of what is shared moves this view; its own moves were sent from `move`.
+  }, [shared, state]);
 
   const start = opened.current;
   const changed = Boolean(
@@ -181,7 +238,6 @@ export function LimbViewer3D({
       Math.abs(placement.heightMm - start.heightMm) > 1 ||
       Math.abs((placement.angle ?? 0) - (start.angle ?? 0)) > 0.5),
   );
-  const span = BODY_ZONE_SPANS[zone];
   // Round a limb the plate shows one side: the height and the turn go back to the mockup, and the
   // fraction round it stays the mockup's own.
   const save =

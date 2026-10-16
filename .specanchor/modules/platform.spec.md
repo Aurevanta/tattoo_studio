@@ -23,6 +23,8 @@ last_reviewed: 2026-09-19
 
 # Module: platform
 
+TASK-0120 (ADR-0042): `app.build_plate_calibration` measures and reviews the plates' frames (contact sheets with `--sheet`). `Studio.skin_frame` and `Studio.describe` serve `skinFrame` for a generated skin. On a plate with a frame, a first proposal, a redraw (where its parent was) and a whole-zone fill are laid at their millimetres and drawn as placed; a manual placement's millimetres start from the printed size.
+
 TASK-0116 (ADR-0041): `DELETE /studio/jobs/{id}` and `DELETE /studio/designs/{family}` erase a version or a design: rows emptied and cancelled (the day's count stays), links closed, and only files no remaining version uses — artwork, then uploads no remaining version or consultation uses, and vectors no remaining version shows (`Studio._erase_versions`). 409 while a version of the design is queued or running. `PATCH /studio/designs/{family}` renames; `POST /studio/designs` copies a version into a new design «<name> (copia)», free and idempotent, without a kept photo. «Elimina tus datos» also forgets the names.
 
 TASK-0114 (ADR-0040): the `CONTAINS_PERSON` refusal says «una persona que se puede reconocer», suggests cropping it out, and says small, distant people do not matter.

@@ -1,0 +1,236 @@
+{
+  "plates": {
+    "calf-feminine": {
+      "centreX": 0.4878,
+      "centreY": 0.59,
+      "heightMm": 427.7,
+      "method": "silhouette-fit",
+      "widthMm": 285.1
+    },
+    "calf-masculine": {
+      "centreX": 0.4897,
+      "centreY": 0.56,
+      "heightMm": 427.7,
+      "method": "silhouette-fit",
+      "widthMm": 285.1
+    },
+    "chest-feminine": {
+      "centreX": 0.3,
+      "centreY": 0.58,
+      "heightMm": 408.3,
+      "method": "silhouette-fit",
+      "widthMm": 272.2
+    },
+    "chest-masculine": {
+      "centreX": 0.18,
+      "centreY": 0.49,
+      "heightMm": 503.1,
+      "method": "silhouette-fit",
+      "widthMm": 335.4
+    },
+    "hip-feminine": {
+      "centreX": 0.5327,
+      "centreY": 0.3,
+      "heightMm": 565.0,
+      "method": "silhouette-fit",
+      "widthMm": 376.7
+    },
+    "hip-masculine": {
+      "centreX": 0.4819,
+      "centreY": 0.6,
+      "heightMm": 491.6,
+      "method": "silhouette-fit",
+      "widthMm": 327.7
+    },
+    "inner_forearm-feminine": {
+      "centreX": 0.4971,
+      "centreY": 0.5,
+      "heightMm": 288.3,
+      "method": "silhouette-fit",
+      "widthMm": 192.2
+    },
+    "inner_forearm-masculine": {
+      "centreX": 0.5229,
+      "centreY": 0.5,
+      "heightMm": 288.3,
+      "method": "silhouette-fit",
+      "widthMm": 192.2
+    },
+    "lower_back-feminine": {
+      "centreX": 0.5029,
+      "centreY": 0.69,
+      "heightMm": 469.3,
+      "method": "silhouette-fit",
+      "widthMm": 312.9
+    },
+    "lower_back-masculine": {
+      "centreX": 0.5015,
+      "centreY": 0.58,
+      "heightMm": 503.1,
+      "method": "silhouette-fit",
+      "widthMm": 335.4
+    },
+    "outer_forearm-feminine": {
+      "centreX": 0.5112,
+      "centreY": 0.5,
+      "heightMm": 316.4,
+      "method": "silhouette-fit",
+      "widthMm": 210.9
+    },
+    "outer_forearm-masculine": {
+      "centreX": 0.4976,
+      "centreY": 0.5,
+      "heightMm": 256.7,
+      "method": "silhouette-fit",
+      "widthMm": 171.2
+    },
+    "ribs-feminine": {
+      "centreX": 0.5483,
+      "centreY": 0.55,
+      "heightMm": 514.9,
+      "method": "silhouette-fit",
+      "widthMm": 343.3
+    },
+    "ribs-masculine": {
+      "centreX": 0.5684,
+      "centreY": 0.53,
+      "heightMm": 491.6,
+      "method": "silhouette-fit",
+      "widthMm": 327.7
+    },
+    "shin-feminine": {
+      "centreX": 0.499,
+      "centreY": 0.49,
+      "heightMm": 417.9,
+      "method": "silhouette-fit",
+      "widthMm": 278.6
+    },
+    "shin-masculine": {
+      "centreX": 0.4976,
+      "centreY": 0.52,
+      "heightMm": 399.0,
+      "method": "silhouette-fit",
+      "widthMm": 266.0
+    },
+    "shoulder-feminine": {
+      "centreX": 0.5405,
+      "centreY": 0.4,
+      "heightMm": 276.1,
+      "method": "silhouette-width",
+      "widthMm": 184.1
+    },
+    "shoulder-masculine": {
+      "centreX": 0.5034,
+      "centreY": 0.4,
+      "heightMm": 289.2,
+      "method": "silhouette-width",
+      "widthMm": 192.8
+    },
+    "spine-feminine": {
+      "centreX": 0.4951,
+      "centreY": 0.58,
+      "heightMm": 591.9,
+      "method": "silhouette-fit",
+      "widthMm": 394.6
+    },
+    "spine-masculine": {
+      "centreX": 0.4995,
+      "centreY": 0.53,
+      "heightMm": 591.9,
+      "method": "silhouette-fit",
+      "widthMm": 394.6
+    },
+    "sternum-masculine": {
+      "centreX": 0.5,
+      "centreY": 0.43,
+      "heightMm": 491.6,
+      "method": "silhouette-fit",
+      "widthMm": 327.7
+    },
+    "stomach-feminine": {
+      "centreX": 0.5093,
+      "centreY": 0.43,
+      "heightMm": 458.5,
+      "method": "silhouette-fit",
+      "widthMm": 305.7
+    },
+    "stomach-masculine": {
+      "centreX": 0.4917,
+      "centreY": 0.33,
+      "heightMm": 469.3,
+      "method": "silhouette-fit",
+      "widthMm": 312.9
+    },
+    "thigh_front-feminine": {
+      "centreX": 0.5151,
+      "centreY": 0.49,
+      "heightMm": 417.9,
+      "method": "silhouette-fit",
+      "widthMm": 278.6
+    },
+    "thigh_front-masculine": {
+      "centreX": 0.5073,
+      "centreY": 0.35,
+      "heightMm": 448.0,
+      "method": "silhouette-fit",
+      "widthMm": 298.7
+    },
+    "thigh_outer-feminine": {
+      "centreX": 0.5537,
+      "centreY": 0.5,
+      "heightMm": 480.3,
+      "method": "silhouette-fit",
+      "widthMm": 320.2
+    },
+    "thigh_outer-masculine": {
+      "centreX": 0.499,
+      "centreY": 0.55,
+      "heightMm": 527.0,
+      "method": "silhouette-fit",
+      "widthMm": 351.4
+    },
+    "upper_arm_inner-feminine": {
+      "centreX": 0.5186,
+      "centreY": 0.5,
+      "heightMm": 240.0,
+      "method": "silhouette-width",
+      "widthMm": 160.0
+    },
+    "upper_arm_inner-masculine": {
+      "centreX": 0.5562,
+      "centreY": 0.5,
+      "heightMm": 344.6,
+      "method": "silhouette-width",
+      "widthMm": 229.7
+    },
+    "upper_arm_outer-feminine": {
+      "centreX": 0.4756,
+      "centreY": 0.5,
+      "heightMm": 319.3,
+      "method": "silhouette-width",
+      "widthMm": 212.8
+    },
+    "upper_arm_outer-masculine": {
+      "centreX": 0.4585,
+      "centreY": 0.5,
+      "heightMm": 327.8,
+      "method": "silhouette-width",
+      "widthMm": 218.5
+    },
+    "upper_back-feminine": {
+      "centreX": 0.5,
+      "centreY": 0.43,
+      "heightMm": 608.0,
+      "method": "reviewed-estimate",
+      "widthMm": 405.3
+    },
+    "upper_back-masculine": {
+      "centreX": 0.5,
+      "centreY": 0.43,
+      "heightMm": 649.4,
+      "method": "silhouette-fit",
+      "widthMm": 432.9
+    }
+  },
+  "version": 1
+}

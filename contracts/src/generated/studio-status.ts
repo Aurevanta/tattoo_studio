@@ -164,6 +164,16 @@ export interface GeneratedTattooArtifact {
     side?: 'left' | 'right' | 'centre';
     bodyType?: 'masculine' | 'feminine';
   };
+  /**
+   * TASK-0120 (ADR-0042): the generated skin's picture in millimetres of the reference body, and where the zone's centre is in it (fractions of the picture), served with the result from the plate library's current calibration. The mockup editor and the 3D views both place the design by it, so they agree. `calibrated: false` is the framing convention of an uncalibrated plate. Absent on an own photograph, a camera capture, a sleeve or a skin not from the library.
+   */
+  skinFrame?: {
+    widthMm: number;
+    heightMm: number;
+    centreX: number;
+    centreY: number;
+    calibrated: boolean;
+  };
 }
 export interface StudioAsset {
   assetId: string;

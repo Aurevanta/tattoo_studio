@@ -1,0 +1,64 @@
+{
+  "jobId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": "succeeded",
+  "result": {
+    "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "briefId": "11111111-1111-4111-8111-111111111111",
+    "briefRevision": 1,
+    "size": {
+      "widthMm": 80,
+      "heightMm": 150
+    },
+    "referenceAnalysis": "Visible contours.",
+    "reviewRequired": true,
+    "backgroundKind": "generated_anatomy",
+    "transform": {
+      "xPx": 1,
+      "yPx": 1,
+      "widthPx": 80,
+      "heightPx": 150,
+      "method": "geometric-multiply",
+      "scaleCalibrated": false,
+      "generativePostprocess": false
+    },
+    "notice": "Review required.",
+    "master": {
+      "assetId": "cccccccccccccccccccccccccccccccc",
+      "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mimeType": "image/png"
+    },
+    "stencil": {
+      "assetId": "cccccccccccccccccccccccccccccccc",
+      "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mimeType": "image/png"
+    },
+    "stencilMirror": {
+      "assetId": "cccccccccccccccccccccccccccccccc",
+      "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mimeType": "image/png"
+    },
+    "pdf": {
+      "assetId": "cccccccccccccccccccccccccccccccc",
+      "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mimeType": "image/png"
+    },
+    "pdfMirror": {
+      "assetId": "cccccccccccccccccccccccccccccccc",
+      "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mimeType": "image/png"
+    },
+    "mockup": {
+      "assetId": "cccccccccccccccccccccccccccccccc",
+      "designId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mimeType": "image/png"
+    },
+    "skinFrame": {
+      "widthMm": 432.9,
+      "heightMm": 649.4,
+      "centreX": 1.4,
+      "centreY": 0.43,
+      "calibrated": true
+    }
+  },
+  "error": null
+}

@@ -60,7 +60,7 @@ exist and its field set is unproven against any consumer.
 | FINDING-0002 | The brief contract permits size combinations flash cannot render | open |
 | FINDING-0003 | `media` and `safety` declared a circular dependency | resolved (TASK-0012) |
 | FINDING-0004 | Live consultation route bypasses `ConsultationProvider`; Claude agents not yet active | resolved (TASK-0033) |
-| FINDING-0005 | `design_vector` is keyed by the design hash alone; a repeated store orphans a vector | open |
+| FINDING-0005 | `design_vector` is keyed by the design hash alone; a repeated store orphans a vector | resolved (TASK-0126) |
 
 ## Decisions
 

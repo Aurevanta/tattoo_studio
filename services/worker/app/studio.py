@@ -177,6 +177,33 @@ def resizes_print(edit: dict[str, Any] | None) -> bool:
     return bool(edit) and (edit or {}).get("coverage") == "full"
 
 
+def migrate_design_vector(db: sqlite3.Connection) -> None:
+    """TASK-0126 (FINDING-0005): move a `design_vector` keyed by the design alone to the new key.
+
+    Rows are kept as they are. A row another account overwrote before this migration is already
+    gone; that account's design then has no vector, the case `load_vector` callers already handle.
+    """
+    key = [
+        name
+        for _, name, *_rest, pk in db.execute("PRAGMA table_info(design_vector)").fetchall()
+        if pk
+    ]
+    if key != ["design_id"]:
+        return
+    db.execute("ALTER TABLE design_vector RENAME TO design_vector_before_0126")
+    db.execute(
+        "CREATE TABLE design_vector "
+        "(design_id TEXT NOT NULL, owner TEXT NOT NULL, asset_id TEXT NOT NULL, "
+        "PRIMARY KEY (owner, design_id))"
+    )
+    db.execute(
+        "INSERT INTO design_vector (design_id, owner, asset_id) "
+        "SELECT design_id, owner, asset_id FROM design_vector_before_0126 "
+        "WHERE owner IS NOT NULL AND asset_id IS NOT NULL"
+    )
+    db.execute("DROP TABLE design_vector_before_0126")
+
+
 class _StudioBlend:
     """The mockup finish over the configured provider (TASK-0040, ADR-0018).
 
@@ -602,11 +629,14 @@ class Studio:
             # When an owner last erased everything (TASK-0046). Not a blocklist: see `still_mine`.
             db.execute("CREATE TABLE IF NOT EXISTS deleted (owner TEXT PRIMARY KEY, at REAL)")
             # The authoritative vector geometry (ADR-0007). Internal: it is not a client
-            # artifact, so it stays out of the studio-status contract.
+            # artifact, so it stays out of the studio-status contract. TASK-0126 (FINDING-0005):
+            # keyed by account and design, so two accounts' identical designs keep a vector each.
             db.execute(
                 "CREATE TABLE IF NOT EXISTS design_vector "
-                "(design_id TEXT PRIMARY KEY, owner TEXT, asset_id TEXT)"
+                "(design_id TEXT NOT NULL, owner TEXT NOT NULL, asset_id TEXT NOT NULL, "
+                "PRIMARY KEY (owner, design_id))"
             )
+            migrate_design_vector(db)
             db.execute(
                 "CREATE TABLE IF NOT EXISTS consent (owner TEXT, version TEXT, created TEXT "
                 "DEFAULT CURRENT_TIMESTAMP)"
@@ -1054,21 +1084,40 @@ class Studio:
         return result
 
     def store_vector(self, owner: str, master: Master, payload: dict[str, Any]) -> None:
-        """Keep the authoritative geometry so a later resize is an exact scale, not a retrace."""
-        asset = self.media.store_artifact(
-            serialize_master(master),
-            media_type="application/json",
-            width_px=0,
-            height_px=0,
-            # The geometry shows nobody: it is the design itself (TASK-0047).
-            retention=RetentionClass.DESIGN,
-            parent_id=design_parent(payload),
-        )
-        with self.db() as db:
-            db.execute(
-                "INSERT OR REPLACE INTO design_vector VALUES (?, ?, ?)",
-                (master.design_hash, owner, self.register(owner, asset.asset_id, "artifact")),
+        """Keep the authoritative geometry so a later resize is an exact scale, not a retrace.
+
+        TASK-0126 (FINDING-0005): one vector per account and design. The design's identity is the
+        hash of this very geometry, so a vector the account already keeps for it is reused; a new
+        one is stored only when there is none or its file is gone, and a row is never replaced
+        while its file lives, so no vector is left unreferenced.
+        """
+        design_id = master.design_hash
+        with self.lock:
+            with self.db() as db:
+                row = db.execute(
+                    "SELECT asset_id FROM design_vector WHERE owner=? AND design_id=?",
+                    (owner, design_id),
+                ).fetchone()
+            if row is not None and self.load_vector(owner, design_id) is not None:
+                return
+            asset = self.media.store_artifact(
+                serialize_master(master),
+                media_type="application/json",
+                width_px=0,
+                height_px=0,
+                # The geometry shows nobody: it is the design itself (TASK-0047).
+                retention=RetentionClass.DESIGN,
+                parent_id=design_parent(payload),
             )
+            with self.db() as db:
+                db.execute(
+                    "INSERT INTO design_vector (design_id, owner, asset_id) VALUES (?, ?, ?) "
+                    "ON CONFLICT (owner, design_id) DO UPDATE SET asset_id = excluded.asset_id",
+                    (design_id, owner, self.register(owner, asset.asset_id, "artifact")),
+                )
+            if row is not None:
+                # The replaced row pointed at a file that no longer opens; drop its ownership row.
+                self._erase_file(owner, row[0])
 
     def visible_box(
         self, owner: str, parent: dict[str, Any]
@@ -1544,6 +1593,9 @@ class Studio:
                 designs |= design_ids(result)
             kept_files: set[str] = set()
             kept_designs: set[str] = set()
+            # TASK-0126: a remaining version's first reference, per design it shows, to re-home a
+            # vector shared with an erased version whose reference goes.
+            kept_parent: dict[str, str | None] = {}
             with self.jobs.connect() as db:
                 remaining = db.execute(
                     "SELECT id, payload, result FROM jobs WHERE owner=? AND state IN "
@@ -1554,8 +1606,11 @@ class Studio:
                     if job_id in gone_ids:
                         continue
                     result = json.loads(result_text or "{}")
-                    kept_files |= asset_ids(result) | inputs_of(json.loads(payload or "{}"))
+                    source = json.loads(payload or "{}")
+                    kept_files |= asset_ids(result) | inputs_of(source)
                     kept_designs |= design_ids(result)
+                    for design_id in design_ids(result):
+                        kept_parent.setdefault(design_id, design_parent(source))
                 db.executemany(
                     "UPDATE jobs SET state='cancelled',payload='{}',result=NULL WHERE id=? "
                     "AND owner=?",
@@ -1591,6 +1646,7 @@ class Studio:
                 for asset_id in uploads - kept_files
                 if not any(asset_id in data for data in in_progress)
             }
+            self._rehome_vectors(owner, kept_parent, unused - artwork)
             for asset_id in [*sorted(artwork), *sorted(unused - artwork)]:
                 self._erase_file(owner, asset_id)
         record(
@@ -1600,6 +1656,44 @@ class Studio:
             detail={"versions": len(erased)},
         )
         return len(erased)
+
+    def _rehome_vectors(
+        self, owner: str, kept_parent: dict[str, str | None], going: set[str]
+    ) -> None:
+        """Move a kept design's vector out from under an upload about to be erased (TASK-0126).
+
+        A vector is stored under the first reference of the version that stored it, and one vector
+        serves every version of the account showing that design. When the version that stored it
+        is erased with its reference, the cascade would take the vector the remaining versions
+        still need, so it is stored again under a remaining version's reference first.
+        """
+        with self.db() as db:
+            kept = db.execute(
+                "SELECT design_id, asset_id FROM design_vector WHERE owner=?", (owner,)
+            ).fetchall()
+        for design_id, asset_id in kept:
+            if design_id not in kept_parent:
+                continue
+            try:
+                parent = self.media.metadata(asset_id).parent_id
+            except AssetNotFoundError:
+                continue
+            if parent not in going:
+                continue
+            data = self.owned(owner, asset_id, "artifact")
+            moved = self.media.store_artifact(
+                data,
+                media_type="application/json",
+                width_px=0,
+                height_px=0,
+                retention=RetentionClass.DESIGN,
+                parent_id=kept_parent[design_id],
+            )
+            with self.db() as db:
+                db.execute(
+                    "UPDATE design_vector SET asset_id=? WHERE owner=? AND design_id=?",
+                    (self.register(owner, moved.asset_id, "artifact"), owner, design_id),
+                )
 
     def _erase_file(self, owner: str, asset_id: str) -> None:
         """One owned file and what descends from it, with its ownership rows."""

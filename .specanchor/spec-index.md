@@ -97,6 +97,7 @@ exist and its field set is unproven against any consumer.
 | ADR-0040 | A reference may show people who cannot be identified; an identifiable person is refused | accepted |
 | ADR-0041 | A client names, deletes and copies their designs one by one (amends ADR-0023) | accepted |
 | ADR-0042 | The mockup and the 3D views place a design by the same millimetres (amends ADR-0036, ADR-0027) | accepted |
+| ADR-0043 | A size change is a print change, confirmed, and every view follows it (amends ADR-0008, ADR-0042) | accepted |
 | ADR-0024 | The studio records what it does, and never what a body looks like | accepted |
 | ADR-0023 | Designs last; photographs of a body expire (refines MEDIA-INV-006) | accepted |
 | ADR-0022 | One camera photograph may be kept, when the client takes it and chooses to (amends ADR-0019) | accepted |

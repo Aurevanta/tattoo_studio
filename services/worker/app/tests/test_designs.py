@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from PIL import Image
 from tattoo_contracts.validation import validate
 
 from app.studio import Studio, router
 from app.tests.test_studio import ACCOUNT, FakeProvider, a_capture, a_design, an_upload, payload
+from mockup.placement import parent_placement
 
 SERVICE = {"Authorization": "Bearer test-only-token"}
 AS_OWNER = {**SERVICE, "X-Owner-Id": ACCOUNT}
@@ -25,16 +28,29 @@ def a_client(studio: Studio) -> TestClient:
     return TestClient(app)
 
 
+def a_move(studio: Studio, parent: str) -> dict[str, Any]:
+    """The parent's own placement in the live editor, moved and not resized."""
+    result = studio.jobs.get(ACCOUNT, parent)["result"]
+    skin = studio.owned(ACCOUNT, result["background"]["assetId"], "artifact")
+    with Image.open(io.BytesIO(skin)) as image:
+        image.thumbnail((2048, 2048))
+        frame = image.size
+    start = parent_placement(result["transform"], frame, studio.visible_box(ACCOUNT, result))
+    return {**start, "centreX": start["centreX"] + 0.05}
+
+
 def a_placement(studio: Studio, parent: str, key: str) -> str:
-    """A re-placement of `parent`: it keeps the parent's artwork and stencils."""
+    """A re-placement of `parent`: it keeps the parent's artwork and stencils.
+
+    ADR-0043: a move in the live editor, since «más grande» now changes the stencil too.
+    """
     response = a_client(studio).post(
         "/studio/jobs",
         json={
             "edit": {
                 "parentJobId": parent,
-                "instruction": "Ampliar la cobertura",
-                "coverage": "larger",
-                "mode": "placement",
+                "instruction": "Ajuste manual de posición sobre la piel",
+                "placement": a_move(studio, parent),
             },
             "idempotencyKey": key,
         },
@@ -146,8 +162,8 @@ def test_deleting_a_version_keeps_what_the_others_use(tmp_path: Path) -> None:
     # The child is still its design, under the same name, and can be changed further.
     assert studio.jobs.get(ACCOUNT, child)["design"]["id"] == first
     a_placement(studio, child, "44444444-4444-4444-8444-444444444444")
-    # It counted as a design today, and still does.
-    assert studio.jobs.designs_today(ACCOUNT)[0] == 1
+    # The original and two editor saves counted today (TASK-0078), and deleting gives none back.
+    assert studio.jobs.designs_today(ACCOUNT)[0] == 3
     assert client.delete(f"/studio/jobs/{first}", headers=AS_OWNER).status_code == 404
 
 

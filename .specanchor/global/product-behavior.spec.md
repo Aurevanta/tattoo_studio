@@ -83,3 +83,4 @@ regardless of how good the mockup looked.
 ## Change history
 
 - 2026-09-19: Created during SDD bootstrap. Status draft, no implementation.
+- 2026-10-16: TASK-0123 (ADR-0043): every size change is a print change, confirmed; mockup, 3D and stencil follow one size.

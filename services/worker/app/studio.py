@@ -34,6 +34,7 @@ from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, wrap_region, zone_size
 from mockup.engine import DEFAULT_SURFACE, composite, visible_artwork, visible_size
 from mockup.geometry import BLEND_TOLERANCE, GeometryCheck
 from mockup.placement import (
+    CALIBRATED_NUDGE,
     Coverage,
     ManualLayout,
     convention_frame,
@@ -41,6 +42,7 @@ from mockup.placement import (
     fit_coverage,
     frame_placement,
     manual_layout,
+    nudged_size,
     parent_placement,
 )
 from orchestration import PipelineState, build_finish_graph, build_generation_graph
@@ -129,6 +131,20 @@ MAX_CONSULTATION_BYTES = 400_000
 ZONE_NEEDS_CONTROL = (
     "Para que ocupe toda la zona hay que cambiar las medidas de impresión. Usa el botón «Ocupar "
     "toda la zona»: te dirá las medidas nuevas antes de aplicarlas."
+)
+#: ADR-0043: a nudge changes the print size, so it is confirmed in the result view first.
+SIZE_NEEDS_CONTROL = (
+    "Cambiar el tamaño cambia las medidas de impresión. Escribe solo «más grande» o «más "
+    "pequeño» (te diremos las medidas nuevas antes de aplicarlas) o usa el ajuste sobre la piel."
+)
+PHRASED_SIZE_NOTICE = (
+    "Las medidas no cambian con una frase dentro de un cambio del dibujo: para cambiar el tamaño "
+    "usa «Ocupar toda la zona», escribe solo «más grande» o «más pequeño», o usa el ajuste sobre "
+    "la piel. "
+)
+NO_VECTOR_NUDGE = (
+    "Esta propuesta es anterior a la plantilla vectorial y no se puede cambiar de tamaño sin "
+    "volver a dibujarla. Usa el ajuste sobre la piel o pide un cambio del dibujo."
 )
 
 
@@ -950,7 +966,12 @@ class Studio:
         # The creation sequence (artwork -> stencil -> compose) runs through the orchestration
         # graph (TASK-0032, ADR-0015). The adapter reproduces the previous inline behaviour; the
         # graph fixes the order and hosts the future AI-blend / output-gate nodes.
-        deps = _StudioGenerationDeps(self, owner, edit, parent, coverage, zone, payload)
+        # ADR-0043: a size phrase inside a drawing change keeps the millimetres (TASK-0073), so the
+        # new drawing is laid at them too; only the confirmed controls change the size.
+        phrased_size = bool(coverage) and not resizes_print(edit)
+        deps = _StudioGenerationDeps(
+            self, owner, edit, parent, None if phrased_size else coverage, zone, payload
+        )
         state = build_generation_graph(
             deps, blend=_StudioBlend(self.provider), geometry=GeometryCheck(BLEND_TOLERANCE)
         ).invoke(
@@ -999,6 +1020,7 @@ class Studio:
             )
             + (FINISH_NOTICE if state.blended else "")
             + (sleeve_notice(brief, deps.seam_visible) if is_sleeve(brief) else "")
+            + (PHRASED_SIZE_NOTICE if phrased_size else "")
             + "Simulación de tinta reciente; curvatura aproximada en extremidades, "
             "no reconstrucción anatómica. "
             "Visualización ilustrativa. Revisa los símbolos y el trazo con "
@@ -1155,6 +1177,14 @@ class Studio:
             if coverage.kind == "manual"
             else None
         )
+        # ADR-0043: «más grande» / «más pequeño» resize the print by a fixed step, confirmed in
+        # the result view; the picture, the 3D view and the stencil follow the same millimetres.
+        nudge = coverage.nudges
+        if nudge:
+            if not (payload.get("edit") or {}).get("coverage"):
+                raise ValueError(SIZE_NEEDS_CONTROL)
+            if previous.get("photoWidthMm"):
+                raise ValueError(CALIBRATED_NUDGE)
         stored_vector = (
             self.load_vector(owner, parent["designId"])
             if (
@@ -1163,11 +1193,17 @@ class Studio:
                 and not previous.get("photoWidthMm")
             )
             or (layout is not None and layout.resizes)
+            or nudge
             else None
         )
         if layout is not None and layout.stretches and stored_vector is None:
             raise ValueError(NO_VECTOR_STRETCH)
-        resize = stored_vector is not None and (layout is not None or body_part in ZONE_SPAN_MM)
+        if nudge and stored_vector is None:
+            # Enlarging the picture alone is the disagreement ADR-0043 removes.
+            raise ValueError(NO_VECTOR_NUDGE)
+        resize = stored_vector is not None and (
+            layout is not None or nudge or body_part in ZONE_SPAN_MM
+        )
         stretched: bytes | None = None
         files: dict[str, tuple[bytes, str]] = {}
         design_id = parent["designId"]
@@ -1190,12 +1226,29 @@ class Studio:
                     ).save(resampled, format="PNG")
                     stretched = resampled.getvalue()
             else:
-                if resize:
+                if resize and nudge:
+                    brief["size"] = nudged_size(parent["size"], coverage.kind)
+                elif resize:
                     _, bounds = visible_artwork(source)
                     brief["size"] = zone_size(body_part, bounds["height"] / bounds["width"])
                 if skin is not None and coverage.kind == "full":
                     # The whole zone, in millimetres, on the zone's centre (TASK-0120).
                     placement = frame_placement(skin, visible_size(source, brief["size"]))
+                elif skin is not None and nudge:
+                    # ADR-0043: the new millimetres, where the design was, at its turn.
+                    start = parent_placement(
+                        parent["transform"],
+                        frame,
+                        self.visible_box(owner, parent),
+                        size=parent["size"],
+                        skin=skin,
+                    )
+                    placement = frame_placement(
+                        skin,
+                        visible_size(source, brief["size"]),
+                        (start["centreX"], start["centreY"]),
+                        start["angle"],
+                    )
                 else:
                     placement = fit_coverage(
                         background,
@@ -1204,7 +1257,7 @@ class Studio:
                         previous,
                         body_part=body_part,
                     )
-            manual = layout is not None or (skin is not None and coverage.kind == "full")
+            manual = layout is not None or (skin is not None and (coverage.kind == "full" or nudge))
             mockup, transform = composite(
                 source.convert("RGB"),
                 background,
@@ -1256,6 +1309,13 @@ class Studio:
                 files["master"] = (stretched, "image/png")
         if layout is not None:
             notice = manual_notice(layout, brief["size"], resize)
+        elif nudge:
+            notice = (
+                f"Tamaño cambiado de {parent['size']['widthMm']:.0f} x "
+                f"{parent['size']['heightMm']:.0f} mm a {brief['size']['widthMm']:.0f} x "
+                f"{brief['size']['heightMm']:.0f} mm. Mockup, vista 3D, plantilla y PDF usan esa "
+                "medida; el dibujo no se ha modificado. "
+            )
         elif resize:
             notice = (
                 f"Tamaño ajustado a la zona: {brief['size']['widthMm']:.0f} x "
@@ -1785,6 +1845,10 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
                 ):
                     # TASK-0107: a placement moves the design as it is; it changes nothing else.
                     raise ValueError("Guarda la colocación por separado de otros cambios.")
+                if body["edit"].get("coverage") and body["edit"].get("referenceIds"):
+                    # ADR-0043: a size control changes the size alone; the result view never mixes
+                    # them, and a redraw would lay the new drawing at the old millimetres.
+                    raise ValueError("Cambia el tamaño por separado de otros cambios.")
                 # TASK-0073 (audit UX-01): covering the whole zone with nothing else changed is a
                 # print-size change. A sentence cannot confirm it; the control says what it does.
                 phrased = coverage_request({"instruction": body["edit"]["instruction"]})
@@ -1796,6 +1860,14 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
                     and phrased.placement_only
                 ):
                     raise ValueError(ZONE_NEEDS_CONTROL)
+                if (
+                    not body["edit"].get("coverage")
+                    and not body["edit"].get("referenceIds")
+                    and phrased
+                    and phrased.nudges
+                ):
+                    # ADR-0043: the result view confirms a nudge and sends it as `coverage`.
+                    raise ValueError(SIZE_NEEDS_CONTROL)
                 original = studio.jobs.source_payload(who, body["edit"]["parentJobId"])
                 # Parent owns the brief/placement, never a client-supplied artifact ID.
                 body = {**original, "idempotencyKey": body["idempotencyKey"], "edit": body["edit"]}

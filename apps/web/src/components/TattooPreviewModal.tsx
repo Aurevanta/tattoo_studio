@@ -4,6 +4,7 @@ import type { GeneratedTattooArtifact } from '@/types/generation';
 import { ImageDetail } from './ImageDetail';
 import { messageForError } from '@/lib/client-errors';
 import { zoneProposal } from '@/lib/zone-size';
+import { nudgedSize, sizeNudge, type Nudge } from '@/lib/size-step';
 import { stencilNotes } from '@/lib/stencil-review';
 import { needsA4Pieces } from '@/lib/print-pieces';
 import { IMAGE_FAILURE_TEXT, imageFailure, probe, type ImageFailure } from '@/lib/image-failure';
@@ -83,6 +84,10 @@ export function TattooPreviewModal({
   const fromOwnPhoto = Boolean(artifact.capture) || artifact.backgroundKind === 'own_photo';
   // TASK-0073 (audit UX-01): a new print size is shown and confirmed before it is applied.
   const [confirmZone, setConfirmZone] = useState(false);
+  // TASK-0123 (ADR-0043): «más grande» / «más pequeño» written alone is a print change too, shown
+  // and confirmed like «Ocupar toda la zona» and the editors' saves.
+  const [confirmNudge, setConfirmNudge] = useState<Nudge | null>(null);
+  const [nudgeRefusal, setNudgeRefusal] = useState('');
   const [overlay, setOverlay] = useState(false);
   // TASK-0118: the 3D view opens with the result; the client can still hide it.
   const [show3d, setShow3d] = useState(true);
@@ -489,12 +494,27 @@ export function TattooPreviewModal({
           className="proposal-edit proposal-edit-last"
           onSubmit={(event) => {
             event.preventDefault();
-            if (instruction.trim().length >= 3 && !editingDisabled && !attaching)
-              onEdit(
-                instruction.trim(),
-                undefined,
-                attached.length ? attached.map((a) => a.assetId) : undefined,
+            if (instruction.trim().length < 3 || editingDisabled || attaching) return;
+            const nudge = attached.length ? null : sizeNudge(instruction);
+            setNudgeRefusal('');
+            if (nudge && limbView?.wraps)
+              return setNudgeRefusal(
+                'Una manga ya da la vuelta completa: su tamaño es el de la extremidad.',
               );
+            if (nudge && artifact.transform.scaleCalibrated)
+              return setNudgeRefusal(
+                'La foto está calibrada: el tamaño es tu medida. Cámbialo en las medidas físicas.',
+              );
+            if (nudge && !nudgedSize(artifact.size, nudge))
+              return setNudgeRefusal(
+                'El tamaño queda fuera de lo que se puede tatuar (de 5 a 600 mm).',
+              );
+            if (nudge) return setConfirmNudge(nudge);
+            onEdit(
+              instruction.trim(),
+              undefined,
+              attached.length ? attached.map((a) => a.assetId) : undefined,
+            );
           }}
         >
           <label htmlFor="proposal-change">¿Qué quieres cambiar de esta propuesta?</label>
@@ -505,9 +525,13 @@ export function TattooPreviewModal({
             maxLength={1000}
             minLength={3}
             required
-            onChange={(event) => setInstruction(event.target.value)}
+            onChange={(event) => {
+              setInstruction(event.target.value);
+              setNudgeRefusal('');
+            }}
             placeholder="Por ejemplo: haz el escudo más pequeño, o «quiero una virgen como en la foto adjunta»."
           />
+          {nudgeRefusal && <p role="alert">{nudgeRefusal}</p>}
           {onAttach && (
             <div className="edit-attachments">
               <button
@@ -578,9 +602,11 @@ export function TattooPreviewModal({
                 {adjustable
                   ? 'Para agrandarlo, ensancharlo, alargarlo, moverlo o girarlo, usa el ajuste sobre la piel, arriba. '
                   : ''}
-                «Ocupar toda la zona» ajusta las medidas de impresión a la zona del cuerpo, con
-                anatomía de referencia adulta que debes confirmar con tu tatuador. No vuelve a
-                dibujar el tatuaje.
+                {/* TASK-0123 (ADR-0043): written alone, they are confirmed as a print change. */}
+                También puedes escribir solo «más grande» o «más pequeño»: te diremos las medidas
+                nuevas antes de cambiarlas. «Ocupar toda la zona» ajusta las medidas de impresión a
+                la zona del cuerpo, con anatomía de referencia adulta que debes confirmar con tu
+                tatuador. No vuelve a dibujar el tatuaje.
               </p>
               <div>
                 <button
@@ -601,6 +627,32 @@ export function TattooPreviewModal({
             Crear versión con estos cambios
           </button>
         </form>
+      )}
+      {confirmNudge && onEdit && (
+        <Confirm
+          title="¿Cambiar las medidas de impresión?"
+          onCancel={() => setConfirmNudge(null)}
+          actions={[
+            { label: 'Cancelar', onClick: () => setConfirmNudge(null) },
+            {
+              label: 'Cambiar las medidas',
+              primary: true,
+              onClick: () => {
+                const nudge = confirmNudge;
+                setConfirmNudge(null);
+                onEdit(instruction.trim(), nudge);
+              },
+            },
+          ]}
+        >
+          <p>
+            Ahora mide {artifact.size.widthMm} × {artifact.size.heightMm} mm. Pasará a{' '}
+            {nudgedSize(artifact.size, confirmNudge)?.widthMm} ×{' '}
+            {nudgedSize(artifact.size, confirmNudge)?.heightMm} mm: el mockup, la vista 3D, la
+            plantilla y los PDF usarán esa medida. El dibujo no se vuelve a dibujar. La medida sobre
+            la piel es orientativa: confírmala con tu tatuador.
+          </p>
+        </Confirm>
       )}
       {confirmZone && onEdit && (
         <Confirm

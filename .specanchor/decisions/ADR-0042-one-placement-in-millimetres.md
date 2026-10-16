@@ -71,6 +71,7 @@ automatically and reviewed, the two editors in step live, and older designs keep
   it may not match its own skin. Such results are few and old.
 - The nudge requests («más grande», «ampliar la cobertura») still change only the projection
   (ADR-0008), so on those versions the mockup's picture and the millimetres differ, as before.
+  **Closed by ADR-0043 (TASK-0123):** a nudge now changes the millimetres and every view.
 
 ## Revisit conditions
 

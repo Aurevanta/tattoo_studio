@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: mockup
 
+TASK-0123 (ADR-0043): a nudge resizes the print. `Coverage.nudges`, `NUDGE_STEP` (×1.25 larger, ×0.8 smaller) and `nudged_size` (whole millimetres, half up, within 5–600 mm, else `SIZE_LIMIT`). `fit_coverage` scales a previous projection by the same step. This supersedes «Nudge coverage stays visual-only» (TASK-0024, below).
+
 TASK-0120 (ADR-0042): `convention_frame` (the 82 % framing, for a plate without a calibration) and `frame_placement` (a design's visible millimetres on a plate, as an editor placement). `parent_placement` and `manual_layout` take `size` and `skin`: on a skin with a frame the start is the printed size, the centre and turn the result's.
 
 TASK-0107 (ADR-0036): `composite(..., manual=True)` renders a placement chosen in the live editor: centre, width and height before rotation as frame fractions, and an angle in degrees clockwise. The design is resized, turned, wrapped on the cylinder (the same order the browser uses), clipped to the frame and the silhouette, and never re-centred or shrunk. The transform records `placement`. `placement.manual_layout` and `parent_placement` derive the per-axis factors from the parent's visible artwork, bound the accumulated stretch to [0.75, 1.25] and refuse a size change on a calibrated photo. `coverage_request` maps `edit.placement` to `Coverage("manual", True)`. Geometric only (MOCKUP-INV-001).

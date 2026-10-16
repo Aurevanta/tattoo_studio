@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: generation
 
+TASK-0114 (ADR-0040): references may show incidental, unidentifiable people. The reference analysis ignores them and never describes a real person. A referenced artwork prompt says they are not part of the design and are left out.
+
 TASK-0110 (ADR-0038): `plate_library.plate_body(brief)` is the plate's body rule: the brief's `bodyType`, or one of the two from the brief's hash. The 3D views and a sleeve's stencil use the same rule, so skin, limb and stencil agree.
 
 TASK-0104 (ADR-0034): for a sleeve (`is_sleeve`), the artwork prompt adds `SLEEVE_DESIGN` and draws on `SLEEVE_CANVAS` (square, `canvas()`). `repair_seam` rolls the design half a turn, edits a band down the middle through a mask (`SEAM_REPAIR`), keeps only that band and rolls it back. `generation.seam` holds the pure parts: `roll_half`, `seam_mask`, `keep_outside_band`, `seam_mismatch`/`seamless` (`SEAM_LIMIT` 1.8, calibrated on synthetic cases) and `fit_aspect`. Only generated artwork reaches the editor.

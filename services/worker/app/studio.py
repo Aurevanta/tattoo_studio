@@ -64,9 +64,9 @@ from telemetry.store import EventStore
 # because the check could not run read as if it showed a person, and nobody could tell which.
 REFUSED_UPLOAD = {
     ReasonCode.CONTAINS_PERSON: (
-        "La revisión ha visto una persona real en la imagen. Como referencia usa dibujos, "
-        "objetos, animales o símbolos; para ver el tatuaje sobre ti, sube tu foto como foto de tu "
-        "piel."
+        "La revisión ha visto una persona que se puede reconocer. Recorta la foto para quitarla "
+        "(las personas pequeñas y lejanas no importan) o usa otra imagen; para ver el tatuaje "
+        "sobre ti, sube tu foto como foto de tu piel."
     ),
     ReasonCode.EXPLICIT: (
         "La imagen tiene contenido explícito (desnudos, sexo o violencia gráfica) y no se puede "

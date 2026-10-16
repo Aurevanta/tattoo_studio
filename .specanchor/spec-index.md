@@ -93,6 +93,7 @@ exist and its field set is unproven against any consumer.
 | ADR-0037 | Every tattooable zone can be seen in 3D, on one reference body | accepted |
 | ADR-0038 | The 3D views show a masculine or a feminine body, as the design was made for | accepted |
 | ADR-0039 | Images attached to the idea are numbered and read by the prompt architect | accepted |
+| ADR-0040 | A reference may show people who cannot be identified; an identifiable person is refused | accepted |
 | ADR-0024 | The studio records what it does, and never what a body looks like | accepted |
 | ADR-0023 | Designs last; photographs of a body expire (refines MEDIA-INV-006) | accepted |
 | ADR-0022 | One camera photograph may be kept, when the client takes it and chooses to (amends ADR-0019) | accepted |

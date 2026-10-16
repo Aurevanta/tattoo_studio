@@ -32,17 +32,21 @@ OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
 
 #: Asks for the two judgements the gate needs, as strict JSON and nothing else.
-#: Phrased around what is *visible* rather than what the image is "about", because the
-#: question is whether a person appears at all, not whether they are the subject.
+#: TASK-0114 (ADR-0040): the question is whether a real person could be identified, not
+#: whether one appears at all. Monument and street photographs nearly always show distant
+#: passers-by; a portrait of a third party is still refused.
 CLASSIFY_PROMPT = """You are a content gate for a tattoo design service.
 
 Answer ONLY with a JSON object, no prose and no code fence, in exactly this form:
-{"contains_person": <true|false>, "explicit": <true|false>}
+{"identifiable_person": <true|false>, "explicit": <true|false>}
 
-contains_person: true if any real human being is visible anywhere in the image, including
-partially, in the background, as a reflection, or as any recognisable body part such as a
-hand, arm or face. Drawings, statues and cartoon figures are NOT real people, so they are
-false. When genuinely unsure, answer true.
+identifiable_person: true if a real human being in the image could be identified or is a
+subject of it: a person who is the subject, prominent, close or in the foreground; a face
+large and clear enough to recognise; or a body part such as a hand, arm or face shown close
+up as a subject. false for small, distant, incidental figures whose faces cannot be made out,
+such as passers-by in front of a monument or a crowd far away, and false when no real person
+appears. Drawings, statues and cartoon figures are NOT real people, so they are false. When
+genuinely unsure whether a person is identifiable, answer true.
 
 explicit: true if the image contains nudity, sexual content, graphic violence or gore.
 When genuinely unsure, answer true."""
@@ -228,11 +232,11 @@ class OpenAIModerationProvider:
         if not isinstance(parsed, dict):
             raise ModerationError("moderation verdict was not an object")
 
-        person = parsed.get("contains_person")
+        person = parsed.get("identifiable_person")
         explicit = parsed.get("explicit")
         if not isinstance(person, bool) or not isinstance(explicit, bool):
             # A string "true", a number, or a missing key all land here. Coercing them
             # would mean inventing a verdict nobody gave.
             raise ModerationError("moderation verdict fields were missing or not boolean")
 
-        return ModerationOutcome(explicit=explicit, contains_person=person)
+        return ModerationOutcome(explicit=explicit, identifiable_person=person)

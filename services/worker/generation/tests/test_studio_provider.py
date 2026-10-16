@@ -71,6 +71,18 @@ def test_the_professional_description_leads_the_artwork_prompt() -> None:
     assert "Professional description" not in plain
 
 
+def test_incidental_people_in_references_are_left_out() -> None:
+    """TASK-0114 (ADR-0040): a passer-by admitted in a reference is never drawn."""
+    brief = {
+        "subject": {"description": "Torres de Serranos"},
+        "size": {"widthMm": 80, "heightMm": 150},
+    }
+    referenced = StudioProvider.artwork_prompt(brief, "", colour=True)
+    assert "People who appear incidentally in them are not part of the design" in referenced
+    alone = StudioProvider.artwork_prompt(brief, "", colour=True, referenced=False)
+    assert "incidentally" not in alone
+
+
 def test_without_references_the_design_is_generated(monkeypatch: pytest.MonkeyPatch) -> None:
     """TASK-0058: the edits endpoint needs an image; a reference-free design is generated."""
     provider = StudioProvider("test-not-a-secret")

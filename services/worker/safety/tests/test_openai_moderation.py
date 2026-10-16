@@ -63,7 +63,7 @@ class ScriptedTransport:
 
 def verdict_body(*, person: bool, explicit: bool, wrap: str = "plain") -> FakeResponse:
     """A Responses-API payload carrying the model's JSON verdict."""
-    verdict = json.dumps({"contains_person": person, "explicit": explicit})
+    verdict = json.dumps({"identifiable_person": person, "explicit": explicit})
     if wrap == "fence":
         verdict = f"```json\n{verdict}\n```"
     return FakeResponse(
@@ -145,7 +145,7 @@ def test_reads_a_clean_verdict(wrap: str) -> None:
 
     outcome = provider(transport).classify(IMAGE)
 
-    assert outcome.contains_person is False
+    assert outcome.identifiable_person is False
     assert outcome.explicit is False
 
 
@@ -154,7 +154,7 @@ def test_reads_a_person_verdict() -> None:
 
     outcome = provider(transport).classify(IMAGE)
 
-    assert outcome.contains_person is True
+    assert outcome.identifiable_person is True
 
 
 def test_reads_an_explicit_verdict() -> None:
@@ -168,12 +168,12 @@ def test_reads_an_explicit_verdict() -> None:
 def test_accepts_the_convenience_output_text_field() -> None:
     """The SDK and the raw API differ; both shapes must work."""
     transport = ScriptedTransport(
-        [FakeResponse(payload={"output_text": '{"contains_person": false, "explicit": false}'})]
+        [FakeResponse(payload={"output_text": '{"identifiable_person": false, "explicit": false}'})]
     )
 
     outcome = provider(transport).classify(IMAGE)
 
-    assert outcome.contains_person is False
+    assert outcome.identifiable_person is False
 
 
 # ---------------------------------------------------------------------------
@@ -232,12 +232,14 @@ def test_responses_without_usable_text_raise(payload: Any) -> None:
         "not json at all",
         "[]",
         '"a string"',
-        '{"contains_person": true}',
+        '{"identifiable_person": true}',
         '{"explicit": false}',
-        '{"contains_person": "true", "explicit": "false"}',
-        '{"contains_person": 1, "explicit": 0}',
-        '{"contains_person": null, "explicit": null}',
+        '{"identifiable_person": "true", "explicit": "false"}',
+        '{"identifiable_person": 1, "explicit": 0}',
+        '{"identifiable_person": null, "explicit": null}',
         "{}",
+        # TASK-0114: the verdict of the earlier prompt is not read as the new one.
+        '{"contains_person": false, "explicit": false}',
     ],
     ids=[
         "prose",
@@ -249,6 +251,7 @@ def test_responses_without_usable_text_raise(payload: Any) -> None:
         "numeric-booleans",
         "nulls",
         "empty-object",
+        "previous-key",
     ],
 )
 def test_malformed_verdicts_raise_rather_than_defaulting(verdict: str) -> None:
@@ -388,3 +391,12 @@ def test_a_rate_limit_is_not_mistaken_for_no_credit() -> None:
     assert not isinstance(raised.value, ModerationExhaustedError)
     gate = InputGate(provider(ScriptedTransport([FakeResponse(status_code=429, payload=limited)])))
     assert gate.screen_upload(IMAGE).reason is ReasonCode.PROVIDER_FAILED
+
+
+def test_the_prompt_refuses_identifiable_people_not_distant_passers_by() -> None:
+    """TASK-0114 (ADR-0040): a monument photo with tiny figures passes; a portrait does not."""
+    prompt = " ".join(CLASSIFY_PROMPT.split())
+    assert '"identifiable_person"' in prompt and "contains_person" not in prompt
+    assert "passers-by in front of a monument" in prompt
+    assert "face large and clear enough to recognise" in prompt
+    assert "When genuinely unsure whether a person is identifiable, answer true." in prompt

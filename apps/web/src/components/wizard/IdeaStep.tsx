@@ -117,7 +117,7 @@ export function IdeaStep({
           <p className="idea-images-hint">
             {images.length
               ? 'Puedes citarlas por su número, por ejemplo: «como la imagen 1 pero con las rosas de la imagen 2». Si quitas una, las siguientes cambian de número.'
-              : 'Opcional: añade hasta cinco imágenes (JPG, PNG o WebP, 8 MB cada una) y cítalas en el texto por su número. No se aceptan fotos en las que aparezcan personas.'}
+              : 'Opcional: añade hasta cinco imágenes (JPG, PNG o WebP, 8 MB cada una) y cítalas en el texto por su número. No se aceptan fotos en las que se pueda reconocer a una persona.'}
           </p>
           <input
             ref={picker}

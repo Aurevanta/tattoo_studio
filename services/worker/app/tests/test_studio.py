@@ -69,7 +69,7 @@ class FakeProvider(StudioProvider):
         return self
 
     def classify(self, data: bytes) -> ModerationOutcome:
-        return ModerationOutcome(explicit=False, contains_person=False)
+        return ModerationOutcome(explicit=False, identifiable_person=False)
 
     def check_artwork(self, brief: dict[str, Any], artwork: bytes) -> ArtworkCheck | None:
         # TASK-0090: the fakes draw what is asked; tests of the review override this.
@@ -1106,7 +1106,7 @@ class RecordingProvider(FakeProvider):
         # accepts a person only in an own-body photo with consent, which is what a capture is.
         with Image.open(io.BytesIO(data)) as image:
             person = image.convert("RGB").getpixel((0, 0)) == (194, 152, 128)
-        return ModerationOutcome(explicit=self.explicit, contains_person=person)
+        return ModerationOutcome(explicit=self.explicit, identifiable_person=person)
 
     def analyze(self, references: list[bytes], subject: str) -> str:
         self.model_inputs.extend(references)
@@ -1670,7 +1670,7 @@ def test_each_upload_refusal_says_its_own_reason(tmp_path: Path) -> None:
     """TASK-0071: one message for every reason hid why a cartoon reference was refused."""
     skin = {**an_upload(), "data": base64.b64encode(picture(lines=False)).decode()}
     person = RecordingProvider()
-    with pytest.raises(ValueError, match="persona real"):
+    with pytest.raises(ValueError, match="persona que se puede reconocer"):
         Studio(tmp_path / "a", b"x" * 32, person).ingest(ACCOUNT, skin)
     explicit = RecordingProvider()
     explicit.explicit = True

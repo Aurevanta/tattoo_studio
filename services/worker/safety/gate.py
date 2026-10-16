@@ -19,7 +19,8 @@ from typing import Protocol
 
 from .clearance import SafetyClearance, mint_clearance
 
-GATE_VERSION = "input-gate-1"
+#: TASK-0114 (ADR-0040): version 2 refuses identifiable people, not every visible person.
+GATE_VERSION = "input-gate-2"
 
 
 class Verdict(StrEnum):
@@ -63,13 +64,14 @@ class ModerationOutcome:
     """What a moderation provider reports about an image."""
 
     explicit: bool
-    contains_person: bool
+    #: TASK-0114 (ADR-0040): a real person who could be identified, not a distant passer-by.
+    identifiable_person: bool
 
 
 class ModerationProvider(Protocol):
     """Classifies image bytes. Implemented in TASK-0013.
 
-    The scope agreed with the user is pets and objects, so `contains_person` is a
+    The scope agreed with the user is pets and objects, so `identifiable_person` is a
     rejection reason rather than merely advisory: a user can consent to their own
     photograph being processed, but cannot consent on behalf of a third person who
     happens to be in it.
@@ -110,7 +112,7 @@ class InputGate:
 
         if outcome.explicit:
             return GateResult(Verdict.REJECT, ReasonCode.EXPLICIT)
-        if outcome.contains_person and not own_body_consented:
+        if outcome.identifiable_person and not own_body_consented:
             return GateResult(Verdict.REJECT, ReasonCode.CONTAINS_PERSON)
 
         return GateResult(

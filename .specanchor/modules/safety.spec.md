@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: safety
 
+TASK-0114 (ADR-0040, amends TASK-0013's scope): the input gate refuses an **identifiable** person, not every visible one. `CLASSIFY_PROMPT` asks for `{"identifiable_person", "explicit"}`. A person counts as identifiable when they are the subject, prominent, close or in the foreground; when their face is recognisable; or when a body part is shown close up. Small, distant, incidental figures do not count. Unsure means identifiable. `ModerationOutcome.identifiable_person` replaces `contains_person`, and a verdict under the old key is malformed, so it is refused. The reason code stays `contains_person`. `GATE_VERSION` is `input-gate-2`. An own body photo still allows a person.
+
 TASK-0100: `ProviderExhaustedError` names a provider without credit; `InputGate` denies it as `ReasonCode.PROVIDER_EXHAUSTED` (still a denial, SAFETY-INV-007). `OpenAIModerationProvider` raises `ModerationExhaustedError` when `out_of_credit` reads 402/429 with `error.type`/`error.code` in `insufficient_quota`, `credit_balance_exhausted`, `billing_hard_limit_reached`; it never reads the message.
 
 TASK-0064 (ADR-0028): SAFETY-INV-003's record is the `sign_in` event, which carries the accepted

@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0114 (ADR-0040): step 1's hint says a photo in which a person can be recognised is not accepted (was: any person).
+
 TASK-0113 (ADR-0039): step 1 takes up to five images (`IdeaStep`, `MAX_IDEA_IMAGES`), numbered «Imagen N» in the order attached, each uploaded at once and one after another with `POST /api/media` `purpose: 'idea'` (screened and stored by the worker; it does not touch the consultation; the kind is always `reference`). «Quitar» sends `purpose: 'discard'`: the worker deletes an image no design used (a used one is kept with its design) and it leaves the consultation. Sending the idea passes `referenceIds` to `orchestrate`; the BFF refuses more than five, duplicates or malformed ids before any model is paid for, reads each image back as the worker's JPEG preview (proving ownership) and gives the orchestrator numbered `user_supplied` references and data-URL images for the architect.
 
 TASK-0112: the 3D views have the mockup editor's controls (ADR-0036).

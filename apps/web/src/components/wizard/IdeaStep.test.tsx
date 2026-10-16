@@ -30,7 +30,7 @@ describe('IdeaStep images (TASK-0113)', () => {
     const html = render([]);
     expect(html).toContain('Adjuntar imágenes (0/5)');
     expect(html).toContain('accept="image/png,image/jpeg,image/webp"');
-    expect(html).toContain('No se aceptan fotos en las que aparezcan personas');
+    expect(html).toContain('No se aceptan fotos en las que se pueda reconocer a una persona');
   });
 
   it('AC-005: numbers the images in order and explains how to cite them', () => {

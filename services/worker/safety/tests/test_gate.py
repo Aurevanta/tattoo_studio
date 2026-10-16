@@ -33,21 +33,21 @@ class Passing:
     name = "test-passing"
 
     def classify(self, data: bytes) -> ModerationOutcome:
-        return ModerationOutcome(explicit=False, contains_person=False)
+        return ModerationOutcome(explicit=False, identifiable_person=False)
 
 
 class Explicit:
     name = "test-explicit"
 
     def classify(self, data: bytes) -> ModerationOutcome:
-        return ModerationOutcome(explicit=True, contains_person=False)
+        return ModerationOutcome(explicit=True, identifiable_person=False)
 
 
 class HasPerson:
     name = "test-person"
 
     def classify(self, data: bytes) -> ModerationOutcome:
-        return ModerationOutcome(explicit=False, contains_person=True)
+        return ModerationOutcome(explicit=False, identifiable_person=True)
 
 
 class Exploding:

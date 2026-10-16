@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: consultation
 
+TASK-0114 (ADR-0040): rule 12 adds that incidental people in an attached image are left out. A figure the client explicitly asks for is described as a generic figure, never as the person in the photograph.
+
 TASK-0113 (ADR-0039, amends TASK-0033's text-only turns): `handleUserInteraction` takes, as its last argument, the screened images attached to the idea (data URLs labelled «Imagen N»). `consultArchitect` puts them on the client's last turn only; the scout, the content screen and later turns never get them, and the session keeps their references (`/api/media?id=…`), never their bytes. The Claude and Astra providers send each image after a text block with its label and the turn's text last. System-prompt rule 12 tells the architect to resolve «la imagen N» into words in `subject.refined`/`elements`, describe only what is visible, and never identify, name or imitate an image's author (PROD-INV-004). No body photograph reaches a language model.
 
 TASK-0104 (ADR-0034): `sleeveLimb` reads a sleeve from the client's words («manga», «de la rodilla al tobillo», «todo el antebrazo», «que rodee…»). `extractPreferences` then sets `orientation: wrapping`, the zone on that limb (the calf or the outer forearm by default) and `wrapSize`. «Estilo manga», «anime» and the upper arm are never sleeves. A later «grande» or the size proposal does not replace a sleeve's size.

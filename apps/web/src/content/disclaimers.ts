@@ -25,3 +25,17 @@ export const AGING_DISCLAIMER_ES =
 
 export const ARTIST_STYLE_NOTICE_ES =
   'Por ética profesional no imitamos el estilo de artistas vivos reconocidos. Cuéntanos la técnica o el estilo general en su lugar.';
+
+/**
+ * TASK-0125 (owner's audit list, item 3): what «real size» means. The views on skin (mockup, 3D,
+ * camera) lay the design at its millimetres on reference anatomy or on an uncalibrated photo, so
+ * the size they show is approximate; only a calibrated photo carries a real scale. The stencil and
+ * its PDFs are exported at the stated millimetres and print at 1:1 (PROD-INV-002).
+ */
+export const SKIN_SCALE_NOTE_ES =
+  'La vista sobre la piel es orientativa salvo que calibres tu foto; la plantilla y los PDF sí se exportan a las medidas indicadas.';
+
+/** The short form beside a result: the skin view is approximate, the stencil is not. */
+export function stencilSizeNote(size: { widthMm: number; heightMm: number }): string {
+  return `Tamaño sobre la piel orientativo · la plantilla sí mide ${size.widthMm} × ${size.heightMm} mm`;
+}

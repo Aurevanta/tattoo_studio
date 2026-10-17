@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import math
 import re
 import time
 from collections.abc import Iterator
@@ -33,6 +34,7 @@ from mockup.placement import (
     coverage_request,
     fit_coverage,
     manual_layout,
+    nudged_size,
     parent_placement,
 )
 from safety.gate import ModerationOutcome
@@ -848,8 +850,8 @@ def test_initial_full_calf_prompt_uses_visible_bounds(tmp_path: Path) -> None:
     assert 'width="150mm"' in stencil and 'height="500mm"' in stencil
 
 
-def test_a_nudge_changes_the_view_and_nothing_that_gets_printed(tmp_path: Path) -> None:
-    """TASK-0024/AC-007 and AC-006: nudges stay visual, and neither path calls the provider."""
+def test_a_nudge_resizes_the_print_and_the_view_together(tmp_path: Path) -> None:
+    """TASK-0123/AC-001 (ADR-0043): «más grande» is a print change, and draws nothing new."""
     provider = FakeProvider()
     studio = Studio(tmp_path, b"x" * 32, provider)
     owner = "11111111-1111-4111-8111-111111111111"
@@ -866,31 +868,97 @@ def test_a_nudge_changes_the_view_and_nothing_that_gets_printed(tmp_path: Path) 
     app = FastAPI()
     app.include_router(router(studio, "test-only-token"))
     client = TestClient(app)
-    response = client.post(
+    headers = {"Authorization": "Bearer test-only-token", "X-Owner-Id": owner}
+
+    def nudge(parent_job: str, kind: str, key: str) -> dict[str, Any]:
+        response = client.post(
+            "/studio/jobs",
+            json={
+                "edit": {
+                    "parentJobId": parent_job,
+                    "instruction": "más grande" if kind == "larger" else "más pequeño",
+                    "coverage": kind,
+                    "mode": "placement",
+                },
+                "idempotencyKey": key,
+            },
+            headers=headers,
+        )
+        assert response.status_code == 202, response.text
+        assert studio.jobs.tick()
+        status = studio.jobs.get(owner, response.json()["jobId"])
+        assert status["state"] == "succeeded", status
+        return status
+
+    larger = nudge(parent_id, "larger", "33333333-3333-4333-8333-333333333333")
+    result = larger["result"]
+    width, height = parent["size"]["widthMm"], parent["size"]["heightMm"]
+    assert result["size"] == {
+        "widthMm": math.floor(width * 1.25 + 0.5),
+        "heightMm": math.floor(height * 1.25 + 0.5),
+    }
+    # The stencil and both PDFs are re-exported at the new millimetres; the drawing is reused.
+    stencil = studio.owned(owner, result["stencil"]["assetId"]).decode()
+    assert f'width="{result["size"]["widthMm"]:g}mm"' in stencil
+    for name in ("stencil", "stencilMirror", "pdf", "pdfMirror"):
+        assert result[name]["assetId"] != parent[name]["assetId"]
+    assert result["master"]["assetId"] == parent["master"]["assetId"]
+    assert result["designId"] != parent["designId"]
+    # The picture grows by the same step as the print.
+    assert result["transform"]["widthPx"] / parent["transform"]["widthPx"] == pytest.approx(
+        1.25, rel=0.03
+    )
+    assert "Tamaño cambiado" in result["notice"] and "plantilla y PDF" in result["notice"]
+    assert provider.calls == 1
+
+    # «Más pequeño» undoes it, up to whole-millimetre rounding.
+    smaller = nudge(larger["jobId"], "smaller", "44444444-4444-4444-8444-444444444444")["result"]
+    assert smaller["size"]["widthMm"] == pytest.approx(width, abs=1)
+    assert smaller["size"]["heightMm"] == pytest.approx(height, abs=1)
+
+    # Written alone, a nudge is not confirmed: the result view asks first (ADR-0043).
+    refused = client.post(
+        "/studio/jobs",
+        json={
+            "edit": {"parentJobId": parent_id, "instruction": "hazlo un poco más grande"},
+            "idempotencyKey": "55555555-5555-4555-8555-555555555555",
+        },
+        headers=headers,
+    )
+    assert refused.status_code == 422
+    assert "medidas de impresión" in refused.json()["detail"]
+    # A size control travels alone.
+    mixed = client.post(
         "/studio/jobs",
         json={
             "edit": {
                 "parentJobId": parent_id,
-                "instruction": "Ampliar la cobertura",
+                "instruction": "más grande",
                 "coverage": "larger",
                 "mode": "placement",
+                "referenceIds": [ref["assetId"]],
             },
-            "idempotencyKey": "33333333-3333-4333-8333-333333333333",
+            "idempotencyKey": "66666666-6666-4666-8666-666666666666",
         },
-        headers={"Authorization": "Bearer test-only-token", "X-Owner-Id": owner},
+        headers=headers,
     )
-    assert response.status_code == 202
-    assert studio.jobs.tick()
-    status = studio.jobs.get(owner, response.json()["jobId"])
-    assert status["state"] == "succeeded", status
-    result = status["result"]
-    assert result["size"] == parent["size"]
-    for name in ("master", "stencil", "stencilMirror", "pdf", "pdfMirror", "background"):
-        assert result[name] == parent[name]
-    assert result["mockup"]["assetId"] != parent["mockup"]["assetId"]
-    assert result["transform"]["widthPx"] > parent["transform"]["widthPx"]
-    assert "las medidas del PDF siguen siendo las originales" in result["notice"]
-    assert provider.calls == 1
+    assert mixed.status_code == 422
+
+
+def test_a_nudge_beyond_what_can_be_tattooed_is_refused() -> None:
+    """TASK-0123/AC-002: the step stays within the contract's 5-600 mm."""
+    assert nudged_size({"widthMm": 80, "heightMm": 150}, "larger") == {
+        "widthMm": 100,
+        "heightMm": 188,
+    }
+    assert nudged_size({"widthMm": 100, "heightMm": 188}, "smaller") == {
+        "widthMm": 80,
+        "heightMm": 150,
+    }
+    with pytest.raises(ValueError, match="5 a 600"):
+        nudged_size({"widthMm": 200, "heightMm": 500}, "larger")
+    with pytest.raises(ValueError, match="5 a 600"):
+        nudged_size({"widthMm": 5, "heightMm": 40}, "smaller")
 
 
 def leg_plate() -> bytes:

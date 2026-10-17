@@ -27,6 +27,7 @@ import {
   type Texture,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { animationFrames, onDemand, watchVisibility } from './render-on-demand';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
@@ -145,6 +146,13 @@ export async function createBodyScene(
   controls.enablePan = false;
   controls.minDistance = 200;
   controls.maxDistance = 5200;
+  // TASK-0128: draw when something changed and the view can be seen, not sixty times a second.
+  // A frame keeps the next coming while the orbit's damping is still settling.
+  const frames = onDemand(() => {
+    const moving = controls.update();
+    renderer.render(scene, camera);
+    return moving;
+  }, animationFrames);
 
   let model: BodyModel;
   let design: Texture;
@@ -218,9 +226,11 @@ export async function createBodyScene(
     uniforms.uOffset.value = [p.xMm, p.yMm];
     uniforms.uAngle.value = (p.angle * Math.PI) / 180;
     uniforms.uSize.value = [p.widthMm, p.heightMm];
+    frames.invalidate();
   };
   const setTone = (tone: SkinTone) => {
     skin.color = new Color(SKIN_TONES.find((t) => t.key === tone)!.colour);
+    frames.invalidate();
   };
   const setSide = (next: BodySide) => {
     // The right side is the left one mirrored; the design is mirrored back so it reads correctly.
@@ -228,6 +238,7 @@ export async function createBodyScene(
     const m = next === 'left' || !zone.paired ? 1 : -1;
     root.scale.x = m;
     uniforms.uMirror.value = m;
+    frames.invalidate();
   };
   setPlacement(initial.placement);
   setTone(initial.tone);
@@ -254,6 +265,7 @@ export async function createBodyScene(
       camera.position.copy(target).addScaledVector(new Vector3(nx * m, ny, nz).normalize(), d);
     }
     controls.update();
+    frames.invalidate();
   };
 
   const resize = () => {
@@ -262,19 +274,16 @@ export async function createBodyScene(
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    frames.invalidate();
   };
   resize();
   view(false);
   const observer = new ResizeObserver(resize);
   observer.observe(container);
 
-  let frame = 0;
-  const loop = () => {
-    frame = requestAnimationFrame(loop);
-    controls.update();
-    renderer.render(scene, camera);
-  };
-  loop();
+  controls.addEventListener('change', frames.invalidate);
+  const unwatch = watchVisibility(container, frames);
+  frames.invalidate();
 
   return {
     model,
@@ -286,7 +295,9 @@ export async function createBodyScene(
     setTone,
     view,
     dispose() {
-      cancelAnimationFrame(frame);
+      frames.dispose();
+      unwatch();
+      controls.removeEventListener('change', frames.invalidate);
       observer.disconnect();
       controls.dispose();
       design.dispose();

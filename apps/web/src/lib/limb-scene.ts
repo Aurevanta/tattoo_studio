@@ -28,6 +28,7 @@ import {
   type Texture,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { animationFrames, onDemand, watchVisibility } from './render-on-demand';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
@@ -159,6 +160,13 @@ export async function createLimbScene(
   controls.maxDistance = 1800;
   controls.minPolarAngle = Math.PI * 0.18;
   controls.maxPolarAngle = Math.PI * 0.82;
+  // TASK-0128: draw when something changed and the view can be seen, not sixty times a second.
+  // A frame keeps the next coming while the orbit's damping is still settling.
+  const frames = onDemand(() => {
+    const moving = controls.update();
+    renderer.render(scene, camera);
+    return moving;
+  }, animationFrames);
 
   let gltf: GLTF;
   let design: Texture;
@@ -219,11 +227,13 @@ export async function createLimbScene(
 
   const setTone = (tone: SkinTone) => {
     skin.color = new Color(SKIN_TONES.find((t) => t.key === tone)!.colour);
+    frames.invalidate();
   };
   const setSide = (side: LimbSide) => {
     // The right limb is the left one mirrored; the design is mirrored back so it reads correctly.
     gltf.scene.scale.x = side === 'left' ? 1 : -1;
     uniforms.uMirror.value = side === 'left' ? 1 : -1;
+    frames.invalidate();
   };
   setTone(initial.tone);
   setSide(initial.side);
@@ -239,6 +249,7 @@ export async function createLimbScene(
       centre.z + Math.cos(angle) * distance,
     );
     controls.update();
+    frames.invalidate();
   };
 
   const resize = () => {
@@ -252,19 +263,16 @@ export async function createLimbScene(
     const needed = fit / Math.tan(vertical) / Math.min(1, camera.aspect * 1.6);
     distance = Math.min(controls.maxDistance, Math.max(controls.minDistance, needed));
     camera.updateProjectionMatrix();
+    frames.invalidate();
   };
   resize();
   view(initial.placement.around);
   const observer = new ResizeObserver(resize);
   observer.observe(container);
 
-  let frame = 0;
-  const loop = () => {
-    frame = requestAnimationFrame(loop);
-    controls.update();
-    renderer.render(scene, camera);
-  };
-  loop();
+  controls.addEventListener('change', frames.invalidate);
+  const unwatch = watchVisibility(container, frames);
+  frames.invalidate();
 
   return {
     model,
@@ -274,12 +282,15 @@ export async function createLimbScene(
       uniforms.uSize.value = [placement.widthMm, placement.lengthMm];
       uniforms.uWrap.value = placement.wraps ? 1 : 0;
       uniforms.uAngle.value = ((placement.angle ?? 0) * Math.PI) / 180;
+      frames.invalidate();
     },
     setSide,
     setTone,
     view,
     dispose() {
-      cancelAnimationFrame(frame);
+      frames.dispose();
+      unwatch();
+      controls.removeEventListener('change', frames.invalidate);
       observer.disconnect();
       controls.dispose();
       design.dispose();

@@ -10,6 +10,10 @@ created: 2026-09-22
 > **Amended by TASK-0073 (2026-10-01, audit UX-01).** The accepted millimetres are authoritative.
 > A whole-zone phrase covers the zone on the skin only; the print size changes only through the
 > explicit «Ocupar toda la zona» control, after the client confirms the new size.
+>
+> **Amended by ADR-0043 (2026-10-16, TASK-0123).** Nudges are no longer visual-only: «más grande» /
+> «más pequeño» resize the print by ×1.25 / ×0.8 after a confirmation, and a phrase inside a redraw
+> no longer changes the size on the picture alone.
 
 ## Context
 

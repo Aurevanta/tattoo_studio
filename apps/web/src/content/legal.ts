@@ -13,25 +13,36 @@
 export const TERMS_VERSION = '2026-10-01';
 // TASK-0068: Brave Search added as a processor, so the consent and privacy text is asked again.
 // TASK-0097 (ADR-0032): sharing a design with a tattooer through a link.
-export const IMAGES_VERSION = '2026-10-09';
+// TASK-0131: who receives the client's IP (thumbnails, fonts), the search text, the consultation's
+// life, cookies and automated decisions, checked against the code.
+export const IMAGES_VERSION = '2026-10-16';
 
 export const LEGAL_DRAFT = true;
 
 /**
- * Who is responsible, as the owner gave it. The tax id and the postal address are not given yet;
- * Spanish law (LSSI art. 10) asks for both on a service with economic activity, so the legal
- * review must add them. Empty fields are left out of the text rather than shown as gaps.
+ * Who is responsible, as the owner gave it. Spanish law (LSSI art. 10) asks a service with economic
+ * activity for the holder's name or company name, tax id (NIF), postal address and email, and for a
+ * company its entry in the Registro Mercantil. Only the owner can give them (TASK-0131): they are
+ * never filled in here by guesswork. Empty fields are left out of the text rather than shown as
+ * gaps, and `legal.test.ts` refuses to drop `LEGAL_DRAFT` while the tax id or the address is empty.
  */
 export const LEGAL_ENTITY = {
+  /** The holder: the company name, or the self-employed person's full name. */
   name: 'Aurevanta Labs',
   taxId: '',
   address: '',
+  /** For a company: «Registro Mercantil de …, tomo …, folio …, hoja …». Empty otherwise. */
+  registry: '',
   email: 'info@aurevanta.es',
   country: 'España',
 };
 
-/** "Aurevanta Labs (NIF …, dirección …)", with only what is known. */
-const EXTRA = [LEGAL_ENTITY.taxId && `NIF ${LEGAL_ENTITY.taxId}`, LEGAL_ENTITY.address]
+/** "Aurevanta Labs (NIF …, dirección …, registro …)", with only what is known. */
+const EXTRA = [
+  LEGAL_ENTITY.taxId && `NIF ${LEGAL_ENTITY.taxId}`,
+  LEGAL_ENTITY.address,
+  LEGAL_ENTITY.registry,
+]
   .filter(Boolean)
   .join(', ');
 const IDENTITY = EXTRA ? `${LEGAL_ENTITY.name} (${EXTRA})` : LEGAL_ENTITY.name;
@@ -126,12 +137,14 @@ export const PRIVACY: LegalSection[] = [
       'Para prestarte el servicio que pides (ejecución del contrato): la consulta, la búsqueda de referencias y la generación de tus diseños.',
       'Para procesar tus imágenes y fotos, incluida la de tu cuerpo, con tu consentimiento, que das al entrar y puedes retirar.',
       'Para mantener el estudio seguro, medir su uso y mejorarlo (interés legítimo).',
+      'Sin los datos de tu cuenta y sin tu consentimiento para tratar imágenes no podemos prestarte el servicio. No tomamos decisiones automatizadas que produzcan efectos jurídicos sobre ti.',
     ],
   },
   {
     title: '4. Con quién se comparten',
     paragraphs: [
-      'Con los proveedores que hacen funcionar el estudio, como encargados del tratamiento: Supabase (cuentas), OpenAI (revisión de contenido, análisis de referencias y generación de imágenes), Anthropic (la consulta y la búsqueda de referencias), Black Forest Labs (generación de imágenes) y Brave Search (búsqueda de imágenes de referencia en la web; solo recibe el texto de la búsqueda).',
+      'Con los proveedores que hacen funcionar el estudio, como encargados del tratamiento: Supabase (cuentas), OpenAI (revisión de contenido, análisis de referencias y generación de imágenes), Anthropic (la consulta y la búsqueda de referencias), Black Forest Labs (generación de imágenes) y Brave Search (búsqueda de imágenes de referencia en la web; recibe el texto de la búsqueda).',
+      'Para buscar referencias, el texto de la búsqueda también se envía a Wikimedia Commons y a Openverse. Las miniaturas de las referencias se muestran desde sus sitios de origen (Wikimedia, los sitios que enlaza Openverse y Brave), y las tipografías se cargan desde Google Fonts: esos sitios reciben tu dirección IP, como en cualquier visita web.',
       'Algunos de ellos pueden tratar datos fuera del Espacio Económico Europeo; en ese caso se hace con las garantías que exige el Reglamento General de Protección de Datos.',
       'Las fotos de tu cuerpo solo pasan por la revisión de contenido; nunca se envían al generador de imágenes.',
       'Si tú lo decides, puedes compartir un diseño con tu tatuador mediante un enlace: quien lo tenga verá ese diseño, su plantilla, sus medidas, tu idea y su descripción, pero nunca fotos de tu cuerpo ni tu cuenta. Puedes retirar el enlace cuando quieras.',
@@ -141,6 +154,7 @@ export const PRIVACY: LegalSection[] = [
     title: '5. Cuánto tiempo',
     paragraphs: [
       'Las fotos de tu cuerpo, y lo que se compone sobre ellas, se borran a las 24 horas. Tus diseños se guardan hasta que los borres. El registro de uso se conserva hasta 365 días; al borrar tus datos deja de estar asociado a ti. Un enlace para tu tatuador deja de funcionar a los 30 días, cuando lo retiras o cuando borras tus datos.',
+      'La consulta en curso se borra 24 horas después de tu último cambio; la idea y la descripción de cada diseño se guardan con él.',
     ],
   },
   {
@@ -148,6 +162,12 @@ export const PRIVACY: LegalSection[] = [
     paragraphs: [
       'Puedes acceder a tus datos, rectificarlos, borrarlos, oponerte o limitar su tratamiento, pedir su portabilidad y retirar tu consentimiento escribiendo a la dirección de contacto. El botón «Eliminar sesión y archivos» borra al momento todo lo que has creado.',
       'Si crees que no hemos tratado bien tus datos, puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).',
+    ],
+  },
+  {
+    title: '7. Cookies',
+    paragraphs: [
+      'El estudio solo usa cookies técnicas, necesarias para que funcione: inkcraft_at (tu sesión, 1 hora), inkcraft_rt (para renovar la sesión, 30 días) e inkcraft_ok (que has aceptado las condiciones vigentes, 30 días). Se borran al cerrar la sesión. No usa cookies de análisis ni de publicidad.',
     ],
   },
 ];

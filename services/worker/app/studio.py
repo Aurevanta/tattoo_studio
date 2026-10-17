@@ -34,6 +34,7 @@ from mockup.anatomy import ZONE_SPAN_MM, is_sleeve, wrap_region, zone_size
 from mockup.engine import DEFAULT_SURFACE, composite, visible_artwork, visible_size
 from mockup.geometry import BLEND_TOLERANCE, GeometryCheck
 from mockup.placement import (
+    CALIBRATED_NUDGE,
     Coverage,
     ManualLayout,
     convention_frame,
@@ -41,6 +42,7 @@ from mockup.placement import (
     fit_coverage,
     frame_placement,
     manual_layout,
+    nudged_size,
     parent_placement,
 )
 from orchestration import PipelineState, build_finish_graph, build_generation_graph
@@ -130,6 +132,20 @@ ZONE_NEEDS_CONTROL = (
     "Para que ocupe toda la zona hay que cambiar las medidas de impresión. Usa el botón «Ocupar "
     "toda la zona»: te dirá las medidas nuevas antes de aplicarlas."
 )
+#: ADR-0043: a nudge changes the print size, so it is confirmed in the result view first.
+SIZE_NEEDS_CONTROL = (
+    "Cambiar el tamaño cambia las medidas de impresión. Escribe solo «más grande» o «más "
+    "pequeño» (te diremos las medidas nuevas antes de aplicarlas) o usa el ajuste sobre la piel."
+)
+PHRASED_SIZE_NOTICE = (
+    "Las medidas no cambian con una frase dentro de un cambio del dibujo: para cambiar el tamaño "
+    "usa «Ocupar toda la zona», escribe solo «más grande» o «más pequeño», o usa el ajuste sobre "
+    "la piel. "
+)
+NO_VECTOR_NUDGE = (
+    "Esta propuesta es anterior a la plantilla vectorial y no se puede cambiar de tamaño sin "
+    "volver a dibujarla. Usa el ajuste sobre la piel o pide un cambio del dibujo."
+)
 
 
 def sleeve_notice(brief: dict[str, Any], seam_visible: bool) -> str:
@@ -159,6 +175,33 @@ def resizes_print(edit: dict[str, Any] | None) -> bool:
     skin and keeps the accepted size.
     """
     return bool(edit) and (edit or {}).get("coverage") == "full"
+
+
+def migrate_design_vector(db: sqlite3.Connection) -> None:
+    """TASK-0126 (FINDING-0005): move a `design_vector` keyed by the design alone to the new key.
+
+    Rows are kept as they are. A row another account overwrote before this migration is already
+    gone; that account's design then has no vector, the case `load_vector` callers already handle.
+    """
+    key = [
+        name
+        for _, name, *_rest, pk in db.execute("PRAGMA table_info(design_vector)").fetchall()
+        if pk
+    ]
+    if key != ["design_id"]:
+        return
+    db.execute("ALTER TABLE design_vector RENAME TO design_vector_before_0126")
+    db.execute(
+        "CREATE TABLE design_vector "
+        "(design_id TEXT NOT NULL, owner TEXT NOT NULL, asset_id TEXT NOT NULL, "
+        "PRIMARY KEY (owner, design_id))"
+    )
+    db.execute(
+        "INSERT INTO design_vector (design_id, owner, asset_id) "
+        "SELECT design_id, owner, asset_id FROM design_vector_before_0126 "
+        "WHERE owner IS NOT NULL AND asset_id IS NOT NULL"
+    )
+    db.execute("DROP TABLE design_vector_before_0126")
 
 
 class _StudioBlend:
@@ -586,11 +629,14 @@ class Studio:
             # When an owner last erased everything (TASK-0046). Not a blocklist: see `still_mine`.
             db.execute("CREATE TABLE IF NOT EXISTS deleted (owner TEXT PRIMARY KEY, at REAL)")
             # The authoritative vector geometry (ADR-0007). Internal: it is not a client
-            # artifact, so it stays out of the studio-status contract.
+            # artifact, so it stays out of the studio-status contract. TASK-0126 (FINDING-0005):
+            # keyed by account and design, so two accounts' identical designs keep a vector each.
             db.execute(
                 "CREATE TABLE IF NOT EXISTS design_vector "
-                "(design_id TEXT PRIMARY KEY, owner TEXT, asset_id TEXT)"
+                "(design_id TEXT NOT NULL, owner TEXT NOT NULL, asset_id TEXT NOT NULL, "
+                "PRIMARY KEY (owner, design_id))"
             )
+            migrate_design_vector(db)
             db.execute(
                 "CREATE TABLE IF NOT EXISTS consent (owner TEXT, version TEXT, created TEXT "
                 "DEFAULT CURRENT_TIMESTAMP)"
@@ -950,7 +996,12 @@ class Studio:
         # The creation sequence (artwork -> stencil -> compose) runs through the orchestration
         # graph (TASK-0032, ADR-0015). The adapter reproduces the previous inline behaviour; the
         # graph fixes the order and hosts the future AI-blend / output-gate nodes.
-        deps = _StudioGenerationDeps(self, owner, edit, parent, coverage, zone, payload)
+        # ADR-0043: a size phrase inside a drawing change keeps the millimetres (TASK-0073), so the
+        # new drawing is laid at them too; only the confirmed controls change the size.
+        phrased_size = bool(coverage) and not resizes_print(edit)
+        deps = _StudioGenerationDeps(
+            self, owner, edit, parent, None if phrased_size else coverage, zone, payload
+        )
         state = build_generation_graph(
             deps, blend=_StudioBlend(self.provider), geometry=GeometryCheck(BLEND_TOLERANCE)
         ).invoke(
@@ -999,6 +1050,7 @@ class Studio:
             )
             + (FINISH_NOTICE if state.blended else "")
             + (sleeve_notice(brief, deps.seam_visible) if is_sleeve(brief) else "")
+            + (PHRASED_SIZE_NOTICE if phrased_size else "")
             + "Simulación de tinta reciente; curvatura aproximada en extremidades, "
             "no reconstrucción anatómica. "
             "Visualización ilustrativa. Revisa los símbolos y el trazo con "
@@ -1032,21 +1084,40 @@ class Studio:
         return result
 
     def store_vector(self, owner: str, master: Master, payload: dict[str, Any]) -> None:
-        """Keep the authoritative geometry so a later resize is an exact scale, not a retrace."""
-        asset = self.media.store_artifact(
-            serialize_master(master),
-            media_type="application/json",
-            width_px=0,
-            height_px=0,
-            # The geometry shows nobody: it is the design itself (TASK-0047).
-            retention=RetentionClass.DESIGN,
-            parent_id=design_parent(payload),
-        )
-        with self.db() as db:
-            db.execute(
-                "INSERT OR REPLACE INTO design_vector VALUES (?, ?, ?)",
-                (master.design_hash, owner, self.register(owner, asset.asset_id, "artifact")),
+        """Keep the authoritative geometry so a later resize is an exact scale, not a retrace.
+
+        TASK-0126 (FINDING-0005): one vector per account and design. The design's identity is the
+        hash of this very geometry, so a vector the account already keeps for it is reused; a new
+        one is stored only when there is none or its file is gone, and a row is never replaced
+        while its file lives, so no vector is left unreferenced.
+        """
+        design_id = master.design_hash
+        with self.lock:
+            with self.db() as db:
+                row = db.execute(
+                    "SELECT asset_id FROM design_vector WHERE owner=? AND design_id=?",
+                    (owner, design_id),
+                ).fetchone()
+            if row is not None and self.load_vector(owner, design_id) is not None:
+                return
+            asset = self.media.store_artifact(
+                serialize_master(master),
+                media_type="application/json",
+                width_px=0,
+                height_px=0,
+                # The geometry shows nobody: it is the design itself (TASK-0047).
+                retention=RetentionClass.DESIGN,
+                parent_id=design_parent(payload),
             )
+            with self.db() as db:
+                db.execute(
+                    "INSERT INTO design_vector (design_id, owner, asset_id) VALUES (?, ?, ?) "
+                    "ON CONFLICT (owner, design_id) DO UPDATE SET asset_id = excluded.asset_id",
+                    (design_id, owner, self.register(owner, asset.asset_id, "artifact")),
+                )
+            if row is not None:
+                # The replaced row pointed at a file that no longer opens; drop its ownership row.
+                self._erase_file(owner, row[0])
 
     def visible_box(
         self, owner: str, parent: dict[str, Any]
@@ -1155,6 +1226,14 @@ class Studio:
             if coverage.kind == "manual"
             else None
         )
+        # ADR-0043: «más grande» / «más pequeño» resize the print by a fixed step, confirmed in
+        # the result view; the picture, the 3D view and the stencil follow the same millimetres.
+        nudge = coverage.nudges
+        if nudge:
+            if not (payload.get("edit") or {}).get("coverage"):
+                raise ValueError(SIZE_NEEDS_CONTROL)
+            if previous.get("photoWidthMm"):
+                raise ValueError(CALIBRATED_NUDGE)
         stored_vector = (
             self.load_vector(owner, parent["designId"])
             if (
@@ -1163,11 +1242,17 @@ class Studio:
                 and not previous.get("photoWidthMm")
             )
             or (layout is not None and layout.resizes)
+            or nudge
             else None
         )
         if layout is not None and layout.stretches and stored_vector is None:
             raise ValueError(NO_VECTOR_STRETCH)
-        resize = stored_vector is not None and (layout is not None or body_part in ZONE_SPAN_MM)
+        if nudge and stored_vector is None:
+            # Enlarging the picture alone is the disagreement ADR-0043 removes.
+            raise ValueError(NO_VECTOR_NUDGE)
+        resize = stored_vector is not None and (
+            layout is not None or nudge or body_part in ZONE_SPAN_MM
+        )
         stretched: bytes | None = None
         files: dict[str, tuple[bytes, str]] = {}
         design_id = parent["designId"]
@@ -1190,12 +1275,29 @@ class Studio:
                     ).save(resampled, format="PNG")
                     stretched = resampled.getvalue()
             else:
-                if resize:
+                if resize and nudge:
+                    brief["size"] = nudged_size(parent["size"], coverage.kind)
+                elif resize:
                     _, bounds = visible_artwork(source)
                     brief["size"] = zone_size(body_part, bounds["height"] / bounds["width"])
                 if skin is not None and coverage.kind == "full":
                     # The whole zone, in millimetres, on the zone's centre (TASK-0120).
                     placement = frame_placement(skin, visible_size(source, brief["size"]))
+                elif skin is not None and nudge:
+                    # ADR-0043: the new millimetres, where the design was, at its turn.
+                    start = parent_placement(
+                        parent["transform"],
+                        frame,
+                        self.visible_box(owner, parent),
+                        size=parent["size"],
+                        skin=skin,
+                    )
+                    placement = frame_placement(
+                        skin,
+                        visible_size(source, brief["size"]),
+                        (start["centreX"], start["centreY"]),
+                        start["angle"],
+                    )
                 else:
                     placement = fit_coverage(
                         background,
@@ -1204,7 +1306,7 @@ class Studio:
                         previous,
                         body_part=body_part,
                     )
-            manual = layout is not None or (skin is not None and coverage.kind == "full")
+            manual = layout is not None or (skin is not None and (coverage.kind == "full" or nudge))
             mockup, transform = composite(
                 source.convert("RGB"),
                 background,
@@ -1256,6 +1358,13 @@ class Studio:
                 files["master"] = (stretched, "image/png")
         if layout is not None:
             notice = manual_notice(layout, brief["size"], resize)
+        elif nudge:
+            notice = (
+                f"Tamaño cambiado de {parent['size']['widthMm']:.0f} x "
+                f"{parent['size']['heightMm']:.0f} mm a {brief['size']['widthMm']:.0f} x "
+                f"{brief['size']['heightMm']:.0f} mm. Mockup, vista 3D, plantilla y PDF usan esa "
+                "medida; el dibujo no se ha modificado. "
+            )
         elif resize:
             notice = (
                 f"Tamaño ajustado a la zona: {brief['size']['widthMm']:.0f} x "
@@ -1484,6 +1593,9 @@ class Studio:
                 designs |= design_ids(result)
             kept_files: set[str] = set()
             kept_designs: set[str] = set()
+            # TASK-0126: a remaining version's first reference, per design it shows, to re-home a
+            # vector shared with an erased version whose reference goes.
+            kept_parent: dict[str, str | None] = {}
             with self.jobs.connect() as db:
                 remaining = db.execute(
                     "SELECT id, payload, result FROM jobs WHERE owner=? AND state IN "
@@ -1494,8 +1606,11 @@ class Studio:
                     if job_id in gone_ids:
                         continue
                     result = json.loads(result_text or "{}")
-                    kept_files |= asset_ids(result) | inputs_of(json.loads(payload or "{}"))
+                    source = json.loads(payload or "{}")
+                    kept_files |= asset_ids(result) | inputs_of(source)
                     kept_designs |= design_ids(result)
+                    for design_id in design_ids(result):
+                        kept_parent.setdefault(design_id, design_parent(source))
                 db.executemany(
                     "UPDATE jobs SET state='cancelled',payload='{}',result=NULL WHERE id=? "
                     "AND owner=?",
@@ -1531,6 +1646,7 @@ class Studio:
                 for asset_id in uploads - kept_files
                 if not any(asset_id in data for data in in_progress)
             }
+            self._rehome_vectors(owner, kept_parent, unused - artwork)
             for asset_id in [*sorted(artwork), *sorted(unused - artwork)]:
                 self._erase_file(owner, asset_id)
         record(
@@ -1540,6 +1656,44 @@ class Studio:
             detail={"versions": len(erased)},
         )
         return len(erased)
+
+    def _rehome_vectors(
+        self, owner: str, kept_parent: dict[str, str | None], going: set[str]
+    ) -> None:
+        """Move a kept design's vector out from under an upload about to be erased (TASK-0126).
+
+        A vector is stored under the first reference of the version that stored it, and one vector
+        serves every version of the account showing that design. When the version that stored it
+        is erased with its reference, the cascade would take the vector the remaining versions
+        still need, so it is stored again under a remaining version's reference first.
+        """
+        with self.db() as db:
+            kept = db.execute(
+                "SELECT design_id, asset_id FROM design_vector WHERE owner=?", (owner,)
+            ).fetchall()
+        for design_id, asset_id in kept:
+            if design_id not in kept_parent:
+                continue
+            try:
+                parent = self.media.metadata(asset_id).parent_id
+            except AssetNotFoundError:
+                continue
+            if parent not in going:
+                continue
+            data = self.owned(owner, asset_id, "artifact")
+            moved = self.media.store_artifact(
+                data,
+                media_type="application/json",
+                width_px=0,
+                height_px=0,
+                retention=RetentionClass.DESIGN,
+                parent_id=kept_parent[design_id],
+            )
+            with self.db() as db:
+                db.execute(
+                    "UPDATE design_vector SET asset_id=? WHERE owner=? AND design_id=?",
+                    (self.register(owner, moved.asset_id, "artifact"), owner, design_id),
+                )
 
     def _erase_file(self, owner: str, asset_id: str) -> None:
         """One owned file and what descends from it, with its ownership rows."""
@@ -1785,6 +1939,10 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
                 ):
                     # TASK-0107: a placement moves the design as it is; it changes nothing else.
                     raise ValueError("Guarda la colocación por separado de otros cambios.")
+                if body["edit"].get("coverage") and body["edit"].get("referenceIds"):
+                    # ADR-0043: a size control changes the size alone; the result view never mixes
+                    # them, and a redraw would lay the new drawing at the old millimetres.
+                    raise ValueError("Cambia el tamaño por separado de otros cambios.")
                 # TASK-0073 (audit UX-01): covering the whole zone with nothing else changed is a
                 # print-size change. A sentence cannot confirm it; the control says what it does.
                 phrased = coverage_request({"instruction": body["edit"]["instruction"]})
@@ -1796,6 +1954,14 @@ def router(studio: Studio, token: str, events: EventStore | None = None) -> APIR
                     and phrased.placement_only
                 ):
                     raise ValueError(ZONE_NEEDS_CONTROL)
+                if (
+                    not body["edit"].get("coverage")
+                    and not body["edit"].get("referenceIds")
+                    and phrased
+                    and phrased.nudges
+                ):
+                    # ADR-0043: the result view confirms a nudge and sends it as `coverage`.
+                    raise ValueError(SIZE_NEEDS_CONTROL)
                 original = studio.jobs.source_payload(who, body["edit"]["parentJobId"])
                 # Parent owns the brief/placement, never a client-supplied artifact ID.
                 body = {**original, "idempotencyKey": body["idempotencyKey"], "edit": body["edit"]}

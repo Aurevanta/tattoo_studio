@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   assertDesign,
@@ -229,5 +229,25 @@ describe('the circumference down a sleeve (TASK-0105)', () => {
     expect(circumferenceAt(leg, -10)).toBe(profile[0]);
     expect(circumferenceAt(leg, 1e6)).toBe(profile[profile.length - 1]);
     expect(Math.abs(Math.max(...profile) - leg.circumferenceMm)).toBeLessThan(1);
+  });
+});
+
+describe('compiling on first use (TASK-0127)', () => {
+  it('generates no code when imported, only when a schema is first used', async () => {
+    vi.resetModules();
+    const generated = vi.spyOn(globalThis, 'Function');
+    try {
+      const contracts = await import('./index');
+      expect(contracts.BODY_ZONE_SPANS['calf']).toBeDefined();
+      expect(generated).not.toHaveBeenCalled();
+      expect(contracts.validateAgainst('design', {}).valid).toBe(false);
+      expect(generated).toHaveBeenCalled();
+    } finally {
+      generated.mockRestore();
+    }
+  });
+
+  it('still compiles every schema in strict mode', () => {
+    for (const name of schemaNames) expect(() => validateAgainst(name, {})).not.toThrow();
   });
 });

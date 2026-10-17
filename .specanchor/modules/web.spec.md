@@ -9,6 +9,18 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0131: the privacy policy is checked against the code (thumbnail hosts and Google Fonts receive the client's IP; Wikimedia and Openverse receive the search text; the consultation's 24-hour life; cookies; no automated decisions); `IMAGES_VERSION` 2026-10-16. `LEGAL_ENTITY` has a `registry` field and `legal.test.ts` refuses to leave `LEGAL_DRAFT` without NIF and address. Holder data and legal sign-off are the owner's (open).
+
+TASK-0128: the 3D scenes draw on demand (`lib/render-on-demand.ts`): a frame when the orbit, placement, side, tone, view or size changes, more only while the damping settles, none while the view is off screen (IntersectionObserver) or the page hidden.
+
+TASK-0127 (owner's audit item 5): the complete CSP is enforced (no Report-Only): `default-src 'self'`, `connect-src 'self'`, `frame-src 'none'`, Google Fonts, `img-src https:` for reference thumbnails, `upgrade-insecure-requests` in production, `'unsafe-eval'` only in development; `'unsafe-inline'` scripts remain for Next's bootstrap. Violations go to `/api/csp-report` (`report-uri` and `report-to`, `Reporting-Endpoints`), which records each distinct one an hour as a `client_error` / `csp` event attributed to nobody, keeping the directive, the blocked origin or keyword and the page path without tokens (`lib/csp-report.ts`). This supersedes the TASK-0074 Report-Only line below.
+
+TASK-0125: «real size» is the stencil's. `content/disclaimers.ts` holds `SKIN_SCALE_NOTE_ES` (the view on skin is approximate unless the photo is calibrated; the stencil and PDFs are exported at the stated millimetres) and `stencilSizeNote`, used by the landing, the consultation step, the result view, the 3D views and the camera page.
+
+TASK-0124: `lib/round-trip.test.ts`: a saved version's status reopens the mockup editor and the 3D view at its saved place, turn and millimetres, with nothing to save.
+
+TASK-0123 (ADR-0043): a change request that is only «más grande» / «más pequeño» (`lib/size-step.ts`: `sizeNudge`, the worker's `_NUDGE`; `nudgedSize`, its step and rounding) opens «¿Cambiar las medidas de impresión?» with the current and new millimetres, and is sent as `coverage` once confirmed. A sleeve, a calibrated photo or a size outside 5–600 mm is answered in place. No buttons return (ADR-0036).
+
 TASK-0121: the 3D views mount once the skin's size is read (or cannot be), so the view opened with the result starts where the mockup has the design.
 
 TASK-0120 (ADR-0042): the mockup editor and the 3D views place a design by the result's `skinFrame` (the convention without one): `initialPlacement(…, {size, skin})`, `mockupStart`, `offsetOf`, `toMockupPlacement(…, keep)`. The result view shares one placement between the editor and the 3D view while both are open; each follows the other live (a limb view shares height, turn and size).

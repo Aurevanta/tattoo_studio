@@ -16,6 +16,12 @@ uv.lock
 **/.mypy_cache/
 **/.ruff_cache/
 
+# TASK-0122: another checkout of this repository (Claude Code worktrees are git-excluded through
+# .git/info/exclude, which Prettier does not read) and local media and generated output.
+.claude/worktrees/
+**/.uploads/
+**/.artifacts/
+
 # Rewritten by `next build` on every run. Formatting these means fighting the tool
 # forever, so they are left exactly as Next emits them.
 apps/web/next-env.d.ts

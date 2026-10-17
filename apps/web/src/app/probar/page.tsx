@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { Brand } from '@/components/Brand';
-import { VISUALIZATION_DISCLAIMER_ES } from '@/content/disclaimers';
+import { SKIN_SCALE_NOTE_ES, VISUALIZATION_DISCLAIMER_ES } from '@/content/disclaimers';
 import { CaptureRefused, saveCapture, snapshot, type Snapshot } from '@/lib/capture';
 import { DEFAULT_FRESHNESS } from '@/lib/skin-blend';
 import {
@@ -231,6 +231,8 @@ export default function TryOnPage(): ReactNode {
           La cámara se procesa en tu propio dispositivo. Solo se guarda una foto si tú la haces y
           decides guardarla.
         </p>
+        {/* TASK-0125: the size on the camera is the client's own, so it is approximate. */}
+        <p className="small-note">{SKIN_SCALE_NOTE_ES}</p>
       </header>
 
       {designError && <p role="alert">{designError}</p>}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import difflib
 import io
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -57,8 +58,30 @@ class Coverage:
 
     @property
     def resizes_zone(self) -> bool:
-        """Whole-zone requests resolve in millimetres; nudges are visual only (ADR-0008)."""
+        """Whole-zone requests resolve in millimetres from reference anatomy (ADR-0008)."""
         return self.kind == "full"
+
+    @property
+    def nudges(self) -> bool:
+        """«Más grande» / «Más pequeño»: a fixed step of the print size (ADR-0043)."""
+        return self.kind in NUDGE_STEP
+
+
+#: ADR-0043: a nudge resizes the print by this step, keeping the proportions. The two are inverse,
+#: so one undoes the other up to rounding. The browser uses the same values (`lib/size-step.ts`).
+NUDGE_STEP = {"larger": 1.25, "smaller": 0.8}
+CALIBRATED_NUDGE = "La foto está calibrada: cambia las medidas físicas para ampliar el tatuaje."
+MIN_MM, MAX_MM = 5, 600
+
+
+def nudged_size(size: dict[str, float], kind: str) -> dict[str, float]:
+    """The print size after a nudge, in whole millimetres, rounding half up as the browser does."""
+    step = NUDGE_STEP[kind]
+    width = math.floor(size["widthMm"] * step + 0.5)
+    height = math.floor(size["heightMm"] * step + 0.5)
+    if min(width, height) < MIN_MM or max(width, height) > MAX_MM:
+        raise ValueError(SIZE_LIMIT)
+    return {"widthMm": width, "heightMm": height}
 
 
 def _fold(text: str) -> str:
@@ -145,12 +168,11 @@ def fit_coverage(
 
     For `auto` and `full` the projection is a function of the millimetres alone: a zone request
     differs from `auto` because the caller has already resized the brief, not because a ceiling
-    was raised. Nudges scale the previous projection and leave millimetres untouched.
+    was raised. Nudges scale the previous projection by the step their millimetres were scaled by
+    (ADR-0043), so the picture and the print change together.
     """
     if previous and previous.get("photoWidthMm"):
-        raise ValueError(
-            "La foto está calibrada: cambia las medidas físicas para ampliar el tatuaje."
-        )
+        raise ValueError(CALIBRATED_NUDGE)
     with Image.open(io.BytesIO(background)) as photo:
         aspect = photo.height / photo.width
     ratio = size["heightMm"] / size["widthMm"]
@@ -162,7 +184,7 @@ def fit_coverage(
         width = min(maximum, max(0.12, SKIN_FRAME_FRACTION * occupancy * aspect / ratio))
     else:
         old = (previous or {}).get("width", 0.36)
-        width = min(maximum, old * (1.35 if coverage == "larger" else 0.75))
+        width = min(maximum, old * NUDGE_STEP[coverage])
     height = width * ratio / aspect
     return {"x": (1 - width) / 2, "y": (1 - height) / 2, "width": width}
 

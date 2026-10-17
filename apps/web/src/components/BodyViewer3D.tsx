@@ -357,7 +357,9 @@ export function BodyViewer3D({
           <p className="small-note">
             Dibujo de {Math.round(drawn.widthMm)} × {Math.round(drawn.heightMm)} mm, como en el
             mockup, sobre {noun} de un cuerpo de referencia de{' '}
-            {(bodyHeight / 1000).toFixed(2).replace('.', ',')} m.
+            {(bodyHeight / 1000).toFixed(2).replace('.', ',')} m. {/* TASK-0125 */}
+            Es un cuerpo de referencia, no el tuyo: la vista es orientativa; la plantilla sí se
+            imprime a esa medida.
           </p>
         </div>
       )}

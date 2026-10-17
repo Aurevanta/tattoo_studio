@@ -200,3 +200,71 @@ def test_an_own_photo_and_a_capture_have_no_skin_frame(tmp_path: Path) -> None:
     assert (
         studio.describe({"brief": {}}, {"backgroundKind": "generated_anatomy", "capture": {}}) == {}
     )
+
+
+def test_a_nudge_on_a_calibrated_plate_grows_where_it_was(tmp_path: Path) -> None:
+    """TASK-0123/AC-003 (ADR-0043): the mockup, the 3D view and the stencil read one size."""
+    studio = Studio(tmp_path, b"x" * 32, FakeProvider(), PlateLibrary())
+    client = TestClient(FastAPI(routes=router(studio, "test-only-token").routes))
+    parent_id = back_design(studio, side="right")
+    parent = studio.jobs.get(ACCOUNT, parent_id)["result"]
+    answer = client.post(
+        "/studio/jobs",
+        json={
+            "edit": {
+                "parentJobId": parent_id,
+                "instruction": "más grande",
+                "coverage": "larger",
+                "mode": "placement",
+            },
+            "idempotencyKey": "33333333-3333-4333-8333-333333333333",
+        },
+        headers=AS_OWNER,
+    )
+    assert answer.status_code == 202, answer.text
+    assert studio.jobs.tick()
+    child = studio.jobs.get(ACCOUNT, answer.json()["jobId"])
+    assert child["state"] == "succeeded", child
+    assert validate("studio-status", child) == []
+    result = child["result"]
+    assert result["size"] == {"widthMm": 225, "heightMm": 350}
+    skin = result["skinFrame"]
+    placed, before = result["transform"]["placement"], parent["transform"]["placement"]
+    # Drawn at the new millimetres, which is what the 3D view reads from `size`...
+    width_mm, height_mm = visible_mm(studio, result)
+    assert placed["height"] * skin["heightMm"] == pytest.approx(height_mm, rel=0.01)
+    assert placed["width"] * skin["widthMm"] == pytest.approx(width_mm, rel=0.01)
+    # ...where the design was.
+    assert (placed["centreX"], placed["centreY"]) == pytest.approx(
+        (before["centreX"], before["centreY"]), abs=2e-3
+    )
+
+
+def test_a_size_phrase_in_a_redraw_keeps_the_millimetres_in_every_view(tmp_path: Path) -> None:
+    """TASK-0123/AC-004: a phrase does not fill the zone on the picture alone (ADR-0043)."""
+    studio = Studio(tmp_path, b"x" * 32, Redraws(), PlateLibrary())
+    client = TestClient(FastAPI(routes=router(studio, "test-only-token").routes))
+    parent_id = back_design(studio)
+    parent = studio.jobs.get(ACCOUNT, parent_id)["result"]
+    answer = client.post(
+        "/studio/jobs",
+        json={
+            "edit": {
+                "parentJobId": parent_id,
+                "instruction": "Añade azul y que ocupe toda la espalda",
+            },
+            "idempotencyKey": "33333333-3333-4333-8333-333333333333",
+        },
+        headers=AS_OWNER,
+    )
+    assert answer.status_code == 202, answer.text
+    assert studio.jobs.tick()
+    child = studio.jobs.get(ACCOUNT, answer.json()["jobId"])
+    assert child["state"] == "succeeded", child
+    result = child["result"]
+    assert result["size"] == parent["size"]
+    skin = result["skinFrame"]
+    placed = result["transform"]["placement"]
+    _, height_mm = visible_mm(studio, result)
+    assert placed["height"] * skin["heightMm"] == pytest.approx(height_mm, rel=0.01)
+    assert "no cambian con una frase" in result["notice"]

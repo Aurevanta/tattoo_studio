@@ -48,10 +48,13 @@ def _skin(tone: str, seed: int) -> Image.Image:
 
 
 def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    try:
-        return ImageFont.truetype("DejaVuSans-Bold.ttf", size)
-    except OSError:
-        return ImageFont.load_default(size=size)
+    """Pillow's bundled font (Aileron Regular), the same on every machine (TASK-0132).
+
+    The corpus once preferred DejaVu Sans Bold when the system had it. The tolerance was calibrated
+    where it did not (Pillow's font), and CI's Linux has it, so the same test measured a different
+    letter there and failed. A bold DejaVu letter change is a known miss: FINDING-0006.
+    """
+    return ImageFont.load_default(size=size)
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from mockup.corpus import evaluate
+from PIL import ImageFont
+
+from mockup.corpus import _font, evaluate
 from mockup.geometry import BLEND_TOLERANCE, GeometryTolerance
 
 GLOBAL_ONLY = GeometryTolerance(
@@ -23,3 +25,10 @@ def test_the_local_limit_catches_redraws_the_global_one_misses() -> None:
     assert local.false_accepts == []
     # And no faithful finish is refused that the global limits accepted.
     assert local.false_rejects == global_only.false_rejects
+
+
+def test_the_corpus_draws_its_letters_in_the_same_font_everywhere() -> None:
+    """TASK-0132: a system font made the lettering cases differ between machines."""
+    font = _font(92)
+    assert isinstance(font, ImageFont.FreeTypeFont)
+    assert font.getname() == ("Aileron", "Regular")

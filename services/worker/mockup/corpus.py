@@ -48,7 +48,7 @@ def _skin(tone: str, seed: int) -> Image.Image:
 
 
 def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Pillow's bundled font (Aileron Regular), the same on every machine (TASK-0132).
+    """Pillow's bundled font (Aileron Regular), the same on every machine (TASK-0133).
 
     The corpus once preferred DejaVu Sans Bold when the system had it. The tolerance was calibrated
     where it did not (Pillow's font), and CI's Linux has it, so the same test measured a different

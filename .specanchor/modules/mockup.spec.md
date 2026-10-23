@@ -9,7 +9,7 @@ last_reviewed: 2026-09-19
 
 # Module: mockup
 
-TASK-0132: `mockup.corpus` draws its lettering in Pillow's bundled font, the font `min_tile_iou` 0.21 was calibrated on, on every machine (a system DejaVu made CI measure another letter). A changed letter in a heavy font escapes the tile limit: FINDING-0006, open.
+TASK-0133: `mockup.corpus` draws its lettering in Pillow's bundled font, the font `min_tile_iou` 0.21 was calibrated on, on every machine (a system DejaVu made CI measure another letter). A changed letter in a heavy font escapes the tile limit: FINDING-0006, open.
 
 TASK-0123 (ADR-0043): a nudge resizes the print. `Coverage.nudges`, `NUDGE_STEP` (×1.25 larger, ×0.8 smaller) and `nudged_size` (whole millimetres, half up, within 5–600 mm, else `SIZE_LIMIT`). `fit_coverage` scales a previous projection by the same step. This supersedes «Nudge coverage stays visual-only» (TASK-0024, below).
 

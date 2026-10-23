@@ -28,7 +28,7 @@ def test_the_local_limit_catches_redraws_the_global_one_misses() -> None:
 
 
 def test_the_corpus_draws_its_letters_in_the_same_font_everywhere() -> None:
-    """TASK-0132: a system font made the lettering cases differ between machines."""
+    """TASK-0133: a system font made the lettering cases differ between machines."""
     font = _font(92)
     assert isinstance(font, ImageFont.FreeTypeFont)
     assert font.getname() == ("Aileron", "Regular")

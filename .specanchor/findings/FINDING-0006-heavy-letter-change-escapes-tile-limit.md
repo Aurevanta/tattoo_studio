@@ -3,7 +3,7 @@ type: finding
 id: FINDING-0006
 created: 2026-10-17
 status: open
-raised_by: TASK-0132
+raised_by: TASK-0133
 affects: [mockup]
 ---
 
@@ -34,5 +34,5 @@ refused. INFERRED: heavy, wide glyphs share most of their tiles with the origina
 
 Measure a text-aware or finer local metric (smaller tiles over ink, or edge-based tile matching)
 against the corpus with several fonts, including bold ones, and real finishes sampled from
-production. Until then, TASK-0132 keeps the corpus on the calibration font so CI tests the decided
+production. Until then, TASK-0133 keeps the corpus on the calibration font so CI tests the decided
 tolerance deterministically; it does not claim the miss is fixed.

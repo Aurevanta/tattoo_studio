@@ -1,7 +1,7 @@
 ---
 type: global-spec
 status: draft
-last_reviewed: 2026-09-19
+last_reviewed: 2026-10-17
 ---
 
 # Project Setup
@@ -24,8 +24,9 @@ Describe how the repository is laid out, how it is run locally, and how changes 
   Evidence status: VERIFIED (TASK-0001 evidence ledger, 2026-09-19).
 - Toolchain versions in use: pnpm 12.4.2, uv 0.12.17, TypeScript 5.9.3, Next.js 15.5.25.
   Evidence status: VERIFIED (2026-09-19).
-- The repository has a public remote at `https://github.com/Miguelcp777/tattoo_studio`.
-  Evidence status: VERIFIED (`git push -u origin main`, 2026-09-19).
+- The repository has a public remote at `https://github.com/Aurevanta/tattoo_studio`, transferred
+  from `Miguelcp777/tattoo_studio` on 2026-10-17 (TASK-0132). Evidence status: VERIFIED
+  (`git ls-remote origin` returned `refs/heads/main`; the GitHub API reports `public`, 2026-10-17).
 - A GitHub Actions workflow at `.github/workflows/ci.yml` declares five jobs and **passes**.
   Evidence status: VERIFIED — run #1 at commit `652f938`: spec coverage, TypeScript,
   Python (contracts), Python (worker) and codegen all succeeded on `ubuntu-latest`.

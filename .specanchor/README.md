@@ -68,7 +68,7 @@ uv sync && uv run ruff check . && uv run ruff format --check . && uv run mypy . 
 ```
 
 `--base origin/main` works after `git fetch origin`. The remote is
-`https://github.com/Miguelcp777/tattoo_studio` (public).
+`https://github.com/Aurevanta/tattoo_studio` (public).
 
 **The impact review is bound to one revision.** It carries the HEAD it was produced at, and the
 guard rejects it against any other (`Review revision must match HEAD`). So the committed

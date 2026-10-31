@@ -9,6 +9,8 @@ last_reviewed: 2026-09-19
 
 # Module: web
 
+TASK-0134: `POST /api/generate` with `edit` no longer needs the browser's consultation. It uses one when present (job remembered, busy lock) and otherwise forwards the change for the account, starting none. Before this an expired consultation answered 401, shown as «Tu sesión ha caducado», and signing in again did not clear it.
+
 TASK-0131: the privacy policy is checked against the code (thumbnail hosts and Google Fonts receive the client's IP; Wikimedia and Openverse receive the search text; the consultation's 24-hour life; cookies; no automated decisions); `IMAGES_VERSION` 2026-10-16. `LEGAL_ENTITY` has a `registry` field and `legal.test.ts` refuses to leave `LEGAL_DRAFT` without NIF and address. Holder data and legal sign-off are the owner's (open).
 
 TASK-0128: the 3D scenes draw on demand (`lib/render-on-demand.ts`): a frame when the orbit, placement, side, tone, view or size changes, more only while the damping settles, none while the view is off screen (IntersectionObserver) or the page hidden.

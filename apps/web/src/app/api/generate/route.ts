@@ -18,8 +18,9 @@ import {
   restoreConsultation,
 } from '../../../lib/studio-server';
 import type { Authenticated } from '../../../lib/auth';
+type Session = ReturnType<typeof session>;
 export async function POST(request: Request): Promise<NextResponse> {
-  let current: ReturnType<typeof session> | undefined;
+  let current: Session | undefined;
   let locked = false;
   try {
     // TASK-0045: generation is the expensive path; it never runs unauthenticated.
@@ -28,11 +29,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     requireConsent(request, caller);
     const body = await input(request);
     await restoreConsultation(request, caller.account.id);
-    current = session(request, false, caller.account.id);
-    carryRenewal(current, caller);
-    if (current.busy) throw new RequestError('Espera a que termine la operación anterior.', 409);
-    current.busy = true;
-    locked = true;
+    // TASK-0134: a change to a stored design belongs to the account, like reading it (TASK-0046).
+    // The consultation is only where its job is remembered, when this browser still has one; its
+    // absence (expired after 24 hours, another device) is not an expired sign-in.
+    current = body['edit']
+      ? consultationIfAny(request, caller.account.id)
+      : session(request, false, caller.account.id);
+    if (current) carryRenewal(current, caller);
+    if (current?.busy) throw new RequestError('Espera a que termine la operación anterior.', 409);
+    if (current) {
+      current.busy = true;
+      locked = true;
+    }
     if (
       typeof body['idempotencyKey'] !== 'string' ||
       !/^[a-f0-9-]{36}$/.test(body['idempotencyKey'])
@@ -48,9 +56,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         referencesReviewed: true,
       });
       const status = await jobStatus(response);
+      if (!current) return read(status, caller, 202);
       current.jobId = status.jobId;
       return await replyKept(status, current, 202);
     }
+    if (!current) throw new RequestError('Inicia una nueva consulta.', 401);
     if (!current.state.brief || current.state.phase !== 'ready_to_generate')
       throw new RequestError('Completa el brief y sus medidas antes de generar.', 422);
     // TASK-0037: the interface gate was presentational. Recompute the brief as it stands now and
@@ -131,9 +141,18 @@ async function history(owner: string): Promise<StudioJobStatus[]> {
   });
 }
 
-function read(value: unknown, caller: Authenticated): NextResponse {
+function read(value: unknown, caller: Authenticated, status = 200): NextResponse {
   return applyRenewal(
-    NextResponse.json(value, { headers: { 'Cache-Control': 'no-store' } }),
+    NextResponse.json(value, { status, headers: { 'Cache-Control': 'no-store' } }),
     caller,
   );
+}
+
+/** This browser's consultation for the account, or none. Never starts one. */
+function consultationIfAny(request: Request, owner: string): Session | undefined {
+  try {
+    return session(request, false, owner);
+  } catch {
+    return undefined;
+  }
 }

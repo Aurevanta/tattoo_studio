@@ -29,6 +29,50 @@ describe('generation boundary', () => {
     expect(response.status).toBe(401);
     expect((await response.json()).stencil).toBeUndefined();
   });
+  it('accepts a change to a stored design with no consultation in this browser (TASK-0134)', async () => {
+    // The consultation expires 24 hours after its last change, and a second device never had one.
+    // Neither is an expired sign-in: the edit belongs to the account, like reading the design.
+    vi.stubEnv('TATTOO_WORKER_TOKEN', 'test-only-token');
+    let submitted: Record<string, unknown> | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        const target = String(url);
+        const authenticated = answerAuth(target);
+        if (authenticated) return authenticated;
+        if (target.includes('/consultations/')) return Response.json({}, { status: 404 });
+        if (target.endsWith('/studio/jobs')) {
+          submitted = JSON.parse(String(init?.body));
+          return Response.json({
+            jobId: 'c'.repeat(32),
+            state: 'queued',
+            result: null,
+            error: null,
+          });
+        }
+        throw new Error(`Unexpected request ${target}`);
+      }),
+    );
+    const edit = { parentJobId: 'b'.repeat(32), instruction: 'Haz el león más pequeño' };
+    const response = await POST(
+      new Request('http://localhost:3000/api/generate', {
+        method: 'POST',
+        headers: {
+          cookie: `${signedIn()}; inkcraft=00000000-0000-4000-8000-000000000000`,
+        },
+        body: JSON.stringify({ edit, idempotencyKey: '55555555-5555-4555-8555-555555555555' }),
+      }),
+    );
+    expect(response.status).toBe(202);
+    expect((await response.json()).jobId).toBe('c'.repeat(32));
+    expect(submitted).toEqual({
+      edit,
+      referencesReviewed: true,
+      idempotencyKey: '55555555-5555-4555-8555-555555555555',
+    });
+    // No consultation is started for it.
+    expect(response.headers.get('set-cookie') ?? '').not.toContain('inkcraft=');
+  });
   it('rejects malformed JSON', async () => {
     const response = await POST(
       new Request('http://localhost:3000/api/generate', {

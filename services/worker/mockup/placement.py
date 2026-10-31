@@ -43,6 +43,17 @@ _ARTWORK_CHANGE = (
     r"\b(?:anad\w*|agreg\w*|quit\w*|elimin\w*|sustitu\w*|reemplaz\w*|cambi\w*|"
     r"escudo|virgen|senyera|color\w*|flor\w*|leon|lobo|rosa\w*|calaver\w*)\b"
 )
+# A figure drawn whole or in part ("de cuerpo entero", "con las piernas") describes the artwork,
+# not the client's zone. Its quantifier and limb nouns must not read as a whole-zone request:
+# "Son Goku entero, con las piernas" asked for a redraw and was refused as a print-size change.
+_LIMB = r"(?:piernas?|pies?|brazos?|manos?)"
+_FIGURE = (
+    r"\b(?:(?:de )?(?:medio )?cuerpo (?:enter|complet)\w*|medio cuerpo|"
+    r"de (?:los )?pies a (?:la )?cabeza|de (?:la )?cabeza a (?:los )?pies|"
+    rf"(?:con|sin) (?:l[ao]s |sus )?{_LIMB}(?:,? (?:y|e) (?:l[ao]s |sus )?{_LIMB})*|"
+    rf"se (?:le )?vean? (?:l[ao]s |sus )?{_LIMB}|"
+    r"(?:salga|aparezca|se vea|este|dibujad[oa]|dibuj[ae]l[oa]|pintad[oa]) enter[oa])\b"
+)
 _NUDGE = (
     r"(?:haz(?:l[oa])? |(?:l[oa] )?quiero (?:el tatuaje )?)?(?:el tatuaje )?"
     r"(?:un poco |mucho )?mas (grande|pequeno)"
@@ -141,9 +152,11 @@ def coverage_request(edit: dict[str, Any]) -> Coverage | None:
         # The fill-zone control is an explicit whole-zone request, like the phrase.
         return Coverage(str(explicit), edit.get("mode") == "placement")
     folded = _fold(edit["instruction"])
-    if whole_zone_intent(folded):
+    # The figure's own body is judged apart: what remains decides whether a zone is asked for.
+    figure = re.search(_FIGURE, folded)
+    if whole_zone_intent(re.sub(_FIGURE, " ", folded)):
         # A mixed request keeps the artwork edit but still applies whole-zone coverage.
-        return Coverage("full", not re.search(_ARTWORK_CHANGE, folded))
+        return Coverage("full", not (figure or re.search(_ARTWORK_CHANGE, folded)))
     nudge = re.fullmatch(_NUDGE, folded)
     if nudge:
         return Coverage("larger" if nudge[1] == "grande" else "smaller", True)

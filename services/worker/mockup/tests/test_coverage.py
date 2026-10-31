@@ -82,6 +82,13 @@ def test_whole_zone_phrases_resolve(phrase: str) -> None:
         ("rellena todo de color", None),
         ("que el escudo cubra todo el lobo", None),
         ("pon todo el texto en negro", None),
+        # A figure drawn whole is an artwork change, not a zone (the Son Goku request).
+        ("Son Goku entero, con las piernas", None),
+        ("hazlo de cuerpo entero, que se vean las piernas", None),
+        ("que salga entero, con piernas y pies", None),
+        ("dibujalo de pies a cabeza", None),
+        ("de cuerpo completo en vez de medio cuerpo", None),
+        ("que ocupe todo el gemelo y que Goku salga entero", Coverage("full", False)),
     ],
 )
 def test_other_instructions_keep_their_meaning(phrase: str, expected: Coverage | None) -> None:

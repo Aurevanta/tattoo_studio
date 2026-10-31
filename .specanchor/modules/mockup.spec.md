@@ -48,6 +48,11 @@ the zone noun ("gemlo") and accepts "ocupe todo el <noun>" for any noun that is 
 word ("todo el modelo"). A live request "que ocupe todo el gemlo" had been run as an artwork edit
 at the old millimetres. ADR-0008 is unchanged: the noun is still never mapped onto `bodyPart`.
 
+Figure wording (`placement._FIGURE`): "de cuerpo entero", "medio cuerpo", "de pies a cabeza",
+"con las piernas", "que salga entero" describe the drawn figure, not the client's zone. They are
+removed before `whole_zone_intent` runs and make a request an artwork change. A live edit
+"Son Goku entero, con las piernas" had been refused with `ZONE_NEEDS_CONTROL`.
+
 TASK-0008 (preparation): `geometry.py` is the MOCKUP-INV-002 method. It compares only the design
 region recorded by `composite`, normalises each image against a heavy blur of itself so lighting
 and tone changes do not count, finds ink as pixels darker than the surrounding skin, and reports
